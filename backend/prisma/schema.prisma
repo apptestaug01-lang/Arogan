@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+  version  = "6.0.0"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BORROWER
+  ADMIN
+  ANALYST
+  APPROVER
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+model User {
+  id             String    @id @default(cuid())
+  fullName       String
+  email          String    @unique
+  mobile         String?
+  countryCode    String    @default("+91")
+  passwordHash   String?
+  role           Role      @default(BORROWER)
+  emailVerified  Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  lockedUntil    DateTime?
+  failedAttempts Int       @default(0)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions       Session[]
+  auditLogs      AuditLog[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  revoked      Boolean  @default(false)
+}
+
+model OTPRequest {
+  id          String    @id @default(cuid())
+  identifier  String
+  codeHash    String
+  channel     OtpChannel
+  expiresAt   DateTime
+  used        Boolean   @default(false)
+  attemptCount Int      @default(0)
+  createdAt   DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+}

@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoanFlow — BRD with Mockups</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f9fafb;
+            color: #111827;
+            padding: 24px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .header {
+            background: #111827;
+            color: white;
+            padding: 24px 32px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header h1 small {
+            font-size: 14px;
+            font-weight: 400;
+            color: #9ca3af;
+            margin-left: 12px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: 0.15s;
+            text-decoration: none;
+            background: #374151;
+            color: white;
+        }
+        .btn:hover {
+            background: #4b5563;
+            transform: translateY(-1px);
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #6b7280;
+            color: #d1d5db;
+        }
+        .btn-outline:hover {
+            background: #374151;
+            border-color: #9ca3af;
+            color: white;
+        }
+        .content {
+            padding: 32px;
+        }
+        .brd-section {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        .brd-section .markdown-body {
+            font-size: 15px;
+            line-height: 1.7;
+        }
+        .brd-section .markdown-body h1 {
+            font-size: 28px;
+            margin: 24px 0 12px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        .brd-section .markdown-body h2 {
+            font-size: 22px;
+            margin: 20px 0 10px;
+        }
+        .brd-section .markdown-body h3 {
+            font-size: 18px;
+            margin: 16px 0 8px;
+        }
+        .brd-section .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin: 12px 0;
+            overflow-x: auto;
+            display: block;
+        }
+        .brd-section .markdown-body th,
+        .brd-section .markdown-body td {
+            border: 1px solid #d1d5db;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .brd-section .markdown-body th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        .brd-section .markdown-body code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+        .brd-section .markdown-body pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            margin: 12px 0;
+        }
+        .brd-section .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+        .brd-section .markdown-body blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 16px;
+            margin: 12px 0;
+            color: #4b5563;
+        }
+        .mockup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 16px;
+        }
+        .mockup-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+        }
+        .mockup-card .mockup-label {
+            background: #f3f4f6;
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mockup-card .mockup-label a {
+            font-size: 13px;
+            font-weight: 400;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .mockup-card .mockup-label a:hover {
+            text-decoration: underline;
+        }
+        .mockup-card iframe {
+            width: 100%;
+            height: 580px;
+            border: none;
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .mockup-grid {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            .header-actions {
+                justify-content: flex-start;
+            }
+            .content {
+                padding: 16px;
+            }
+        }
+        .footer {
+            text-align: center;
+            padding: 16px 32px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+            background: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>
+            📄 BRD-LoanFlow
+            <small>v2.0 · with mockups</small>
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" id="downloadBrdBtn">⬇ Download BRD.md</button>
+            <button class="btn btn-outline" id="viewRawBtn">📋 View Raw</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Rendered BRD -->
+        <div class="brd-section">
+            <div class="markdown-body" id="brdRendered"></div>
+        </div>
+
+        <!-- Mockups -->
+        <h2 style="margin-bottom: 16px;">🖥️ Interactive Mockups</h2>
+        <p style="color: #6b7280; margin-bottom: 20px;">These are live, clickable versions of the Login and Signup screens.</p>
+        <div class="mockup-grid">
+            <div class="mockup-card">
+                <div class="mockup-label">
+                    <span>🔐 Login Screen</span>
+                    <a href="#" id="loginOpenBtn">Open in new tab</a>
+                </div>
+                <iframe id="loginIframe" srcdoc=""></iframe>
+            </div>
+            <div class="mockup-card">
+                <div class="mockup-label">
+                    <span>📝 Signup Screen</span>
+                    <a href="#" id="signupOpenBtn">Open in new tab</a>
+                </div>
+                <iframe id="signupIframe" srcdoc=""></iframe>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        💡 The BRD content and mockups are fully self-contained. Tables and code blocks are rendered correctly.
+    </div>
+</div>
+
+<script>
+    // ================================================================
+    // 1. FULL BRD CONTENT (as a raw string)
+    // ================================================================
+    // Note: we use a template literal with escaped backticks inside.
+    const brdMarkdown = String.raw`# Business Requirements Document (BRD)
+## LoanFlow – Borrower & Admin Portal (Phase 1)
+
+**Version:** 2.0  
+**Date:** 2026-08-23  
+**Status:** Draft (Enhanced)  
+
+---
+
+## 1. Introduction
+
+### 1.1 Project Overview
+LoanFlow is a digital platform for managing loan applications, document storage, and role-based workflows. It serves borrowers, credit analysts, credit approvers, and administrators. The platform simplifies the loan lifecycle—from application submission to approval and monitoring.
+
+This BRD covers **authentication and onboarding** (Login & Signup) as the first phase. All enhancements are designed to ensure a production‑ready, secure, and scalable system.
+
+### 1.2 Business Objectives
+- Provide a secure and user-friendly authentication experience.
+- Enable role-based access control for different user types.
+- Support both password and OTP-based login (for enhanced security).
+- Allow users to sign up with their role (Borrower, Admin, Credit Analyst, Credit Approver).
+- Enforce strong validation and data integrity.
+- Set the foundation for a scalable, cloud‑native application with robust monitoring, logging, and compliance.
+
+### 1.3 Scope
+**In Scope (Phase 1):**
+- User registration (signup) with mandatory fields: full name, email, mobile (Indian number), password, confirm password, and role selection.
+- User login via email or mobile number with password.
+- User login via OTP sent to email or mobile (Indian number).
+- Role-based user creation.
+- Input validation and error handling.
+- Session management (remember me with configurable expiry).
+- Password strength enforcement.
+- OTP rate limiting and expiration.
+- Basic account lockout after multiple failed attempts.
+- Email verification (optional, but recommended for enhanced security).
+
+**Out of Scope (Phase 1):**
+- Dashboard, loan management, document upload, consent management.
+- Admin panel for user management.
+- Multi-factor authentication (beyond OTP).
+- Integration with external identity providers (e.g., Google, LinkedIn).
+- Password reset flow (deferred to Phase 2 but design should be extensible).
+
+---
+
+## 2. User Personas
+
+| Persona          | Description                                                                 |
+|------------------|-----------------------------------------------------------------------------|
+| **Borrower**     | An individual or business entity applying for a loan.                      |
+| **Credit Analyst**| Reviews loan applications, assesses risk, and prepares recommendations.    |
+| **Credit Approver**| Makes final decisions on loan approvals based on analyst reports.          |
+| **Admin**        | Manages users, roles, and system settings.                                 |
+
+---
+
+## 3. Functional Requirements
+
+### 3.1 User Signup
+
+| ID  | Requirement                                                                 | Priority |
+|-----|-----------------------------------------------------------------------------|----------|
+| S-1 | User shall provide **Full Name** (2–50 chars, letters/spaces/hyphens).     | Must     |
+| S-2 | User shall provide a valid **Email** address (unique).                     | Must     |
+| S-3 | User shall provide a **Mobile Number** with country code (default +91).    | Must     |
+| S-4 | **Indian mobile numbers** must have exactly 10 digits and start with 6–9.  | Must     |
+| S-5 | User shall create a **Password** (min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special). | Must |
+| S-6 | User shall **Confirm Password** (must match).                              | Must     |
+| S-7 | User shall select one of four **Roles**: Borrower, Admin, Analyst, Approver.| Must     |
+| S-8 | All fields are mandatory; form cannot be submitted with empty fields.      | Must     |
+| S-9 | On successful signup, the system shall create a user record and send a welcome email/SMS. | Should |
+| S-10| Duplicate email or mobile numbers shall be rejected with a clear error.    | Must     |
+| S-11| Email verification: Send a verification link to confirm the email address before allowing login (optional but recommended). | Could    |
+| S-12| Password hashing using bcrypt with a cost factor of 12.                    | Must     |
+| S-13| Store only the mobile number (without country code) and separate country code field for consistency. | Must |
+
+### 3.2 User Login (Password Mode)
+
+| ID  | Requirement                                                                 | Priority |
+|-----|-----------------------------------------------------------------------------|----------|
+| L-1 | User shall enter either **Email** or **Mobile Number** (Indian format).    | Must     |
+| L-2 | User shall enter a valid **Password**.                                     | Must     |
+| L-3 | System shall validate credentials and grant access upon success.           | Must     |
+| L-4 | On failure, show generic error (e.g., "Invalid credentials") to prevent user enumeration. | Must |
+| L-5 | User may check **"Remember me"** to extend session lifetime (e.g., 7 days).| Should   |
+| L-6 | Provide **"Forgot password"** link (UI placeholder) – actual flow is future.| Could    |
+| L-7 | Implement account lockout after 5 failed attempts within 15 minutes.       | Must     |
+| L-8 | After lockout, user can reset password or wait for cooldown (15 min).      | Must     |
+| L-9 | Session tokens shall be JWT with expiration (short-lived access token + refresh token). | Must |
+
+### 3.3 User Login (OTP Mode)
+
+| ID  | Requirement                                                                 | Priority |
+|-----|-----------------------------------------------------------------------------|----------|
+| O-1 | User shall enter **Email** or **Mobile Number** (Indian format).           | Must     |
+| O-2 | System shall send a **6-digit OTP** to the provided email or mobile.       | Must     |
+| O-3 | OTP is valid for **60 seconds** (configurable, but recommended).           | Must     |
+| O-4 | User enters the OTP via six separate input fields (auto-advance).          | Must     |
+| O-5 | On successful OTP verification, user is logged in.                         | Must     |
+| O-6 | Resend OTP after expiry; rate limiting: max 5 requests per 10 minutes per identifier. | Must |
+| O-7 | OTPs shall be hashed (or encrypted) before storing in DB, never plaintext. | Must     |
+| O-8 | OTPs shall be single-use; once verified, mark as used.                     | Must     |
+| O-9 | If OTP is requested for an identifier that doesn't exist, still send a success message (to prevent user enumeration). | Should |
+| O-10| After successful OTP login, a password should not be required (user can later set password via profile). | Should |
+
+### 3.4 Role-Based Access
+
+| ID  | Requirement                                                                 | Priority |
+|-----|-----------------------------------------------------------------------------|----------|
+| R-1 | User’s role is stored during signup and used for authorization.            | Must     |
+| R-2 | After login, the dashboard view shall adapt based on user role.            | Must     |
+| R-3 | Only Admins can create/edit other users (future).                          | Must     |
+| R-4 | API endpoints shall enforce role-based permissions via middleware.         | Must     |
+
+---
+
+## 4. Non-Functional Requirements
+
+### 4.1 Security
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| Passwords hashed with bcrypt (cost 12).                                    | Must     |
+| HTTPS enforced for all communication.                                      | Must     |
+| JWT tokens signed with HS256 or RS256; refresh token rotation.             | Must     |
+| Session cookies secure, HttpOnly, SameSite=Strict.                        | Must     |
+| Rate limiting on login, OTP request, and signup endpoints (e.g., 5 req/min). | Must |
+| Input sanitization and parameterized queries to prevent SQL injection.     | Must     |
+| CORS restricted to allowed origins.                                        | Must     |
+| Security headers (CSP, X-Frame-Options, etc.) set.                         | Must     |
+| OTP expiry and reuse prevention.                                           | Must     |
+| Account lockout mechanism.                                                 | Must     |
+| Audit logging of all authentication events (login, logout, OTP requests, signup). | Should |
+| Brute-force protection using exponential backoff.                         | Should   |
+
+### 4.2 Performance & Scalability
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| Login/OTP generation < 2 sec; OTP delivery < 5 sec.                        | Must     |
+| Support up to 10,000 concurrent users.                                     | Must     |
+| Database indexing on email, mobile, and user ID fields.                    | Must     |
+| Use connection pooling for PostgreSQL.                                     | Must     |
+| Cache frequently used data (e.g., user roles) using Redis (optional).      | Should   |
+| OTP storage can use Redis with TTL for faster expiration.                  | Should   |
+| Horizontal scaling of Node.js instances (stateless).                      | Must     |
+
+### 4.3 Reliability & Availability
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| 99.9% uptime for authentication service.                                   | Must     |
+| Graceful error handling and fallback for third-party services (SMS/email). | Must     |
+| Health checks for all services.                                            | Should   |
+| Auto‑scaling based on CPU/memory usage (AWS Auto Scaling).                 | Should   |
+| Database backups (daily) and point‑in‑time recovery.                       | Must     |
+
+### 4.4 Monitoring & Logging
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| Structured logging (JSON format) with correlation IDs for requests.        | Must     |
+| Log all authentication events, errors, and performance metrics.            | Must     |
+| Centralized log aggregation (ELK stack or CloudWatch Logs).                | Should   |
+| Monitoring dashboards for login success/failure rates, OTP delivery latency, error rates. | Should |
+| Alerts for high error rates, suspicious activity (e.g., many failed logins). | Should |
+| Sentry integration for frontend error tracking.                            | Should   |
+
+### 4.5 Compliance & Data Privacy
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| GDPR compliance: provide data deletion, consent management, and data portability features (future). | Must |
+| Indian IT Act compliance: data localization (store data in India).         | Must     |
+| User consent for data processing (collected during signup and viewable in consent management). | Must |
+| Data retention policy: delete inactive users after 3 years (configurable). | Should   |
+| Anonymize or pseudonymize personal data for analytics.                     | Should   |
+
+### 4.6 Usability & Accessibility
+
+| Requirement                                                                 | Priority |
+|-----------------------------------------------------------------------------|----------|
+| Responsive design works on mobile, tablet, and desktop.                    | Must     |
+| Support for screen readers (ARIA labels, semantic HTML).                   | Should   |
+| Password show/hide toggle.                                                 | Should   |
+| Clear error messages (user-friendly, not exposing sensitive info).         | Must     |
+| Keyboard navigation (tab order, enter key for submission).                 | Must     |
+| Internationalization (i18n) – at least English and Hindi (future).        | Could    |
+
+---
+
+## 5. Technical Stack (Detailed)
+
+| Layer            | Technology                                     |
+|------------------|------------------------------------------------|
+| **Frontend**     | React 18+ (hooks, context API, React Router)  |
+| **Backend**      | Node.js (Express), TypeScript                 |
+| **ORM**          | Prisma                                         |
+| **Database**     | PostgreSQL 14+                                 |
+| **Object Storage**| AWS S3 (for documents – future)               |
+| **Authentication**| JWT (access/refresh tokens)                   |
+| **OTP Service**  | Twilio (SMS) / SendGrid or AWS SES (email)   |
+| **Caching**      | Redis (for OTP storage, session caching)      |
+| **CI/CD**        | GitHub Actions, AWS CodePipeline               |
+| **Monitoring**   | AWS CloudWatch, Sentry, Prometheus/Grafana    |
+| **Secrets Mgmt** | AWS Secrets Manager or HashiCorp Vault        |
+| **API Gateway**  | AWS API Gateway or Express with custom routes |
+| **Testing**      | Jest (unit), Supertest (API), Cypress (E2E)   |
+
+---
+
+## 6. Data Models (Prisma Schema – Enhanced)
+
+\`\`\`prisma
+model User {
+  id             String    @id @default(cuid())
+  fullName       String
+  email          String    @unique
+  mobile         String?   // store without country code
+  countryCode    String    @default("+91")
+  passwordHash   String?   // nullable for OTP-only users initially
+  role           Role      @default(BORROWER)
+  emailVerified  Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  lockedUntil    DateTime? // lockout timestamp
+  failedAttempts Int       @default(0)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions       Session[]
+  otpRequests    OTPRequest[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  refreshToken String @unique
+  accessToken String? // store hashed if needed
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revoked   Boolean  @default(false)
+}
+
+model OTPRequest {
+  id          String   @id @default(cuid())
+  identifier  String   // email or mobile
+  codeHash    String   // hashed OTP
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  attemptCount Int     @default(0) // for resend limiting
+}
+
+enum Role {
+  BORROWER
+  ADMIN
+  ANALYST
+  APPROVER
+}
+
+// Audit log
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // e.g., LOGIN_SUCCESS, LOGIN_FAILURE, OTP_REQUEST, SIGNUP
+  details     Json?    // additional metadata
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+}
+\`\`\`
+
+---
+
+## 7. User Journeys (Updated)
+
+### 7.1 Signup Journey
+1. User visits \`/signup\`.
+2. Fills in required fields.
+3. Clicks "Create Account".
+4. System validates input (including email format, mobile format, password strength).
+5. If valid, hashes password, creates user record with role.
+6. (Optional) Sends email verification link.
+7. Redirects to login page with success message.
+
+### 7.2 Login (Password) Journey
+1. User visits \`/login\`.
+2. Enters email/mobile and password.
+3. System checks if account is locked; if locked, shows remaining time.
+4. Validates credentials against stored hash.
+5. On success, generates access and refresh tokens; sets cookies; updates lastLoginAt.
+6. On failure, increments failedAttempts; if >5, locks account for 15 min.
+7. Redirects to dashboard with role-specific view.
+
+### 7.3 Login (OTP) Journey
+1. User selects OTP tab.
+2. Enters email/mobile.
+3. Clicks "Send OTP".
+4. System validates identifier existence (but doesn't reveal) and checks rate limit.
+5. Generates 6-digit OTP, hashes, stores in DB/Redis with TTL.
+6. Sends OTP via SMS/email.
+7. User enters OTP in the six fields.
+8. System verifies OTP (hash match, not expired, not used).
+9. On success, logs user in (creates session), marks OTP as used.
+10. On failure, shows error; allows resend after expiry.
+
+---
+
+## 8. API Endpoints (RESTful Design)
+
+### Authentication
+- \`POST /api/auth/signup\` – Register new user.
+- \`POST /api/auth/login/password\` – Login with password.
+- \`POST /api/auth/login/otp/request\` – Request OTP.
+- \`POST /api/auth/login/otp/verify\` – Verify OTP and login.
+- \`POST /api/auth/logout\` – Logout (revoke refresh token).
+- \`POST /api/auth/refresh\` – Refresh access token.
+- \`POST /api/auth/verify-email\` – Verify email (if implemented).
+
+All endpoints return structured JSON with \`success\`, \`message\`, and \`data\` fields. Error responses follow a consistent format (RFC 7807).
+
+---
+
+## 9. Security Considerations (Deep Dive)
+
+- **Password Reset**: Deferred to Phase 2, but the user model includes \`resetToken\` and \`resetTokenExpiry\` fields (not shown).
+- **OTP Security**: OTPs are generated using a cryptographically secure pseudo-random number generator (CSPRNG). Hashed with bcrypt or SHA-256 with salt.
+- **JWT Best Practices**: Short-lived access tokens (15 min) and long-lived refresh tokens (7 days) stored in HTTP‑only cookies. Refresh token rotation on each refresh.
+- **CORS**: Restrict to allowed frontend domains.
+- **Rate Limiting**: Implement per IP and per user (for authenticated endpoints) using middleware like \`express-rate-limit\`.
+- **Data Validation**: Use Joi or Zod for server-side validation.
+- **SQL Injection**: Prisma parameterized queries prevent injection.
+- **XSS & CSRF**: Use helmet.js; CSRF protection via same‑site cookies or anti‑CSRF tokens.
+
+---
+
+## 10. Monitoring & Alerting Strategy
+
+| Metric                          | Threshold                                  | Action                                    |
+|---------------------------------|--------------------------------------------|-------------------------------------------|
+| Login failure rate              | > 5% over 5 min                            | Alert on-call engineer                    |
+| OTP delivery latency            | > 5 sec for 90th percentile                | Investigate SMS/email provider            |
+| API error rate (4xx/5xx)        | > 1%                                       | Alert dev team                            |
+| CPU usage on Node.js instances  | > 80% for 5 min                            | Auto‑scale                                |
+| Database connection pool usage  | > 80%                                      | Increase pool size or scale DB            |
+
+---
+
+## 11. Testing Strategy
+
+| Level           | Tools                           | Coverage Target |
+|-----------------|---------------------------------|-----------------|
+| **Unit Tests**  | Jest (backend), React Testing Library (frontend) | > 80% |
+| **Integration** | Supertest, Prisma mock          | Core APIs      |
+| **E2E**         | Cypress (login, signup flows)   | All user journeys |
+| **Security**    | OWASP ZAP, Snyk (dependency scanning) | Critical, High vulnerabilities |
+| **Performance** | Artillery or k6 (load testing)  | 10k concurrent users |
+
+---
+
+## 12. Deployment & Environment Strategy
+
+- **Environments**: Development, Staging, Production (all on AWS).
+- **Infrastructure**: Dockerized containers, orchestrated via AWS ECS Fargate or Kubernetes (EKS).
+- **CI/CD**: GitHub Actions to build, test, and deploy to respective environments.
+- **Environment Variables**: Managed via AWS Parameter Store or Secrets Manager.
+- **Blue‑Green Deployment** for zero‑downtime updates.
+
+---
+
+## 13. Risks and Mitigation
+
+| Risk                                      | Mitigation                                                                 |
+|-------------------------------------------|----------------------------------------------------------------------------|
+| SMS/email OTP delivery failures           | Implement retry logic with exponential backoff; fallback to email if SMS fails. |
+| Brute-force attacks on login              | Rate limiting + account lockout; CAPTCHA for excessive attempts.           |
+| Database downtime                         | Multi‑AZ RDS deployment with automatic failover.                           |
+| JWT token theft                           | Short-lived tokens, refresh rotation, token revocation on logout.          |
+| Non‑compliant data handling               | Enforce GDPR/IT Act from design; conduct privacy impact assessment.        |
+
+---
+
+## 14. Glossary
+
+| Term           | Definition                                                                 |
+|----------------|----------------------------------------------------------------------------|
+| OTP            | One-Time Password, a 6‑digit code sent via SMS/email.                     |
+| JWT            | JSON Web Token – used for stateless authentication.                       |
+| Role-Based Access Control (RBAC) | Authorization based on user role. |
+| Prisma         | ORM for Node.js with type-safe database access.                           |
+| bcrypt         | Password hashing algorithm.                                               |
+
+---
+
+## 15. Appendices
+
+- [Wireframes/Mockups] – See \`login.html\` and \`signup.html\` (embedded below).
+- [API Specification] – To be documented in OpenAPI (Swagger) during development.
+- [Data Flow Diagram] – To be created during architecture design.
+
+---
+
+## 16. Approvals
+
+| Role          | Name            | Date       |
+|---------------|-----------------|------------|
+| Product Owner |                 |            |
+| Tech Lead     |                 |            |
+| Security Lead |                 |            |
+| QA Lead       |                 |            |
+
+---
+
+**End of Document**
+`;
+
+    // ================================================================
+    // 2. LOGIN HTML (full, escaped for srcdoc)
+    // ================================================================
+    const loginHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoanFlow — Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --font: 'Inter', sans-serif;
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --fg: #09090b;
+            --muted: #f4f4f5;
+            --muted-fg: #71717a;
+            --border: #e4e4e7;
+            --primary: #18181b;
+            --primary-fg: #fafafa;
+            --success: #16a34a;
+            --destructive: #ef4444;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--fg);
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 36px 36px;
+            transition: transform 0.2s;
+        }
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 28px;
+            text-decoration: none;
+            color: var(--fg);
+            font-weight: 800;
+            font-size: 20px;
+        }
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius);
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+        .login-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+        }
+        .login-sub {
+            font-size: 14px;
+            color: var(--muted-fg);
+            margin-bottom: 24px;
+        }
+        .tab-group {
+            display: flex;
+            background: var(--muted);
+            border-radius: var(--radius);
+            padding: 4px;
+            margin-bottom: 24px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted-fg);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            border: none;
+            font-family: var(--font);
+        }
+        .tab.active {
+            background: var(--surface);
+            color: var(--fg);
+            box-shadow: var(--shadow-sm);
+        }
+        .tab:hover:not(.active) { color: var(--fg); }
+        .form-container { transition: opacity 0.2s ease; }
+        .form-container.hidden { display: none; opacity: 0; }
+        .field { margin-bottom: 18px; }
+        .label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--fg);
+        }
+        .input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-family: var(--font);
+            background: var(--surface);
+            color: var(--fg);
+            transition: border 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+        .input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+        }
+        .input::placeholder { color: var(--muted-fg); }
+        .input.invalid {
+            border-color: var(--destructive);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+        }
+        .otp-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 8px 0 4px;
+        }
+        .otp-group .input {
+            width: 48px;
+            height: 52px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            padding: 0;
+        }
+        .otp-group .input::-webkit-outer-spin-button,
+        .otp-group .input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .otp-group .input[type="number"] { -moz-appearance: textfield; }
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+        }
+        .checkbox-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--muted-fg);
+            cursor: pointer;
+        }
+        .checkbox-wrap input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+        .forgot-link {
+            font-size: 13px;
+            color: var(--muted-fg);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .forgot-link:hover { color: var(--fg); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            font-family: var(--font);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+        .btn-primary:hover:not(:disabled) { background: #27272a; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.6s linear infinite;
+            display: none;
+        }
+        .btn.loading .spinner { display: inline-block; }
+        .btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted-fg);
+        }
+        .login-footer a {
+            color: var(--fg);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .login-footer a:hover { color: var(--primary); }
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            max-width: 90%;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast-icon {
+            color: var(--success);
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .toast-icon.error { color: var(--destructive); }
+        .timer-text {
+            font-size: 13px;
+            color: var(--muted-fg);
+            margin-top: 6px;
+            text-align: center;
+        }
+        .timer-text span { font-weight: 600; color: var(--fg); }
+        @media (max-width: 480px) {
+            .login-card { padding: 28px 20px 24px; }
+            .login-title { font-size: 20px; }
+            .form-options { flex-wrap: wrap; gap: 8px; }
+            .otp-group .input { width: 40px; height: 46px; font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <a href="#" class="login-brand">
+            <span class="brand-mark">LF</span>
+            <span>LoanFlow</span>
+        </a>
+        <div class="login-title">Welcome back</div>
+        <div class="login-sub">Sign in to your borrower portal</div>
+
+        <div class="tab-group" id="tabGroup">
+            <button class="tab active" data-tab="password">Password</button>
+            <button class="tab" data-tab="otp">OTP</button>
+        </div>
+
+        <!-- Password Form -->
+        <div class="form-container" id="passwordForm">
+            <form id="loginForm" onsubmit="handlePasswordLogin(event)" novalidate>
+                <div class="field">
+                    <label class="label" for="loginIdentifier">Email or Mobile</label>
+                    <input class="input" id="loginIdentifier" type="text" placeholder="you@company.com or 98765 43210" required />
+                </div>
+                <div class="field">
+                    <label class="label" for="loginPassword">Password</label>
+                    <input class="input" id="loginPassword" type="password" placeholder="••••••••" required />
+                </div>
+                <div class="form-options">
+                    <label class="checkbox-wrap">
+                        <input type="checkbox" checked /> Remember me
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+                <button class="btn btn-primary" type="submit" id="passwordLoginBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Sign In</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- OTP Form -->
+        <div class="form-container hidden" id="otpForm">
+            <form id="otpLoginForm" onsubmit="handleOTPLogin(event)" novalidate>
+                <div class="field">
+                    <label class="label" for="otpIdentifier">Email or Mobile</label>
+                    <input class="input" id="otpIdentifier" type="text" placeholder="you@company.com or 98765 43210" required />
+                </div>
+                <button class="btn btn-primary" type="button" id="sendOtpBtn" onclick="sendOTP()">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Send OTP</span>
+                </button>
+                <div id="otpInputSection" style="display: none; margin-top: 18px;">
+                    <label class="label" for="otpCode">Enter 6-digit OTP</label>
+                    <div class="otp-group" id="otpGroup">
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                        <input class="input" type="number" maxlength="1" pattern="\\d" required />
+                    </div>
+                    <div class="timer-text" id="timerText">Resend OTP in <span id="timerCountdown">30</span>s</div>
+                    <button class="btn btn-primary" type="submit" id="verifyOtpBtn" style="margin-top: 12px;">
+                        <span class="spinner"></span>
+                        <span class="btn-text">Verify OTP</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="login-footer">
+            Don’t have an account? <a id="signupLink">Sign up</a>
+        </div>
+    </div>
+
+    <div id="toast">
+        <span class="toast-icon" id="toastIcon">✓</span>
+        <span id="toastMsg">Action completed</span>
+    </div>
+
+    <script>
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').textContent = msg;
+            icon.textContent = isError ? '✕' : '✓';
+            icon.className = 'toast-icon' + (isError ? ' error' : '');
+            t.classList.add('show');
+            clearTimeout(t._timeout);
+            t._timeout = setTimeout(() => {
+                t.classList.remove('show');
+            }, 4000);
+        }
+
+        const tabs = document.querySelectorAll('.tab');
+        const passwordForm = document.getElementById('passwordForm');
+        const otpForm = document.getElementById('otpForm');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                tabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                if (this.dataset.tab === 'password') {
+                    passwordForm.classList.remove('hidden');
+                    otpForm.classList.add('hidden');
+                } else {
+                    passwordForm.classList.add('hidden');
+                    otpForm.classList.remove('hidden');
+                    resetOTPUI();
+                }
+            });
+        });
+
+        let otpTimer = null;
+        let timerSeconds = 30;
+        let isOTPSent = false;
+        let generatedOTP = '123456';
+
+        const sendOtpBtn = document.getElementById('sendOtpBtn');
+        const otpInputSection = document.getElementById('otpInputSection');
+        const timerText = document.getElementById('timerText');
+        const timerCountdown = document.getElementById('timerCountdown');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const otpInputs = document.querySelectorAll('#otpGroup .input');
+
+        function resetOTPUI() {
+            clearInterval(otpTimer);
+            isOTPSent = false;
+            otpInputSection.style.display = 'none';
+            timerText.style.display = 'none';
+            sendOtpBtn.querySelector('.btn-text').textContent = 'Send OTP';
+            sendOtpBtn.disabled = false;
+            verifyOtpBtn.disabled = false;
+            otpInputs.forEach(input => { input.value = ''; input.disabled = true; });
+            document.getElementById('otpIdentifier').disabled = false;
+        }
+
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', function(e) {
+                if (this.value.length === 1 && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+                const allFilled = Array.from(otpInputs).every(inp => inp.value.length === 1);
+                verifyOtpBtn.disabled = !allFilled;
+            });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+                if (e.key < '0' || e.key > '9') {
+                    if (e.key !== 'Backspace' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                        e.preventDefault();
+                    }
+                }
+            });
+            input.addEventListener('paste', (e) => e.preventDefault());
+        });
+
+        function sendOTP() {
+            const identifier = document.getElementById('otpIdentifier').value.trim();
+            if (!identifier) {
+                showToast('Please enter your email or mobile number', true);
+                document.getElementById('otpIdentifier').focus();
+                return;
+            }
+            const isEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(identifier);
+            const isMobile = /^[6-9]\\d{9}$/.test(identifier.replace(/\\s/g, ''));
+            if (!isEmail && !isMobile) {
+                showToast('Please enter a valid email or Indian mobile number', true);
+                document.getElementById('otpIdentifier').focus();
+                return;
+            }
+
+            sendOtpBtn.disabled = true;
+            sendOtpBtn.querySelector('.btn-text').textContent = 'Sending...';
+            sendOtpBtn.classList.add('loading');
+
+            setTimeout(() => {
+                sendOtpBtn.classList.remove('loading');
+                sendOtpBtn.querySelector('.btn-text').textContent = 'OTP Sent ✓';
+                isOTPSent = true;
+                showToast(\`OTP sent to \${identifier}\`);
+                otpInputSection.style.display = 'block';
+                timerText.style.display = 'block';
+                otpInputs.forEach(input => { input.disabled = false; input.value = ''; });
+                otpInputs[0].focus();
+
+                timerSeconds = 30;
+                timerCountdown.textContent = timerSeconds;
+                clearInterval(otpTimer);
+                otpTimer = setInterval(() => {
+                    timerSeconds--;
+                    timerCountdown.textContent = timerSeconds;
+                    if (timerSeconds <= 0) {
+                        clearInterval(otpTimer);
+                        timerText.style.display = 'none';
+                        sendOtpBtn.disabled = false;
+                        sendOtpBtn.querySelector('.btn-text').textContent = 'Resend OTP';
+                        showToast('OTP expired. Please request a new one.', true);
+                    }
+                }, 1000);
+
+                setTimeout(() => {
+                    if (sendOtpBtn.disabled === false) {
+                        sendOtpBtn.querySelector('.btn-text').textContent = 'Resend OTP';
+                    }
+                }, 2000);
+            }, 1500);
+        }
+
+        function handleOTPLogin(e) {
+            e.preventDefault();
+            const otpCode = Array.from(otpInputs).map(inp => inp.value).join('');
+            if (otpCode.length !== 6) {
+                showToast('Please enter the complete 6-digit OTP', true);
+                return;
+            }
+            verifyOtpBtn.disabled = true;
+            verifyOtpBtn.classList.add('loading');
+            setTimeout(() => {
+                verifyOtpBtn.classList.remove('loading');
+                if (otpCode === generatedOTP) {
+                    showToast('✅ OTP verified! Welcome back.');
+                } else {
+                    showToast('Invalid OTP. Please try again.', true);
+                    verifyOtpBtn.disabled = false;
+                }
+            }, 1200);
+        }
+
+        function handlePasswordLogin(e) {
+            e.preventDefault();
+            const identifier = document.getElementById('loginIdentifier').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('passwordLoginBtn');
+
+            document.querySelectorAll('#loginForm .input').forEach(el => el.classList.remove('invalid'));
+
+            if (!identifier) {
+                document.getElementById('loginIdentifier').classList.add('invalid');
+                showToast('Email or Mobile is required', true);
+                document.getElementById('loginIdentifier').focus();
+                return;
+            }
+            const isEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(identifier);
+            const isMobile = /^[6-9]\\d{9}$/.test(identifier.replace(/\\s/g, ''));
+            if (!isEmail && !isMobile) {
+                document.getElementById('loginIdentifier').classList.add('invalid');
+                showToast('Please enter a valid email or Indian mobile number', true);
+                document.getElementById('loginIdentifier').focus();
+                return;
+            }
+            if (!password || password.length < 6) {
+                document.getElementById('loginPassword').classList.add('invalid');
+                showToast('Password must be at least 6 characters', true);
+                document.getElementById('loginPassword').focus();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.classList.add('loading');
+            setTimeout(() => {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                showToast(\`✅ Welcome back, \${identifier.split('@')[0] || 'User'}!\`);
+            }, 1500);
+        }
+
+        document.getElementById('signupLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            showToast('📝 Redirecting to Signup...');
+            setTimeout(() => {
+                showToast('🚀 Navigate to Signup page (mock)');
+            }, 500);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loginIdentifier').value = 'jordan.reyes@acmecorp.com';
+            document.getElementById('loginPassword').value = 'Demo@1234';
+            document.getElementById('otpIdentifier').value = '9876543210';
+            generatedOTP = String(Math.floor(100000 + Math.random() * 900000));
+            console.log('🔑 Mock OTP for testing:', generatedOTP);
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const active = document.activeElement;
+                if (active && active.closest('#otpGroup')) {
+                    const allFilled = Array.from(otpInputs).every(inp => inp.value.length === 1);
+                    if (allFilled) {
+                        document.getElementById('verifyOtpBtn').click();
+                    }
+                }
+            }
+        });
+    <\/script>
+</body>
+</html>`;
+
+    // ================================================================
+    // 3. SIGNUP HTML (full, escaped for srcdoc)
+    // ================================================================
+    const signupHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LoanFlow — Sign Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --font: 'Inter', sans-serif;
+            --bg: #fafafa;
+            --surface: #ffffff;
+            --fg: #09090b;
+            --muted: #f4f4f5;
+            --muted-fg: #71717a;
+            --border: #e4e4e7;
+            --primary: #18181b;
+            --primary-fg: #fafafa;
+            --success: #16a34a;
+            --destructive: #ef4444;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--fg);
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .signup-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 540px;
+            padding: 40px 36px 36px;
+        }
+        .signup-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+            text-decoration: none;
+            color: var(--fg);
+            font-weight: 800;
+            font-size: 20px;
+        }
+        .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius);
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+        .signup-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+        }
+        .signup-sub {
+            font-size: 14px;
+            color: var(--muted-fg);
+            margin-bottom: 24px;
+        }
+        .field { margin-bottom: 18px; }
+        .label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--fg);
+        }
+        .label .hint {
+            font-weight: 400;
+            color: var(--muted-fg);
+            font-size: 11px;
+        }
+        .input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-family: var(--font);
+            background: var(--surface);
+            color: var(--fg);
+            transition: border 0.15s;
+            outline: none;
+        }
+        .input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+        }
+        .input::placeholder { color: var(--muted-fg); }
+        .input.invalid {
+            border-color: var(--destructive);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+        }
+        .mobile-group {
+            display: flex;
+            gap: 8px;
+        }
+        .mobile-group select {
+            width: 100px;
+            flex-shrink: 0;
+            height: 44px;
+            padding: 0 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-family: var(--font);
+            background: var(--surface);
+            color: var(--fg);
+            outline: none;
+            cursor: pointer;
+            appearance: auto;
+        }
+        .mobile-group select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+        }
+        .mobile-group .input { flex: 1; }
+        .role-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .role-tile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface);
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted-fg);
+        }
+        .role-tile:hover {
+            border-color: var(--primary);
+            background: var(--muted);
+        }
+        .role-tile.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+        .role-tile .role-emoji { font-size: 18px; line-height: 1; }
+        .role-tile input[type="radio"] { display: none; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            font-family: var(--font);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: var(--primary-fg);
+        }
+        .btn-primary:hover { background: #27272a; }
+        .signup-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted-fg);
+        }
+        .signup-footer a {
+            color: var(--fg);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .signup-footer a:hover { color: var(--primary); }
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            max-width: 90%;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast-icon {
+            color: var(--success);
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .toast-icon.error { color: var(--destructive); }
+        @media (max-width: 480px) {
+            .signup-card { padding: 28px 20px 24px; }
+            .signup-title { font-size: 20px; }
+            .role-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .role-tile { font-size: 12px; padding: 8px 10px; }
+            .mobile-group { flex-wrap: wrap; }
+            .mobile-group select { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-card">
+        <a href="#" class="signup-brand">
+            <span class="brand-mark">LF</span>
+            <span>LoanFlow</span>
+        </a>
+        <div class="signup-title">Create your account</div>
+        <div class="signup-sub">Choose your role and get started</div>
+
+        <form id="signupForm" onsubmit="handleSignup(event)" novalidate>
+            <div class="field">
+                <label class="label" for="fullName">Full Name *</label>
+                <input class="input" id="fullName" type="text" placeholder="Jordan Reyes" required />
+            </div>
+
+            <div class="field">
+                <label class="label" for="email">Email *</label>
+                <input class="input" id="email" type="email" placeholder="you@company.com" required />
+            </div>
+
+            <div class="field">
+                <label class="label" for="mobile">Mobile Number * <span class="hint">(Indian numbers: 10 digits, starts with 6-9)</span></label>
+                <div class="mobile-group">
+                    <select id="countryCode">
+                        <option value="+91" selected>🇮🇳 +91</option>
+                        <option value="+1">🇺🇸 +1</option>
+                        <option value="+44">🇬🇧 +44</option>
+                        <option value="+61">🇦🇺 +61</option>
+                        <option value="+81">🇯🇵 +81</option>
+                        <option value="+86">🇨🇳 +86</option>
+                    </select>
+                    <input class="input" id="mobile" type="tel" placeholder="98765 43210" required />
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label" for="password">Password * <span class="hint">(min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special)</span></label>
+                <input class="input" id="password" type="password" placeholder="••••••••" required />
+            </div>
+
+            <div class="field">
+                <label class="label" for="confirmPassword">Confirm Password *</label>
+                <input class="input" id="confirmPassword" type="password" placeholder="••••••••" required />
+            </div>
+
+            <div class="field">
+                <span class="label">Select your role *</span>
+                <div class="role-grid" id="roleGrid">
+                    <label class="role-tile selected" data-role="borrower">
+                        <input type="radio" name="role" value="borrower" checked required />
+                        <span class="role-emoji">👤</span>
+                        <span>Borrower</span>
+                    </label>
+                    <label class="role-tile" data-role="admin">
+                        <input type="radio" name="role" value="admin" />
+                        <span class="role-emoji">🛡️</span>
+                        <span>Admin</span>
+                    </label>
+                    <label class="role-tile" data-role="analyst">
+                        <input type="radio" name="role" value="analyst" />
+                        <span class="role-emoji">📊</span>
+                        <span>Credit Analyst</span>
+                    </label>
+                    <label class="role-tile" data-role="approver">
+                        <input type="radio" name="role" value="approver" />
+                        <span class="role-emoji">✅</span>
+                        <span>Credit Approver</span>
+                    </label>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Create Account</button>
+        </form>
+
+        <div class="signup-footer">
+            Already have an account? <a id="loginLink">Sign in</a>
+        </div>
+    </div>
+
+    <div id="toast">
+        <span class="toast-icon" id="toastIcon">✓</span>
+        <span id="toastMsg">Account created successfully</span>
+    </div>
+
+    <script>
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').textContent = msg;
+            icon.textContent = isError ? '✕' : '✓';
+            icon.className = 'toast-icon' + (isError ? ' error' : '');
+            t.classList.add('show');
+            clearTimeout(t._timeout);
+            t._timeout = setTimeout(() => {
+                t.classList.remove('show');
+            }, 4000);
+        }
+
+        document.querySelectorAll('.role-tile').forEach(tile => {
+            tile.addEventListener('click', function(e) {
+                document.querySelectorAll('.role-tile').forEach(t => t.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+
+        document.querySelectorAll('.input').forEach(input => {
+            input.addEventListener('focus', function() { this.classList.remove('invalid'); });
+        });
+
+        function handleSignup(e) {
+            e.preventDefault();
+
+            const nameEl = document.getElementById('fullName');
+            const emailEl = document.getElementById('email');
+            const mobileEl = document.getElementById('mobile');
+            const countryCode = document.getElementById('countryCode').value;
+            const passwordEl = document.getElementById('password');
+            const confirmEl = document.getElementById('confirmPassword');
+            const roleEl = document.querySelector('input[name="role"]:checked');
+
+            document.querySelectorAll('.input').forEach(el => el.classList.remove('invalid'));
+
+            const fullName = nameEl.value.trim();
+            if (fullName.length < 2 || fullName.length > 50) {
+                nameEl.classList.add('invalid');
+                showToast('Name must be between 2 and 50 characters', true);
+                nameEl.focus();
+                return;
+            }
+            if (!/^[A-Za-z\\s\\-'.]+$/.test(fullName)) {
+                nameEl.classList.add('invalid');
+                showToast('Name can only contain letters, spaces, hyphens, and apostrophes', true);
+                nameEl.focus();
+                return;
+            }
+
+            if (!emailEl.validity.valid) {
+                emailEl.classList.add('invalid');
+                showToast('Please enter a valid email address (e.g., name@domain.com)', true);
+                emailEl.focus();
+                return;
+            }
+
+            const mobileRaw = mobileEl.value.trim();
+            const digits = mobileRaw.replace(/\\D/g, '');
+            if (countryCode === '+91') {
+                if (digits.length !== 10) {
+                    mobileEl.classList.add('invalid');
+                    showToast('Indian mobile number must have exactly 10 digits', true);
+                    mobileEl.focus();
+                    return;
+                }
+                if (!/^[6-9]/.test(digits)) {
+                    mobileEl.classList.add('invalid');
+                    showToast('Indian mobile number must start with 6, 7, 8, or 9', true);
+                    mobileEl.focus();
+                    return;
+                }
+            } else {
+                if (digits.length < 7) {
+                    mobileEl.classList.add('invalid');
+                    showToast('Please enter a valid mobile number', true);
+                    mobileEl.focus();
+                    return;
+                }
+            }
+
+            const password = passwordEl.value;
+            if (password.length < 8) {
+                passwordEl.classList.add('invalid');
+                showToast('Password must be at least 8 characters long', true);
+                passwordEl.focus();
+                return;
+            }
+            if (!/[a-z]/.test(password)) {
+                passwordEl.classList.add('invalid');
+                showToast('Password must contain at least one lowercase letter', true);
+                passwordEl.focus();
+                return;
+            }
+            if (!/[A-Z]/.test(password)) {
+                passwordEl.classList.add('invalid');
+                showToast('Password must contain at least one uppercase letter', true);
+                passwordEl.focus();
+                return;
+            }
+            if (!/\\d/.test(password)) {
+                passwordEl.classList.add('invalid');
+                showToast('Password must contain at least one number', true);
+                passwordEl.focus();
+                return;
+            }
+            if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+                passwordEl.classList.add('invalid');
+                showToast('Password must contain at least one special character (!@#$%^&* etc.)', true);
+                passwordEl.focus();
+                return;
+            }
+
+            if (password !== confirmEl.value) {
+                confirmEl.classList.add('invalid');
+                showToast('Passwords do not match', true);
+                confirmEl.focus();
+                return;
+            }
+
+            if (!roleEl) {
+                showToast('Please select a role', true);
+                return;
+            }
+
+            const roleLabels = {
+                borrower: 'Borrower',
+                admin: 'Admin',
+                analyst: 'Credit Analyst',
+                approver: 'Credit Approver'
+            };
+            const role = roleEl.value;
+            showToast(\`🎉 Welcome, \${fullName}! You're signed up as \${roleLabels[role] || role}.\`);
+        }
+
+        document.getElementById('loginLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            showToast('🔐 Redirecting to Login...');
+            setTimeout(() => {
+                showToast('🚀 Navigate to Login page (mock)');
+            }, 500);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('fullName').value = 'Jordan Reyes';
+            document.getElementById('email').value = 'jordan.reyes@acmecorp.com';
+            document.getElementById('mobile').value = '9876543210';
+            document.getElementById('password').value = 'Demo@1234';
+            document.getElementById('confirmPassword').value = 'Demo@1234';
+        });
+    <\/script>
+</body>
+</html>`;
+
+    // ================================================================
+    // 4. INITIALIZE – render markdown, set iframes
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configure marked for GFM (tables, breaks)
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            headerIds: false
+        });
+
+        // Render BRD
+        const rendered = document.getElementById('brdRendered');
+        rendered.innerHTML = marked.parse(brdMarkdown);
+
+        // Set iframes
+        document.getElementById('loginIframe').srcdoc = loginHTML;
+        document.getElementById('signupIframe').srcdoc = signupHTML;
+
+        // Download BRD.md
+        document.getElementById('downloadBrdBtn').addEventListener('click', function() {
+            const blob = new Blob([brdMarkdown], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'BRD-LoanFlow.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // View raw
+        document.getElementById('viewRawBtn').addEventListener('click', function() {
+            const win = window.open();
+            win.document.write('<pre>' + brdMarkdown.replace(/</g, '&lt;') + '</pre>');
+            win.document.close();
+        });
+
+        // Open mockups in new tabs
+        document.getElementById('loginOpenBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            const win = window.open();
+            win.document.write(loginHTML);
+            win.document.close();
+        });
+        document.getElementById('signupOpenBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            const win = window.open();
+            win.document.write(signupHTML);
+            win.document.close();
+        });
+    });
+</script>
+</body>
+</html>
