@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { Role } from '@prisma/client';
 
 export interface TokenPayload {
   id: string;
   email: string;
   role: Role;
+  jti?: string;
 }
 
 export interface TokenPair {
@@ -21,7 +23,7 @@ export function generateAccessToken(payload: TokenPayload): string {
 export function generateRefreshToken(payload: TokenPayload): string {
   const secret: jwt.Secret = process.env.JWT_REFRESH_SECRET || '';
   const expiresIn: string = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
-  return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
+  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, secret, { expiresIn } as jwt.SignOptions);
 }
 
 export function verifyAccessToken(token: string): TokenPayload {

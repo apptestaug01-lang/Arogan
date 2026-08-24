@@ -9,75 +9,75 @@ interface OtpInputProps {
   error?: string;
 }
 
-export function OtpInput({
-  value,
-  onChange,
-  onComplete,
-  length = 6,
-  error,
-}: OtpInputProps) {
-  const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+export const OtpInput = React.forwardRef<(HTMLInputElement | null)[], OtpInputProps>(
+  ({ value, onChange, onComplete, length = 6, error }, ref) => {
+    const localRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleChange = (index: number, val: string) => {
-    const newValue = [...value];
-    newValue[index] = val.slice(-1);
-    onChange(newValue);
+    React.useImperativeHandle(ref, () => localRefs.current);
 
-    if (val && index < length - 1) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    const handleChange = (index: number, val: string) => {
+      const newValue = [...value];
+      newValue[index] = val.slice(-1);
+      onChange(newValue);
 
-    if (newValue.every((v) => v !== '') && val) {
-      onComplete(newValue.join(''));
-    }
-  };
+      if (val && index < length - 1) {
+        localRefs.current[index + 1]?.focus();
+      }
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
+      if (newValue.every((v) => v !== '') && val) {
+        onComplete(newValue.join(''));
+      }
+    };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').slice(0, length);
-    const newValue = [...value];
-    pasted.split('').forEach((char, i) => {
-      newValue[i] = char;
-    });
-    onChange(newValue);
-    if (newValue.every((v) => v !== '')) {
-      onComplete(newValue.join(''));
-    }
-  };
+    const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Backspace' && !value[index] && index > 0) {
+        localRefs.current[index - 1]?.focus();
+      }
+    };
 
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex items-center gap-2" onPaste={handlePaste}>
-        {Array.from({ length }).map((_, i) => (
-          <input
-            key={i}
-            ref={(el) => {
-              inputRefs.current[i] = el;
-            }}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={value[i] || ''}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            className={cn(
-              'w-12 h-12 text-center text-2xl font-semibold',
-              'border rounded-lg focus:outline-none focus:ring-2',
-              'focus:ring-primary-500 transition-all',
-              error
-                ? 'border-danger-500 focus:ring-danger-500'
-                : 'border-gray-300',
-            )}
-          />
-        ))}
+    const handlePaste = (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData('text').slice(0, length);
+      const newValue = [...value];
+      pasted.split('').forEach((char, i) => {
+        newValue[i] = char;
+      });
+      onChange(newValue);
+      if (newValue.every((v) => v !== '')) {
+        onComplete(newValue.join(''));
+      }
+    };
+
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2" onPaste={handlePaste}>
+          {Array.from({ length }).map((_, i) => (
+            <input
+              key={i}
+              ref={(el) => {
+                localRefs.current[i] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={value[i] || ''}
+              onChange={(e) => handleChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              className={cn(
+                'w-12 h-12 text-center text-2xl font-semibold',
+                'border rounded-lg focus:outline-none focus:ring-2',
+                'focus:ring-primary-500 transition-all',
+                error
+                  ? 'border-danger-500 focus:ring-danger-500'
+                  : 'border-gray-300',
+              )}
+            />
+          ))}
+        </div>
+        {error && <span className="text-xs text-danger-500">{error}</span>}
       </div>
-      {error && <span className="text-xs text-danger-500">{error}</span>}
-    </div>
-  );
-}
+    );
+  },
+);
+
+OtpInput.displayName = 'OtpInput';

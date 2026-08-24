@@ -126,7 +126,7 @@ router.post(
 
 router.post(
   '/logout',
-  requireAuth,
+  authMiddleware,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const refreshToken = req.body.refreshToken || req.cookies?.refreshToken;
