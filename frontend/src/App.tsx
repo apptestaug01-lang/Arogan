@@ -3,6 +3,7 @@ import { useAuth } from './services/authContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import OtpVerify from './pages/OtpVerify';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -25,7 +26,8 @@ function App() {
         <Route path="/" element={user ? <Dashboard /> : <Login />} />
         <Route path="/login" element={user ? <Dashboard /> : <Login />} />
         <Route path="/signup" element={user ? <Dashboard /> : <Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+         <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/otp" element={<OtpVerify />} />
 
         <Route element={<ProtectedRoute />}>

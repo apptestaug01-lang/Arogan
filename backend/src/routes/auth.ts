@@ -16,6 +16,10 @@ import {
   resetPassword as resetPasswordService,
 } from '../services/auth.service.js';
 import {
+  sendWelcomeEmail,
+  sendLoginNotificationEmail,
+} from '../services/email.service.js';
+import {
   signupSchema,
   loginPasswordSchema,
   otpRequestSchema,
@@ -40,6 +44,7 @@ router.post(
         req.get('user-agent'),
         result.user.id,
       );
+      await sendWelcomeEmail(result.user.email, result.user.fullName);
       sendSuccess(res, 'Account created successfully', { user: result.user }, 201);
     } catch (err) {
       next(err);
@@ -55,6 +60,7 @@ router.post(
     try {
       const { user, ...tokens } = await loginWithPassword(req.body);
       await logAuditEvent('LOGIN_SUCCESS', req.ip, req.get('user-agent'));
+      await sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined);
 
       res
         .cookie('refreshToken', tokens.refreshToken, {
@@ -104,6 +110,7 @@ router.post(
     try {
       const { user, ...tokens } = await verifyOtpAndLogin(req.body);
       await logAuditEvent('OTP_LOGIN_SUCCESS', req.ip, req.get('user-agent'), user.id);
+      await sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined);
 
       res
         .cookie('refreshToken', tokens.refreshToken, {

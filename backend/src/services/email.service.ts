@@ -1,4 +1,12 @@
 import logger from '../middleware/logger.js';
+import { sendEmailViaBrevo, isBrevoConfigured } from './brevoEmailProvider.js';
+import {
+  renderOtpTemplate,
+  renderPasswordResetTemplate,
+  renderWelcomeTemplate,
+  renderLoginNotificationTemplate,
+  renderPasswordChangedTemplate,
+} from '../templates/emailTemplates.js';
 
 export interface OtpDeliveryResult {
   success: boolean;
@@ -6,29 +14,31 @@ export interface OtpDeliveryResult {
 }
 
 export interface OtpProvider {
-  sendEmail(to: string, subject: string, body: string): Promise<OtpDeliveryResult>;
+  sendEmail(to: string, subject: string, html: string): Promise<OtpDeliveryResult>;
   sendSms(to: string, body: string): Promise<OtpDeliveryResult>;
 }
 
 class NoopOtpProvider implements OtpProvider {
-  async sendEmail(to: string, subject: string, body: string): Promise<OtpDeliveryResult> {
-    logger.info({ to, subject, body }, 'OTP email (noop provider - configure real provider in production)');
+  async sendEmail(to: string, subject: string, html: string): Promise<OtpDeliveryResult> {
+    logger.info({ to, subject, html }, 'OTP email (noop provider - configure real provider in production)');
     if (process.env.NODE_ENV === 'development') {
       return { success: true, messageId: `dev-email-${Date.now()}` };
     }
     return { success: true, messageId: `noop-${Date.now()}` };
   }
 
-  async sendSms(to: string, body: string): Promise<OtpDeliveryResult> {
-    logger.info({ to, body }, 'OTP SMS (noop provider - configure Twilio in production)');
-    if (process.env.NODE_ENV === 'development') {
-      return { success: true, messageId: `dev-sms-${Date.now()}` };
-    }
-    return { success: true, messageId: `noop-${Date.now()}` };
+  async sendSms(_to: string, body: string): Promise<OtpDeliveryResult> {
+    logger.info({ body }, 'OTP SMS (noop provider - configure Twilio in production)');
+    return { success: true, messageId: `dev-sms-${Date.now()}` };
   }
 }
 
-const emailProvider: OtpProvider = new NoopOtpProvider();
+export const emailProvider: OtpProvider = isBrevoConfigured()
+  ? {
+      sendEmail: (_to, _subject, html) => sendEmailViaBrevo(_to, _subject, html),
+      sendSms: () => Promise.reject(new Error('SMS not configured')),
+    }
+  : new NoopOtpProvider();
 
 export async function sendOtpEmail(
   email: string,
@@ -36,8 +46,8 @@ export async function sendOtpEmail(
   fullName?: string,
 ): Promise<OtpDeliveryResult> {
   const subject = 'Your LoanFlow Verification Code';
-  const body = `Hi ${fullName || ''},\n\nYour verification code is: ${code}\n\nThis code expires in 60 seconds.\n\n- LoanFlow Team`;
-  return emailProvider.sendEmail(email, subject, body);
+  const html = renderOtpTemplate(fullName || 'there', code);
+  return emailProvider.sendEmail(email, subject, html);
 }
 
 export async function sendOtpSms(
@@ -51,9 +61,44 @@ export async function sendOtpSms(
 export async function sendPasswordResetEmail(
   email: string,
   resetToken: string,
+  fullName?: string,
 ): Promise<OtpDeliveryResult> {
   const subject = 'LoanFlow Password Reset Instructions';
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-  const body = `You requested a password reset for your LoanFlow account.\n\nClick the link below to reset your password:\n\n${resetUrl}\n\nThis link expires in 30 minutes.\n\nIf you did not request this, please ignore this email.\n\n- LoanFlow Team`;
-  return emailProvider.sendEmail(email, subject, body);
+  const html = renderPasswordResetTemplate(fullName || 'there', resetUrl);
+  return emailProvider.sendEmail(email, subject, html);
+}
+
+export async function sendWelcomeEmail(
+  email: string,
+  fullName: string,
+): Promise<OtpDeliveryResult> {
+  const subject = 'Welcome to LoanFlow!';
+  const html = renderWelcomeTemplate(fullName);
+  return emailProvider.sendEmail(email, subject, html);
+}
+
+export async function sendLoginNotificationEmail(
+  email: string,
+  fullName: string,
+  ip?: string,
+  userAgent?: string,
+): Promise<OtpDeliveryResult> {
+  const subject = 'New Login to LoanFlow';
+  const html = renderLoginNotificationTemplate(
+    fullName,
+    ip || 'unknown',
+    userAgent || 'unknown',
+    new Date().toISOString(),
+  );
+  return emailProvider.sendEmail(email, subject, html);
+}
+
+export async function sendPasswordChangedEmail(
+  email: string,
+  fullName: string,
+): Promise<OtpDeliveryResult> {
+  const subject = 'Your LoanFlow Password Was Changed';
+  const html = renderPasswordChangedTemplate(fullName);
+  return emailProvider.sendEmail(email, subject, html);
 }

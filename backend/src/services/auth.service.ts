@@ -4,7 +4,7 @@ import { hashPassword, comparePassword, generateSecureToken } from '../utils/cry
 import { generateTokenPair, verifyRefreshToken } from './token.service.js';
 import { storeOtp, verifyOtp } from './otp.service.js';
 import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from '../utils/constants.js';
-import { sendPasswordResetEmail } from './email.service.js';
+import { sendPasswordResetEmail, sendPasswordChangedEmail } from './email.service.js';
 
 export interface SignupData {
   fullName: string;
@@ -362,7 +362,7 @@ export async function requestPasswordReset(data: ForgotPasswordData): Promise<{ 
     },
   });
 
-  await sendPasswordResetEmail(user.email, resetToken);
+  await sendPasswordResetEmail(user.email, resetToken, user.fullName);
 
   return {
     success: true,
@@ -394,8 +394,15 @@ export async function resetPassword(data: ResetPasswordData): Promise<{ success:
     },
   });
 
+  await prisma.session.updateMany({
+    where: { userId: user.id },
+    data: { revoked: true },
+  });
+
+  await sendPasswordChangedEmail(user.email, user.fullName);
+
   return {
     success: true,
-    message: 'Password has been reset successfully',
+    message: 'Password has been reset successfully. Please log in again.',
   };
 }
