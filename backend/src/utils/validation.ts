@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { ALL_ROLES } from '../utils/constants.js';
+
+const roleEnum = z.enum(ALL_ROLES);
 
 export const signupSchema = z.object({
   fullName: z
@@ -23,7 +26,7 @@ export const signupSchema = z.object({
     .regex(/\d/, 'Password must contain at least one number')
     .regex(/[^A-Za-z\d]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
-  role: z.enum(['BORROWER', 'ADMIN', 'ANALYST', 'APPROVER']),
+  role: roleEnum,
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -36,7 +39,7 @@ export const loginPasswordSchema = z.object({
 
 export const otpRequestSchema = z.object({
   identifier: z.string().min(1, 'Email or mobile number is required'),
-  channel: z.enum(['email', 'sms'])
+  channel: z.enum(['email', 'sms']),
 });
 
 export const otpVerifySchema = z.object({
@@ -46,4 +49,24 @@ export const otpVerifySchema = z.object({
 
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128)
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/\d/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z\d]/, 'Password must contain at least one special character'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 });

@@ -43,7 +43,10 @@ export default function OtpVerify() {
         code,
       });
       if (response.data.accessToken) {
-        login(response.data.accessToken, response.data.refreshToken);
+        login(
+          { accessToken: response.data.accessToken, refreshToken: response.data.refreshToken },
+          response.data.user,
+        );
         navigate('/dashboard');
       }
     } catch (err: unknown) {
@@ -52,7 +55,7 @@ export default function OtpVerify() {
       setOtpValue(Array(6).fill(''));
       setTimeout(() => {
         inputRefs.current[0]?.focus();
-      }, 100);
+      }, 150);
     } finally {
       setIsVerifying(false);
     }
@@ -103,6 +106,7 @@ export default function OtpVerify() {
             onChange={setOtpValue}
             onComplete={handleComplete}
             error={error}
+            disabled={isVerifying}
             ref={inputRefs}
           />
         </div>

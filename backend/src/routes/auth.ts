@@ -12,6 +12,8 @@ import {
   verifyOtpAndLogin,
   logout,
   refreshAccessToken,
+  requestPasswordReset,
+  resetPassword as resetPasswordService,
 } from '../services/auth.service.js';
 import {
   signupSchema,
@@ -19,6 +21,8 @@ import {
   otpRequestSchema,
   otpVerifySchema,
   refreshSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../utils/validation.js';
 
 const router = Router();
@@ -49,7 +53,7 @@ router.post(
   validate(loginPasswordSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tokens = await loginWithPassword(req.body);
+      const { user, ...tokens } = await loginWithPassword(req.body);
       await logAuditEvent('LOGIN_SUCCESS', req.ip, req.get('user-agent'));
 
       res
@@ -69,6 +73,7 @@ router.post(
       sendSuccess(res, 'Login successful', {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        user,
       });
     } catch (err) {
       next(err);
@@ -97,8 +102,8 @@ router.post(
   validate(otpVerifySchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tokens = await verifyOtpAndLogin(req.body);
-      await logAuditEvent('OTP_LOGIN_SUCCESS', req.ip, req.get('user-agent'));
+      const { user, ...tokens } = await verifyOtpAndLogin(req.body);
+      await logAuditEvent('OTP_LOGIN_SUCCESS', req.ip, req.get('user-agent'), user.id);
 
       res
         .cookie('refreshToken', tokens.refreshToken, {
@@ -117,6 +122,7 @@ router.post(
       sendSuccess(res, 'OTP verified and logged in', {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        user,
       });
     } catch (err) {
       next(err);
@@ -149,10 +155,11 @@ router.post(
   validate(refreshSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tokens = await refreshAccessToken(req.body.refreshToken);
+      const { user, ...tokens } = await refreshAccessToken(req.body.refreshToken);
       sendSuccess(res, 'Token refreshed', {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        user,
       });
     } catch (err) {
       next(err);
@@ -166,6 +173,36 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     sendSuccess(res, 'User profile', { user: req.user });
+  },
+);
+
+router.post(
+  '/forgot-password',
+  authRateLimiter,
+  validate(forgotPasswordSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await requestPasswordReset(req.body);
+      await logAuditEvent('PASSWORD_RESET_REQUEST', req.ip, req.get('user-agent'));
+      sendSuccess(res, result.message, result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  '/reset-password',
+  authRateLimiter,
+  validate(resetPasswordSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await resetPasswordService(req.body);
+      await logAuditEvent('PASSWORD_RESET_SUCCESS', req.ip, req.get('user-agent'));
+      sendSuccess(res, result.message, result);
+    } catch (err) {
+      next(err);
+    }
   },
 );
 

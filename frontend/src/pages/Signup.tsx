@@ -6,24 +6,8 @@ import { Label } from '@/components/ui/label';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
 import { PasswordStrength } from '../components/PasswordStrength';
-import { User, Mail, Phone, ChevronDown } from 'lucide-react';
+import { User, Mail, Phone } from 'lucide-react';
 import { signup, SignupData } from '../services/auth';
-
-export type Role = 'BORROWER' | 'ADMIN' | 'ANALYST' | 'APPROVER';
-
-const roleLabels: Record<Role, string> = {
-  BORROWER: 'Borrower',
-  ADMIN: 'Admin',
-  ANALYST: 'Credit Analyst',
-  APPROVER: 'Credit Approver',
-};
-
-const roleDescriptions: Record<Role, string> = {
-  BORROWER: 'Individual or business applying for loans',
-  ADMIN: 'System administration and user management',
-  ANALYST: 'Review and assess loan applications',
-  APPROVER: 'Make final loan approval decisions',
-};
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -82,7 +66,7 @@ export default function Signup() {
   return (
     <AuthLayout
       title="Create Your Account"
-      description="Join LoanFlow today. Register once and select your role to access role-specific features."
+      description="Join LoanFlow today. Register once to get started."
     >
       <div className="space-y-6">
         <div>
@@ -135,13 +119,17 @@ export default function Signup() {
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-gray-700">Mobile Number</Label>
             <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder="+91"
+              <select
                 value={signupForm.countryCode}
                 onChange={(e) => setSignupForm({ ...signupForm, countryCode: e.target.value })}
-                className="w-16"
-              />
+                className="w-20 rounded-md border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="+91">🇮🇳 +91</option>
+                <option value="+1">🇺🇸 +1</option>
+                <option value="+44">🇬🇧 +44</option>
+                <option value="+61">🇦🇺 +61</option>
+                <option value="+971">🇦🇪 +971</option>
+              </select>
               <div className="relative flex-1">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -178,28 +166,6 @@ export default function Signup() {
               error={errors.confirmPassword}
               required
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">Select Role</Label>
-            <div className="relative">
-              <select
-                value={signupForm.role}
-                onChange={(e) => setSignupForm({ ...signupForm, role: e.target.value as Role })}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none"
-                required
-              >
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {roleDescriptions[signupForm.role as Role]}
-            </p>
           </div>
 
           {errors.submit && <p className="text-sm text-danger-500">{errors.submit}</p>}

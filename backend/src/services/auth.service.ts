@@ -1,9 +1,10 @@
 import { Role, OtpChannel } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { hashPassword, comparePassword } from '../utils/crypto.js';
+import { hashPassword, comparePassword, generateSecureToken } from '../utils/crypto.js';
 import { generateTokenPair, verifyRefreshToken } from './token.service.js';
 import { storeOtp, verifyOtp } from './otp.service.js';
 import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from '../utils/constants.js';
+import { sendPasswordResetEmail } from './email.service.js';
 
 export interface SignupData {
   fullName: string;
@@ -11,6 +12,7 @@ export interface SignupData {
   mobile?: string;
   countryCode: string;
   password: string;
+  confirmPassword: string;
   role: Role;
 }
 
@@ -32,6 +34,35 @@ export interface LoginOtpVerifyData {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface LoginResponse extends AuthTokens {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: Role;
+    emailVerified: boolean;
+    isActive: boolean;
+  };
+}
+
+function toUserResponse(user: {
+  id: string;
+  email: string;
+  fullName: string;
+  role: Role;
+  emailVerified: boolean;
+  isActive: boolean;
+}): LoginResponse['user'] {
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    emailVerified: user.emailVerified,
+    isActive: user.isActive,
+  };
 }
 
 async function findUserByIdentifier(identifier: string) {
@@ -56,6 +87,13 @@ export async function signup(data: SignupData): Promise<{
   };
   requiresEmailVerification: boolean;
 }> {
+  if (data.role !== 'BORROWER') {
+    throw {
+      statusCode: 400,
+      message: 'Invalid role. Only Borrower role is available for self-registration.',
+      isOperational: true,
+    };
+  }
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -115,7 +153,7 @@ async function createSession(userId: string, refreshToken: string): Promise<void
 
 export async function loginWithPassword(
   data: LoginPasswordData,
-): Promise<AuthTokens> {
+): Promise<LoginResponse> {
   const user = await findUserByIdentifier(data.identifier);
 
   if (!user) {
@@ -182,7 +220,7 @@ export async function loginWithPassword(
 
   await createSession(user.id, tokens.refreshToken);
 
-  return tokens;
+  return { ...tokens, user: toUserResponse(user) };
 }
 
 export async function requestOtp(
@@ -198,12 +236,12 @@ export async function requestOtp(
   }
 
   const channel = data.channel === 'email' ? OtpChannel.EMAIL : OtpChannel.SMS;
-  return storeOtp(data.identifier, channel);
+  return storeOtp(data.identifier, channel, { fullName: user?.fullName, user });
 }
 
 export async function verifyOtpAndLogin(
   data: LoginOtpVerifyData,
-): Promise<AuthTokens> {
+): Promise<LoginResponse> {
   const otpResult = await verifyOtp(data.identifier, data.code);
 
   if (!otpResult.success) {
@@ -229,7 +267,7 @@ export async function verifyOtpAndLogin(
 
   await createSession(user.id, tokens.refreshToken);
 
-  return tokens;
+  return { ...tokens, user: toUserResponse(user) };
 }
 
 export async function logout(refreshToken: string): Promise<void> {
@@ -241,7 +279,7 @@ export async function logout(refreshToken: string): Promise<void> {
 
 export async function refreshAccessToken(
   refreshToken: string,
-): Promise<AuthTokens> {
+): Promise<LoginResponse> {
   const payload = verifyRefreshToken(refreshToken);
 
   const session = await prisma.session.findUnique({
@@ -273,7 +311,7 @@ export async function refreshAccessToken(
 
   await createSession(user.id, newTokens.refreshToken);
 
-  return newTokens;
+  return { ...newTokens, user: toUserResponse(user) };
 }
 
 function parseExpiration(exp: string): number {
@@ -288,4 +326,76 @@ function parseExpiration(exp: string): number {
     case 'd': return value * 24 * 60 * 60 * 1000;
     default: return 7 * 24 * 60 * 60 * 1000;
   }
+}
+
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface ResetPasswordData {
+  token: string;
+  password: string;
+}
+
+const PASSWORD_RESET_EXPIRY_MINUTES = 30;
+
+export async function requestPasswordReset(data: ForgotPasswordData): Promise<{ success: boolean; message: string }> {
+  const user = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (!user) {
+    return {
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    };
+  }
+
+  const resetToken = generateSecureToken();
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordResetToken: resetToken,
+      passwordResetExpiresAt: expiresAt,
+    },
+  });
+
+  await sendPasswordResetEmail(user.email, resetToken);
+
+  return {
+    success: true,
+    message: 'If an account with that email exists, a password reset link has been sent.',
+  };
+}
+
+export async function resetPassword(data: ResetPasswordData): Promise<{ success: boolean; message: string }> {
+  const user = await prisma.user.findUnique({
+    where: { passwordResetToken: data.token },
+  });
+
+  if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+    throw {
+      statusCode: 400,
+      message: 'Invalid or expired password reset token',
+      isOperational: true,
+    };
+  }
+
+  const passwordHash = await hashPassword(data.password);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
+    },
+  });
+
+  return {
+    success: true,
+    message: 'Password has been reset successfully',
+  };
 }

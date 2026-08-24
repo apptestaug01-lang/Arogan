@@ -1,0 +1,16 @@
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/loanflow_test?schema=public&sslmode=disable';
+process.env.JWT_ACCESS_SECRET = 'test-access-secret-key-for-testing-only-32chars';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key-for-testing-only-32chars';
+process.env.JWT_ACCESS_EXPIRES_IN = '15m';
+process.env.JWT_REFRESH_EXPIRES_IN = '7d';
+process.env.BCRYPT_COST = '4';
+process.env.OTP_EXPIRY_SECONDS = '60';
+process.env.OTP_MAX_REQUESTS_PER_WINDOW = '5';
+process.env.OTP_WINDOW_MINUTES = '10';
+process.env.MAX_FAILED_ATTEMPTS = '5';
+process.env.LOCKOUT_MINUTES = '15';
+process.env.RATE_LIMIT_WINDOW_MS = '60000';
+process.env.RATE_LIMIT_MAX = '5';
+process.env.CORS_ORIGIN = 'http://localhost:5173';
+process.env.SESSION_CLEANUP_INTERVAL_MS = '3600000';

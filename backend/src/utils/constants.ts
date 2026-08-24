@@ -1,3 +1,20 @@
+export const ALLOWED_SIGNUP_ROLES = ['BORROWER'] as const;
+export type SignupRole = (typeof ALLOWED_SIGNUP_ROLES)[number];
+
+export const ALL_ROLES = ['BORROWER', 'ADMIN', 'ANALYST', 'APPROVER'] as const;
+export type AllRoles = (typeof ALL_ROLES)[number];
+
+export const ROLE_LABELS: Record<AllRoles, string> = {
+  BORROWER: 'Borrower',
+  ADMIN: 'Admin',
+  ANALYST: 'Credit Analyst',
+  APPROVER: 'Credit Approver',
+};
+
+export function isRoleAllowedForSignup(role: string): role is SignupRole {
+  return ALLOWED_SIGNUP_ROLES.includes(role as SignupRole);
+}
+
 export const ROLES = {
   BORROWER: 'BORROWER',
   ADMIN: 'ADMIN',

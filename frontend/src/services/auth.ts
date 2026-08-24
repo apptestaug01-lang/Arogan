@@ -3,7 +3,10 @@ import api from './api';
 export interface User {
   id: string;
   email: string;
+  fullName: string;
   role: 'BORROWER' | 'ADMIN' | 'ANALYST' | 'APPROVER';
+  emailVerified: boolean;
+  isActive: boolean;
 }
 
 export interface AuthResponse {
@@ -69,13 +72,6 @@ export async function verifyOtpAndLogin(
 
 export async function logout(): Promise<void> {
   await api.post('/auth/logout');
-}
-
-export async function refreshAccessToken(
-  refreshToken: string,
-): Promise<AuthResponse> {
-  const response = await api.post('/auth/refresh', { refreshToken });
-  return response.data;
 }
 
 export async function getCurrentUser(): Promise<{

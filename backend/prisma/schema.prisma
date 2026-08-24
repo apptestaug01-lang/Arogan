@@ -35,6 +35,8 @@ model User {
   lastLoginAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  passwordResetToken       String?    @unique
+  passwordResetExpiresAt   DateTime?
 
   sessions       Session[]
   auditLogs      AuditLog[]
