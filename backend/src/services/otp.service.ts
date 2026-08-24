@@ -1,4 +1,4 @@
-import { OTPRequest, OtpChannel } from '@prisma/client';
+import { OtpChannel, User } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import {
   generateOtp,
@@ -10,6 +10,8 @@ import {
   OTP_MAX_REQUESTS,
   OTP_WINDOW_MINUTES,
 } from '../utils/constants.js';
+import { sendOtpEmail, sendOtpSms } from './email.service.js';
+import logger from '../middleware/logger.js';
 
 export interface OtpResult {
   success: boolean;
@@ -17,9 +19,15 @@ export interface OtpResult {
   code?: string;
 }
 
+interface StoreOtpOptions {
+  fullName?: string;
+  user?: User | null;
+}
+
 export async function storeOtp(
   identifier: string,
   channel: OtpChannel,
+  options?: StoreOtpOptions,
 ): Promise<OtpResult> {
   const recentOtpCount = await prisma.oTPRequest.count({
     where: {
@@ -50,6 +58,25 @@ export async function storeOtp(
     },
   });
 
+  let deliverySuccess = true;
+  try {
+    if (channel === OtpChannel.EMAIL) {
+      await sendOtpEmail(identifier, otp, options?.fullName);
+    } else {
+      await sendOtpSms(identifier, otp);
+    }
+  } catch (err) {
+    deliverySuccess = false;
+    logger.error({ err: { message: err instanceof Error ? err.message : String(err) } }, 'OTP delivery failed');
+  }
+
+  if (!deliverySuccess && process.env.NODE_ENV === 'production') {
+    return {
+      success: false,
+      message: 'Failed to send OTP. Please try again later.',
+    };
+  }
+
   return {
     success: true,
     message: `OTP sent to ${identifier}`,
@@ -74,6 +101,13 @@ export async function verifyOtp(
     return {
       success: false,
       message: 'Invalid or expired OTP',
+    };
+  }
+
+  if (otpRecord.attemptCount >= 3) {
+    return {
+      success: false,
+      message: 'Too many failed attempts. Please request a new OTP.',
     };
   }
 

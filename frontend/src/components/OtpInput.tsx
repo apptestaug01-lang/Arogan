@@ -7,15 +7,33 @@ interface OtpInputProps {
   onComplete: (code: string) => void;
   length?: number;
   error?: string;
+  disabled?: boolean;
 }
 
 export const OtpInput = React.forwardRef<(HTMLInputElement | null)[], OtpInputProps>(
-  ({ value, onChange, onComplete, length = 6, error }, ref) => {
+  ({ value, onChange, onComplete, length = 6, error, disabled }, ref) => {
     const localRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+    const completeCalled = React.useRef(false);
 
     React.useImperativeHandle(ref, () => localRefs.current);
 
+    const handleComplete = React.useCallback(
+      (code: string) => {
+        if (completeCalled.current || disabled) return;
+        completeCalled.current = true;
+        onComplete(code);
+      },
+      [onComplete, disabled],
+    );
+
+    React.useEffect(() => {
+      if (!disabled) {
+        completeCalled.current = false;
+      }
+    }, [value, disabled]);
+
     const handleChange = (index: number, val: string) => {
+      if (disabled) return;
       const newValue = [...value];
       newValue[index] = val.slice(-1);
       onChange(newValue);
@@ -25,17 +43,19 @@ export const OtpInput = React.forwardRef<(HTMLInputElement | null)[], OtpInputPr
       }
 
       if (newValue.every((v) => v !== '') && val) {
-        onComplete(newValue.join(''));
+        handleComplete(newValue.join(''));
       }
     };
 
     const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (disabled) return;
       if (e.key === 'Backspace' && !value[index] && index > 0) {
         localRefs.current[index - 1]?.focus();
       }
     };
 
     const handlePaste = (e: React.ClipboardEvent) => {
+      if (disabled) return;
       e.preventDefault();
       const pasted = e.clipboardData.getData('text').slice(0, length);
       const newValue = [...value];
@@ -44,7 +64,7 @@ export const OtpInput = React.forwardRef<(HTMLInputElement | null)[], OtpInputPr
       });
       onChange(newValue);
       if (newValue.every((v) => v !== '')) {
-        onComplete(newValue.join(''));
+        handleComplete(newValue.join(''));
       }
     };
 

@@ -41,6 +41,7 @@ services:
       PORT: '4000'
       NODE_ENV: 'production'
       CORS_ORIGIN: 'http://localhost:5173'
+      FRONTEND_URL: 'http://localhost:5173'
     depends_on:
       postgres:
         condition: service_healthy

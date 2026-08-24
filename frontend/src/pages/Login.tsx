@@ -3,13 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
-import { GoogleIcon, MicrosoftIcon } from '../components/icons';
 import { useAuth } from '../services/authContext';
 import { loginWithPassword, requestOtp, LoginPasswordData, OtpRequestData } from '../services/auth';
-import { Eye, Lock, Mail, Phone } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -36,10 +34,11 @@ export default function Login() {
     setPasswordError('');
     try {
       const response = await loginWithPassword(passwordForm);
-      if (response.data.accessToken) {
-        login(response.data.accessToken, response.data.refreshToken);
-        navigate('/dashboard');
-      }
+      login(
+        { accessToken: response.data.accessToken, refreshToken: response.data.refreshToken },
+        response.data.user,
+      );
+      navigate('/dashboard');
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setPasswordError(error.response?.data?.message || 'Invalid credentials');
@@ -197,24 +196,6 @@ export default function Login() {
             </Button>
           </form>
         )}
-
-        <div className="relative my-6">
-          <Separator className="my-4" />
-          <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-white px-4 text-xs text-gray-500">
-            Or continue with
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Button variant="outline" type="button" className="w-full">
-            <GoogleIcon className="h-4 w-4 mr-2" />
-            Google
-          </Button>
-          <Button variant="outline" type="button" className="w-full">
-            <MicrosoftIcon className="h-4 w-4 mr-2" />
-            Microsoft
-          </Button>
-        </div>
 
         <p className="text-center text-sm text-gray-600">
           Don't have an account?{' '}
