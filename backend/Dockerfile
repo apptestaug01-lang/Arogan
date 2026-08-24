@@ -8,8 +8,8 @@ COPY backend/package*.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY backend/ ./
-RUN npm run build
 RUN npm run db:generate
+RUN npm run build
 
 FROM node:20-alpine AS runner
 
