@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: loanflow-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://arogandb_user:j9rooEMRQug0rCID5dc8Ae6VgbiNdyvp@dpg-da62hl0jo6nc73e5knag-a.oregon-postgres.render.com/arogandb
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: BCRYPT_COST
+        value: 12
+      - key: OTP_EXPIRY_SECONDS
+        value: 60
+      - key: OTP_MAX_REQUESTS_PER_WINDOW
+        value: 5
+      - key: OTP_WINDOW_MINUTES
+        value: 10
+      - key: MAX_FAILED_ATTEMPTS
+        value: 5
+      - key: LOCKOUT_MINUTES
+        value: 15
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX
+        value: 5
+      - key: CORS_ORIGIN
+        value: https://loanflow-frontend.onrender.com
+      - key: FRONTEND_URL
+        value: https://loanflow-frontend.onrender.com
+      - key: SESSION_CLEANUP_INTERVAL_MS
+        value: 3600000
+      # Set these in Render Dashboard Secrets:
+      # BREVO_SMTP_USER, BREVO_SMTP_PASS, BREVO_FROM_EMAIL
+
+  - type: web
+    name: loanflow-frontend
+    runtime: docker
+    plan: free
+    dockerfilePath: frontend/Dockerfile
+    autoDeploy: true
+    healthCheckPath: /
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_URL
+        value: https://loanflow-backend.onrender.com/api
+
+# Database: arogandb (already exists on Render)
+# PostgreSQL 16, Oregon region, free tier
+# Connection: dpg-da62hl0jo6nc73e5knag-a.oregon-postgres.render.com
