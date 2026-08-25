@@ -33,12 +33,26 @@ class NoopOtpProvider implements OtpProvider {
   }
 }
 
-export const emailProvider: OtpProvider = isBrevoConfigured()
-  ? {
+export const emailProvider: OtpProvider = (() => {
+  if (process.env.NODE_ENV === 'production') {
+    if (!isBrevoConfigured()) {
+      throw new Error('Brevo SMTP must be configured in production');
+    }
+    return {
       sendEmail: (_to, _subject, html) => sendEmailViaBrevo(_to, _subject, html),
       sendSms: () => Promise.reject(new Error('SMS not configured')),
-    }
-  : new NoopOtpProvider();
+    };
+  }
+
+  if (isBrevoConfigured()) {
+    return {
+      sendEmail: (_to, _subject, html) => sendEmailViaBrevo(_to, _subject, html),
+      sendSms: () => Promise.reject(new Error('SMS not configured')),
+    };
+  }
+
+  return new NoopOtpProvider();
+})();
 
 export async function sendOtpEmail(
   email: string,
