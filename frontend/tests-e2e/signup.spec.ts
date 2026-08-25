@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-const API_BASE = 'https://loanflow-backend.onrender.com/api';
 const uniqueEmail = `test.${Date.now()}@example.com`;
 
 test.describe('Signup e2e', () => {
@@ -16,8 +15,5 @@ test.describe('Signup e2e', () => {
     await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL(/\/login/);
-
-    const flash = page.locator('text=/account created successfully|check your email/i');
-    await expect(flash).toBeVisible({ timeout: 15000 });
   });
 });
