@@ -41,8 +41,16 @@ services:
         value: https://loanflow-frontend.onrender.com
       - key: SESSION_CLEANUP_INTERVAL_MS
         value: 3600000
-      # Set these in Render Dashboard Secrets:
-      # BREVO_SMTP_USER, BREVO_SMTP_PASS, BREVO_FROM_EMAIL
+      - key: BREVO_SMTP_USER
+        sync: false
+      - key: BREVO_SMTP_PASS
+        sync: false
+      - key: BREVO_FROM_EMAIL
+        value: no-reply@loanflow.app
+      - key: BREVO_FROM_NAME
+        value: LoanFlow
+      - key: BREVO_REPLY_TO
+        value: support@loanflow.app
 
   - type: web
     name: loanflow-frontend
