@@ -13,6 +13,7 @@ build/
 .env.staging
 .env.*.local
 !.env.example
+frontend/.env
 
 # Docker
 *.pid
