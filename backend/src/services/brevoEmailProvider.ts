@@ -23,9 +23,11 @@ async function sendWithHttpApi(
     subject,
     htmlContent: html,
     replyTo: {
-      email: replyTo || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
+      email: replyTo || process.env.BREVO_REPLY_TO || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
     },
   };
+
+  logger.debug({ payload, to, subject }, 'Brevo HTTP API payload');
 
   for (let attempt = 0; attempt <= 3; attempt++) {
     try {
@@ -38,19 +40,21 @@ async function sendWithHttpApi(
         body: JSON.stringify(payload),
       });
 
+      const responseText = await res.text();
+      logger.debug({ status: res.status, response: responseText.slice(0, 500) }, 'Brevo HTTP API response');
+
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Brevo API error ${res.status}: ${text}`);
+        throw new Error(`Brevo API error ${res.status}: ${responseText}`);
       }
 
-      const data = (await res.json()) as { messageId?: string };
+      const data = JSON.parse(responseText) as { messageId?: string };
       logger.info({ to, messageId: data.messageId }, 'Email sent via Brevo HTTP API');
       return { success: true, messageId: data.messageId };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      logger.warn({ attempt, to, err: errorMessage }, 'Email send attempt failed');
+      logger.warn({ attempt, to, subject, err: errorMessage }, 'Email send attempt failed');
       if (attempt === 3) {
-        logger.error({ to, subject, attempt, err: errorMessage }, 'All email retry attempts exhausted');
+        logger.error({ to, subject, attempt, err: errorMessage, payload }, 'All email retry attempts exhausted');
         throw new Error(errorMessage);
       }
       await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
