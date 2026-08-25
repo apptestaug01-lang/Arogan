@@ -17,7 +17,7 @@ async function sendWithHttpApi(
   const payload = {
     sender: {
       name: process.env.BREVO_FROM_NAME || 'LoanFlow',
-      email: process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
+      email: process.env.BREVO_FROM_EMAIL || 'cursorai981@gmail.com',
     },
     to: [{ email: to }],
     subject,
