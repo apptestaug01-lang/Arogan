@@ -5,6 +5,7 @@ import { authRateLimiter } from '../middleware/rateLimit.js';
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { sendSuccess } from '../utils/response.js';
 import { logAuditEvent } from '../services/audit.service.js';
+import logger from '../middleware/logger.js';
 import {
   signup,
   loginWithPassword,
@@ -44,7 +45,9 @@ router.post(
         req.get('user-agent'),
         result.user.id,
       );
-      await sendWelcomeEmail(result.user.email, result.user.fullName);
+      void sendWelcomeEmail(result.user.email, result.user.fullName).catch((err) => {
+        logger.error({ err: err instanceof Error ? err.message : String(err), email: result.user.email }, 'Welcome email failed');
+      });
       sendSuccess(res, 'Account created successfully', { user: result.user }, 201);
     } catch (err) {
       next(err);
@@ -60,7 +63,9 @@ router.post(
     try {
       const { user, ...tokens } = await loginWithPassword(req.body);
       await logAuditEvent('LOGIN_SUCCESS', req.ip, req.get('user-agent'));
-      await sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined);
+      void sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined).catch((err) => {
+        logger.error({ err: err instanceof Error ? err.message : String(err), email: user.email }, 'Login notification email failed');
+      });
 
       res
         .cookie('refreshToken', tokens.refreshToken, {
@@ -110,7 +115,9 @@ router.post(
     try {
       const { user, ...tokens } = await verifyOtpAndLogin(req.body);
       await logAuditEvent('OTP_LOGIN_SUCCESS', req.ip, req.get('user-agent'), user.id);
-      await sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined);
+      void sendLoginNotificationEmail(user.email, user.fullName, req.ip, req.get('user-agent') || undefined).catch((err) => {
+        logger.error({ err: err instanceof Error ? err.message : String(err), email: user.email }, 'Login notification email failed');
+      });
 
       res
         .cookie('refreshToken', tokens.refreshToken, {

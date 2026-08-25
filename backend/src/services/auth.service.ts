@@ -5,6 +5,7 @@ import { generateTokenPair, verifyRefreshToken } from './token.service.js';
 import { storeOtp, verifyOtp } from './otp.service.js';
 import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from '../utils/constants.js';
 import { sendPasswordResetEmail, sendPasswordChangedEmail } from './email.service.js';
+import logger from '../middleware/logger.js';
 
 export interface SignupData {
   fullName: string;
@@ -362,7 +363,9 @@ export async function requestPasswordReset(data: ForgotPasswordData): Promise<{ 
     },
   });
 
-  await sendPasswordResetEmail(user.email, resetToken, user.fullName);
+  void sendPasswordResetEmail(user.email, resetToken, user.fullName).catch((err) => {
+    logger.error({ err: err instanceof Error ? err.message : String(err), email: user.email }, 'Password reset email failed');
+  });
 
   return {
     success: true,
@@ -399,7 +402,9 @@ export async function resetPassword(data: ResetPasswordData): Promise<{ success:
     data: { revoked: true },
   });
 
-  await sendPasswordChangedEmail(user.email, user.fullName);
+  void sendPasswordChangedEmail(user.email, user.fullName).catch((err) => {
+    logger.error({ err: err instanceof Error ? err.message : String(err), email: user.email }, 'Password changed email failed');
+  });
 
   return {
     success: true,
