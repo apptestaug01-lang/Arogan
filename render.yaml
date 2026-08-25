@@ -36,9 +36,9 @@ services:
       - key: RATE_LIMIT_MAX
         value: 5
       - key: CORS_ORIGIN
-        value: https://loanflow-frontend.onrender.com
+        value: https://loanflow-frontend-z67v.onrender.com
       - key: FRONTEND_URL
-        value: https://loanflow-frontend.onrender.com
+        value: https://loanflow-frontend-z67v.onrender.com
       - key: SESSION_CLEANUP_INTERVAL_MS
         value: 3600000
       - key: BREVO_SMTP_USER
