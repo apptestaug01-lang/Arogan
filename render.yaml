@@ -63,7 +63,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: VITE_API_URL
-        value: https://loanflow-backend.onrender.com/api
+        value: https://arogan-mx0n.onrender.com/api
 
 # Database: arogandb (already exists on Render)
 # PostgreSQL 16, Oregon region, free tier

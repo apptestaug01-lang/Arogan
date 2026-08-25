@@ -6,8 +6,8 @@ const configs = {
     frontendUrl: 'http://localhost:5173',
   },
   render: {
-    apiBase: 'https://loanflow-backend.onrender.com/api',
-    frontendUrl: 'https://loanflow-frontend.onrender.com',
+    apiBase: 'https://arogan-mx0n.onrender.com/api',
+    frontendUrl: 'https://loanflow-frontend-z67v.onrender.com',
   },
 };
 
