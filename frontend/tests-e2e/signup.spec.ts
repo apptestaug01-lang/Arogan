@@ -9,9 +9,9 @@ test.describe('Signup e2e', () => {
 
     await page.fill('input[id="fullName"]', 'Test User');
     await page.fill('input[id="email"]', uniqueEmail);
-    await page.fill('input[id="mobile"]', '9876543210');
-    await page.fill('input[id="password"]', 'Test@1234');
-    await page.fill('input[id="confirmPassword"]', 'Test@1234');
+    await page.fill('input[placeholder="9876543210"]', '9876543210');
+    await page.fill('input[placeholder="Min 8 chars with upper, lower, number, special"]', 'Test@1234');
+    await page.fill('input[placeholder="Re-enter your password"]', 'Test@1234');
 
     await page.click('button[type="submit"]');
 
