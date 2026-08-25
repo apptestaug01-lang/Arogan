@@ -16,8 +16,7 @@ export interface ValidatedEnv {
   RATE_LIMIT_MAX: number;
    CORS_ORIGIN: string;
   FRONTEND_URL: string;
-  BREVO_SMTP_USER: string;
-  BREVO_SMTP_PASS: string;
+   BREVO_API_KEY: string;
   BREVO_FROM_EMAIL: string;
   BREVO_FROM_NAME: string;
   BREVO_REPLY_TO: string;
@@ -77,8 +76,7 @@ export function validateEnv(): ValidatedEnv {
     RATE_LIMIT_MAX: Number(process.env.RATE_LIMIT_MAX) || 5,
     CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
     FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
-    BREVO_SMTP_USER: process.env.BREVO_SMTP_USER || '',
-    BREVO_SMTP_PASS: process.env.BREVO_SMTP_PASS || '',
+    BREVO_API_KEY: process.env.BREVO_API_KEY || '',
     BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
     BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'LoanFlow',
     BREVO_REPLY_TO: process.env.BREVO_REPLY_TO || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',

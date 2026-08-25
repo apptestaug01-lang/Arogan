@@ -2,8 +2,7 @@ describe('email service', () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    process.env.BREVO_SMTP_USER = 'test@example.com';
-    process.env.BREVO_SMTP_PASS = 'test-smtp-key';
+    process.env.BREVO_API_KEY = 'test-api-key';
     process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
     process.env.BREVO_FROM_NAME = 'LoanFlow';
   });
@@ -20,8 +19,7 @@ describe('email service', () => {
     });
 
     it('should return false when Brevo env vars are missing', () => {
-      process.env.BREVO_SMTP_USER = '';
-      process.env.BREVO_SMTP_PASS = '';
+      process.env.BREVO_API_KEY = '';
       jest.resetModules();
       const { isBrevoConfigured } = require('../src/services/brevoEmailProvider.js');
       expect(isBrevoConfigured()).toBe(false);
@@ -30,8 +28,7 @@ describe('email service', () => {
 
   describe('email provider factory', () => {
     it('should use NoopOtpProvider when Brevo is not configured', () => {
-      process.env.BREVO_SMTP_USER = '';
-      process.env.BREVO_SMTP_PASS = '';
+      process.env.BREVO_API_KEY = '';
       jest.resetModules();
       const { emailProvider } = require('../src/services/email.service.js');
       expect(emailProvider).toBeDefined();

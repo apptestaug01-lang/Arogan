@@ -42,8 +42,7 @@ services:
       NODE_ENV: 'production'
       CORS_ORIGIN: 'http://localhost:5173'
       FRONTEND_URL: 'http://localhost:5173'
-      BREVO_SMTP_USER: ${BREVO_SMTP_USER}
-      BREVO_SMTP_PASS: ${BREVO_SMTP_PASS}
+      BREVO_API_KEY: ${BREVO_API_KEY}
       BREVO_FROM_EMAIL: ${BREVO_FROM_EMAIL}
       BREVO_FROM_NAME: ${BREVO_FROM_NAME}
       BREVO_REPLY_TO: ${BREVO_REPLY_TO}

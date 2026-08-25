@@ -41,12 +41,6 @@ services:
         value: https://loanflow-frontend-z67v.onrender.com
       - key: SESSION_CLEANUP_INTERVAL_MS
         value: 3600000
-      - key: BREVO_SMTP_PORT
-        value: 465
-      - key: BREVO_SMTP_USER
-        value: b69e98001@smtp-brevo.com
-      - key: BREVO_SMTP_PASS
-        value: xsmtpsib-6b37385a2e11969b2156c4671278eb9379b06611a72bbe7a8484f35b9425e2d7-WisQcRSLV3iOxiSn
       - key: BREVO_FROM_EMAIL
         value: no-reply@loanflow.app
       - key: BREVO_FROM_NAME

@@ -12,7 +12,7 @@ const configs = {
 };
 
 const config = configs[env] || configs.local;
-const uniqueEmail = `apptestaug01+${Date.now()}@gmail.com`;
+const uniqueEmail = 'apptestaug01@gmail.com';
 const uniqueMobile = `9${Math.floor(100000000 + Math.random() * 900000000)}`;
 
 const payload = {

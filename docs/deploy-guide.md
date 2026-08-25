@@ -27,8 +27,7 @@ openssl rand -base64 32  # → JWT_REFRESH_SECRET
 ```
 JWT_ACCESS_SECRET = <paste-generated-secret>
 JWT_REFRESH_SECRET = <paste-generated-secret>
-BREVO_SMTP_USER = <your-brevo-account-email>
-BREVO_SMTP_PASS = <your-brevo-smtp-key>
+BREVO_API_KEY = <your-brevo-api-key>
 BREVO_FROM_EMAIL = no-reply@yourdomain.com
 ```
 
