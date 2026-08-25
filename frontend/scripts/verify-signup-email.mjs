@@ -18,9 +18,9 @@ const payload = {
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    const text = await res.text();
     console.log('Status:', res.status);
-    console.log('Response:', JSON.stringify(data, null, 2));
+    console.log('Body:', text.slice(0, 500));
 
     if (res.ok) {
       console.log(`\nSignup succeeded for ${uniqueEmail}`);
