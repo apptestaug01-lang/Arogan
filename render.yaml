@@ -55,11 +55,11 @@ services:
     dockerfilePath: frontend/Dockerfile
     autoDeploy: true
     healthCheckPath: /
+    buildArgs:
+      VITE_API_URL: https://arogan-mx0n.onrender.com/api
     env:
       - key: NODE_ENV
         value: production
-      - key: VITE_API_URL
-        value: https://arogan-mx0n.onrender.com/api
 
 # Database: arogandb (already exists on Render)
 # PostgreSQL 16, Oregon region, free tier
