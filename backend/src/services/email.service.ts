@@ -14,12 +14,12 @@ export interface OtpDeliveryResult {
 }
 
 export interface OtpProvider {
-  sendEmail(to: string, subject: string, html: string): Promise<OtpDeliveryResult>;
+  sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<OtpDeliveryResult>;
   sendSms(to: string, body: string): Promise<OtpDeliveryResult>;
 }
 
 class NoopOtpProvider implements OtpProvider {
-  async sendEmail(to: string, subject: string, html: string): Promise<OtpDeliveryResult> {
+  async sendEmail(to: string, subject: string, html: string, _replyTo?: string): Promise<OtpDeliveryResult> {
     logger.info({ to, subject, html }, 'OTP email (noop provider - configure real provider in production)');
     if (process.env.NODE_ENV === 'development') {
       return { success: true, messageId: `dev-email-${Date.now()}` };
@@ -39,14 +39,14 @@ export const emailProvider: OtpProvider = (() => {
       throw new Error('Brevo SMTP must be configured in production');
     }
     return {
-      sendEmail: (_to, _subject, html) => sendEmailViaBrevo(_to, _subject, html),
+      sendEmail: (to, subject, html, replyTo) => sendEmailViaBrevo(to, subject, html, replyTo),
       sendSms: () => Promise.reject(new Error('SMS not configured')),
     };
   }
 
   if (isBrevoConfigured()) {
     return {
-      sendEmail: (_to, _subject, html) => sendEmailViaBrevo(_to, _subject, html),
+      sendEmail: (to, subject, html, replyTo) => sendEmailViaBrevo(to, subject, html, replyTo),
       sendSms: () => Promise.reject(new Error('SMS not configured')),
     };
   }
@@ -61,7 +61,7 @@ export async function sendOtpEmail(
 ): Promise<OtpDeliveryResult> {
   const subject = 'Your LoanFlow Verification Code';
   const html = renderOtpTemplate(fullName || 'there', code);
-  return emailProvider.sendEmail(email, subject, html);
+  return emailProvider.sendEmail(email, subject, html, email);
 }
 
 export async function sendOtpSms(
@@ -80,7 +80,7 @@ export async function sendPasswordResetEmail(
   const subject = 'LoanFlow Password Reset Instructions';
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
   const html = renderPasswordResetTemplate(fullName || 'there', resetUrl);
-  return emailProvider.sendEmail(email, subject, html);
+  return emailProvider.sendEmail(email, subject, html, email);
 }
 
 export async function sendWelcomeEmail(
@@ -89,7 +89,7 @@ export async function sendWelcomeEmail(
 ): Promise<OtpDeliveryResult> {
   const subject = 'Welcome to LoanFlow!';
   const html = renderWelcomeTemplate(fullName);
-  return emailProvider.sendEmail(email, subject, html);
+  return emailProvider.sendEmail(email, subject, html, email);
 }
 
 export async function sendLoginNotificationEmail(
@@ -105,7 +105,7 @@ export async function sendLoginNotificationEmail(
     userAgent || 'unknown',
     new Date().toISOString(),
   );
-  return emailProvider.sendEmail(email, subject, html);
+  return emailProvider.sendEmail(email, subject, html, email);
 }
 
 export async function sendPasswordChangedEmail(
@@ -114,5 +114,5 @@ export async function sendPasswordChangedEmail(
 ): Promise<OtpDeliveryResult> {
   const subject = 'Your LoanFlow Password Was Changed';
   const html = renderPasswordChangedTemplate(fullName);
-  return emailProvider.sendEmail(email, subject, html);
+  return emailProvider.sendEmail(email, subject, html, email);
 }

@@ -42,11 +42,11 @@ services:
       - key: SESSION_CLEANUP_INTERVAL_MS
         value: 3600000
       - key: BREVO_FROM_EMAIL
-        value: no-reply@loanflow.app
+        value: cursorai981@gmail.com
       - key: BREVO_FROM_NAME
         value: LoanFlow
       - key: BREVO_REPLY_TO
-        value: support@loanflow.app
+        value: cursorai981@gmail.com
 
   - type: web
     name: loanflow-frontend

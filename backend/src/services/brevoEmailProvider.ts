@@ -7,6 +7,7 @@ async function sendWithHttpApi(
   to: string,
   subject: string,
   html: string,
+  replyTo?: string,
 ): Promise<OtpDeliveryResult> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
@@ -22,7 +23,7 @@ async function sendWithHttpApi(
     subject,
     htmlContent: html,
     replyTo: {
-      email: process.env.BREVO_REPLY_TO || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
+      email: replyTo || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
     },
   };
 
@@ -62,8 +63,9 @@ export async function sendEmailViaBrevo(
   to: string,
   subject: string,
   html: string,
+  replyTo?: string,
 ): Promise<OtpDeliveryResult> {
-  return sendWithHttpApi(to, subject, html);
+  return sendWithHttpApi(to, subject, html, replyTo);
 }
 
 export function isBrevoConfigured(): boolean {
