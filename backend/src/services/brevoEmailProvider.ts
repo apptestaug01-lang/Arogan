@@ -2,10 +2,12 @@ import nodemailer from 'nodemailer';
 import logger from '../middleware/logger.js';
 import { OtpDeliveryResult } from './email.service.js';
 
+const smtpPort = Number(process.env.BREVO_SMTP_PORT) || 587;
+
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
+  port: smtpPort,
+  secure: smtpPort === 465,
   auth: {
     user: process.env.BREVO_SMTP_USER || '',
     pass: process.env.BREVO_SMTP_PASS || '',
