@@ -1,6 +1,19 @@
-import { defineConfig, test, expect, Page } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
-const FRONTEND_URL = 'https://loanflow-frontend-z67v.onrender.com';
+const env = process.env.E2E_ENV || 'local';
+
+const configs = {
+  local: {
+    frontendUrl: 'http://localhost:5173',
+    apiBase: 'http://localhost:4000/api',
+  },
+  render: {
+    frontendUrl: 'https://loanflow-frontend.onrender.com',
+    apiBase: 'https://loanflow-backend.onrender.com/api',
+  },
+};
+
+const config = configs[env] || configs.local;
 
 export default defineConfig({
   testDir: './tests-e2e',
@@ -9,7 +22,7 @@ export default defineConfig({
     headless: true,
     screenshot: 'on',
     video: 'retain-on-failure',
-    baseURL: FRONTEND_URL,
+    baseURL: config.frontendUrl,
     trace: 'on',
     viewport: { width: 1280, height: 720 },
   },

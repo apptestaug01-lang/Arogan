@@ -1,18 +1,37 @@
-const uniqueEmail = `test.e2e.${Date.now()}@example.com`;
+const env = process.env.E2E_ENV || 'local';
+
+const configs = {
+  local: {
+    apiBase: 'http://localhost:4000/api',
+    frontendUrl: 'http://localhost:5173',
+  },
+  render: {
+    apiBase: 'https://loanflow-backend.onrender.com/api',
+    frontendUrl: 'https://loanflow-frontend.onrender.com',
+  },
+};
+
+const config = configs[env] || configs.local;
+const uniqueEmail = 'apptestaug01@gmail.com';
+const uniqueMobile = `9${Math.floor(100000000 + Math.random() * 900000000)}`;
 
 const payload = {
-  fullName: 'E2E Test User',
+  fullName: 'Test User',
   email: uniqueEmail,
-  mobile: '9876543210',
+  mobile: uniqueMobile,
   countryCode: '+91',
-  password: 'Test@1234',
-  confirmPassword: 'Test@1234',
+  password: 'Cursorai!@2026',
+  confirmPassword: 'Cursorai!@2026',
   role: 'BORROWER',
 };
 
 (async () => {
+  console.log(`Running in ${env} mode`);
+  console.log(`API: ${config.apiBase}`);
+  console.log(`Frontend: ${config.frontendUrl}\n`);
+
   try {
-    const res = await fetch('https://loanflow-backend.onrender.com/api/auth/signup', {
+    const res = await fetch(`${config.apiBase}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -25,8 +44,8 @@ const payload = {
     if (res.ok) {
       console.log(`\nSignup succeeded for ${uniqueEmail}`);
       console.log('Now check:');
-      console.log('1. Brevo dashboard -> Transactional -> Email logs for welcome email');
-      console.log('2. Render backend logs for "Email sent via Brevo SMTP"');
+      console.log('1. Backend logs for "Email sent via Brevo SMTP"');
+      console.log('2. Gmail inbox for welcome email');
     } else {
       console.log('Signup failed');
     }
