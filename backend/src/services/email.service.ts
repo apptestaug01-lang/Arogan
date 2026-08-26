@@ -40,6 +40,12 @@ function createSmsSender(): (to: string, body: string) => Promise<OtpDeliveryRes
   }
 
   return (to: string, body: string) => {
+    const isEmail = to.includes('@');
+    if (!isEmail) {
+      logger.warn({ to }, 'SMS not configured and identifier is not an email, cannot fall back');
+      return Promise.resolve({ success: false, messageId: undefined });
+    }
+
     logger.info({ to }, 'SMS not configured, falling back to email delivery');
     return sendEmailViaBrevo(to, 'Your LoanFlow Verification Code', `<p>Your LoanFlow verification code is: ${body.match(/\d{6}/)?.[0] || body}</p><p>This code expires in 60 seconds.</p>`);
   };

@@ -38,7 +38,7 @@ describe('email service', () => {
   });
 
   describe('SMS provider', () => {
-    it('should fall back to email when BREVO_SMS_ENABLED is not set', async () => {
+    it('should fall back to email when BREVO_SMS_ENABLED is not set and identifier is email', async () => {
       process.env.BREVO_API_KEY = 'test-api-key';
       process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
       const mockFetch = jest.fn().mockResolvedValue({
@@ -49,7 +49,7 @@ describe('email service', () => {
 
       jest.resetModules();
       const { emailProvider } = require('../src/services/email.service.js');
-      const result = await emailProvider.sendSms('+919876543210', 'Your code is 123456');
+      const result = await emailProvider.sendSms('user@example.com', 'Your code is 123456');
       expect(result.success).toBe(true);
       expect(result.messageId).toBe('email-fallback-123');
       expect(mockFetch).toHaveBeenCalledWith(
@@ -60,6 +60,16 @@ describe('email service', () => {
         }),
       );
     }, 15000);
+
+    it('should return failure when BREVO_SMS_ENABLED is not set and identifier is mobile', async () => {
+      process.env.BREVO_API_KEY = 'test-api-key';
+      process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
+      jest.resetModules();
+      const { emailProvider } = require('../src/services/email.service.js');
+      const result = await emailProvider.sendSms('+919876543210', 'Your code is 123456');
+      expect(result.success).toBe(false);
+      expect(result.messageId).toBeUndefined();
+    });
 
     it('should use Brevo SMS when BREVO_SMS_ENABLED=true', async () => {
       process.env.BREVO_SMS_ENABLED = 'true';
