@@ -12,7 +12,8 @@ export default function OtpVerify() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const identifier = (location.state as { identifier?: string })?.identifier || '';
+  const identifier = (location.state as { identifier?: string; channel?: 'email' | 'sms' })?.identifier || '';
+  const channel = (location.state as { identifier?: string; channel?: 'email' | 'sms' })?.channel || 'email';
 
   const [otpValue, setOtpValue] = React.useState<string[]>(Array(6).fill(''));
   const [error, setError] = React.useState('');
@@ -25,7 +26,7 @@ export default function OtpVerify() {
     if (!identifier) {
       navigate('/login');
     }
-  }, [identifier, navigate]);
+  }, [identifier, channel, navigate]);
 
   React.useEffect(() => {
     if (resendCooldown > 0) {
@@ -67,7 +68,7 @@ export default function OtpVerify() {
     try {
       const otpData: OtpRequestData = {
         identifier,
-        channel: 'email',
+        channel,
       };
       await requestOtp(otpData);
     } catch (err: unknown) {

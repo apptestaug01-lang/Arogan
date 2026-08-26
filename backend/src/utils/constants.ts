@@ -31,6 +31,9 @@ export const OTP_MAX_REQUESTS =
 export const OTP_WINDOW_MINUTES =
   Number(process.env.OTP_WINDOW_MINUTES) || 10;
 
+export const OTP_RESEND_COOLDOWN_SECONDS =
+  Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) || 60;
+
 export const MAX_FAILED_ATTEMPTS = Number(process.env.MAX_FAILED_ATTEMPTS) || 5;
 
 export const LOCKOUT_MINUTES = Number(process.env.LOCKOUT_MINUTES) || 15;

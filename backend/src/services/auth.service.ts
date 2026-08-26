@@ -67,11 +67,18 @@ function toUserResponse(user: {
 }
 
 async function findUserByIdentifier(identifier: string) {
-  const user = await prisma.user.findUnique({ where: { email: identifier } });
+  const normalized = identifier.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalized } });
   if (user) return user;
 
+  const trimmed = identifier.trim();
+  const userByMobile = await prisma.user.findFirst({
+    where: { mobile: trimmed },
+  });
+  if (userByMobile) return userByMobile;
+
   return prisma.user.findFirst({
-    where: { mobile: identifier, countryCode: '+91' },
+    where: { mobile: trimmed, countryCode: '+91' },
   });
 }
 
@@ -227,9 +234,10 @@ export async function loginWithPassword(
 export async function requestOtp(
   data: LoginOtpRequestData,
 ): Promise<{ success: boolean; message: string; code?: string }> {
-  const user = await findUserByIdentifier(data.identifier);
+  const normalizedIdentifier = data.identifier.trim();
+  const user = await findUserByIdentifier(normalizedIdentifier);
 
-  if (!user) {
+  if (!user || !user.isActive) {
     return {
       success: true,
       message: 'If the identifier exists, an OTP has been sent.',
@@ -237,19 +245,20 @@ export async function requestOtp(
   }
 
   const channel = data.channel === 'email' ? OtpChannel.EMAIL : OtpChannel.SMS;
-  return storeOtp(data.identifier, channel, { fullName: user?.fullName, user });
+  return storeOtp(normalizedIdentifier, channel, { fullName: user?.fullName, user });
 }
 
 export async function verifyOtpAndLogin(
   data: LoginOtpVerifyData,
 ): Promise<LoginResponse> {
-  const otpResult = await verifyOtp(data.identifier, data.code);
+  const normalizedIdentifier = data.identifier.trim();
+  const otpResult = await verifyOtp(normalizedIdentifier, data.code);
 
   if (!otpResult.success) {
     throw { statusCode: 401, message: otpResult.message, isOperational: true };
   }
 
-  const user = await findUserByIdentifier(data.identifier);
+  const user = await findUserByIdentifier(normalizedIdentifier);
 
   if (!user || !user.isActive) {
     throw { statusCode: 401, message: 'Invalid OTP or user not found', isOperational: true };

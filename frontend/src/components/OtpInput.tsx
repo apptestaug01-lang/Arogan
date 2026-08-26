@@ -57,7 +57,7 @@ export const OtpInput = React.forwardRef<(HTMLInputElement | null)[], OtpInputPr
     const handlePaste = (e: React.ClipboardEvent) => {
       if (disabled) return;
       e.preventDefault();
-      const pasted = e.clipboardData.getData('text').slice(0, length);
+      const pasted = e.clipboardData.getData('text').slice(0, length).replace(/\D/g, '');
       const newValue = [...value];
       pasted.split('').forEach((char, i) => {
         newValue[i] = char;

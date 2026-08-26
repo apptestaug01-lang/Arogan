@@ -54,7 +54,7 @@ export default function Login() {
     try {
       const response = await requestOtp(otpForm);
       if (response.success) {
-        navigate('/otp', { state: { identifier: otpForm.identifier } });
+        navigate('/otp', { state: { identifier: otpForm.identifier, channel: otpForm.channel } });
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -115,7 +115,7 @@ export default function Login() {
                   type="text"
                   placeholder="you@example.com or 9876543210"
                   value={passwordForm.identifier}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, identifier: e.target.value })}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, identifier: e.target.value.trim() })}
                   className="pl-10"
                   required
                 />
@@ -167,7 +167,7 @@ export default function Login() {
                   type="text"
                   placeholder="you@example.com or 9876543210"
                   value={otpForm.identifier}
-                  onChange={(e) => setOtpForm({ ...otpForm, identifier: e.target.value })}
+                  onChange={(e) => setOtpForm({ ...otpForm, identifier: e.target.value.trim() })}
                   className="pl-10"
                   required
                 />

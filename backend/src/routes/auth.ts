@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { validate } from '../middleware/validateRequest.js';
-import { authRateLimiter } from '../middleware/rateLimit.js';
+import {
+  authRateLimiter,
+  otpVerifyRateLimiter,
+} from '../middleware/rateLimit.js';
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { sendSuccess } from '../utils/response.js';
 import { logAuditEvent } from '../services/audit.service.js';
@@ -109,7 +112,7 @@ router.post(
 
 router.post(
   '/login/otp/verify',
-  authRateLimiter,
+  otpVerifyRateLimiter,
   validate(otpVerifySchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

@@ -9,6 +9,7 @@ import {
   OTP_EXPIRY_SECONDS,
   OTP_MAX_REQUESTS,
   OTP_WINDOW_MINUTES,
+  OTP_RESEND_COOLDOWN_SECONDS,
 } from '../utils/constants.js';
 import { sendOtpEmail, sendOtpSms } from './email.service.js';
 import logger from '../middleware/logger.js';
@@ -42,6 +43,18 @@ export async function storeOtp(
     return {
       success: false,
       message: 'Too many OTP requests. Please try again later.',
+    };
+  }
+
+  const lastOtp = await prisma.oTPRequest.findFirst({
+    where: { identifier },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (lastOtp && (Date.now() - lastOtp.createdAt.getTime()) < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+    return {
+      success: false,
+      message: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting a new OTP.`,
     };
   }
 
