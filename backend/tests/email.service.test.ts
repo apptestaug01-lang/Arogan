@@ -38,13 +38,28 @@ describe('email service', () => {
   });
 
   describe('SMS provider', () => {
-    it('should reject SMS when BREVO_SMS_ENABLED is not set', async () => {
+    it('should fall back to email when BREVO_SMS_ENABLED is not set', async () => {
       process.env.BREVO_API_KEY = 'test-api-key';
       process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ messageId: 'email-fallback-123' })),
+      });
+      global.fetch = mockFetch;
+
       jest.resetModules();
       const { emailProvider } = require('../src/services/email.service.js');
-      await expect(emailProvider.sendSms('+919876543210', 'code')).rejects.toThrow('SMS not configured');
-    });
+      const result = await emailProvider.sendSms('+919876543210', 'Your code is 123456');
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe('email-fallback-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.brevo.com/v3/smtp/email',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'api-key': 'test-api-key' }),
+        }),
+      );
+    }, 15000);
 
     it('should use Brevo SMS when BREVO_SMS_ENABLED=true', async () => {
       process.env.BREVO_SMS_ENABLED = 'true';

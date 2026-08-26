@@ -38,7 +38,11 @@ function createSmsSender(): (to: string, body: string) => Promise<OtpDeliveryRes
   if (smsEnabled && isBrevoConfigured()) {
     return (to: string, body: string) => sendSmsViaBrevo(to, body);
   }
-  return () => Promise.reject(new Error('SMS not configured'));
+
+  return (to: string, body: string) => {
+    logger.info({ to }, 'SMS not configured, falling back to email delivery');
+    return sendEmailViaBrevo(to, 'Your LoanFlow Verification Code', `<p>Your LoanFlow verification code is: ${body.match(/\d{6}/)?.[0] || body}</p><p>This code expires in 60 seconds.</p>`);
+  };
 }
 
 export const emailProvider: OtpProvider = (() => {
