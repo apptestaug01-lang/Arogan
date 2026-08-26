@@ -1,12 +1,13 @@
 import * as React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, UploadCloud, FolderOpen, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, UploadCloud, FolderOpen, LogOut, Home } from 'lucide-react';
 import { useAuth } from '@/services/authContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Overview', icon: Home },
+  { to: '/dashboard/overview', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dashboard/applications', label: 'Applications', icon: FileText },
   { to: '/dashboard/documents', label: 'Document upload', icon: UploadCloud },
   { to: '/dashboard/vault', label: 'S3 document vault', icon: FolderOpen },
