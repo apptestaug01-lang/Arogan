@@ -63,6 +63,59 @@ async function sendWithHttpApi(
   throw new Error('Unreachable');
 }
 
+async function sendSmsViaBrevo(
+  recipient: string,
+  content: string,
+): Promise<OtpDeliveryResult> {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not configured');
+  }
+
+  const sender = process.env.BREVO_SMS_SENDER || 'LoanFlow';
+  const payload = {
+    sender,
+    recipient,
+    content,
+    type: 'transactional',
+  };
+
+  logger.debug({ payload, recipient }, 'Brevo SMS payload');
+
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/transactionalSMS/sms', {
+        method: 'POST',
+        headers: {
+          'api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await res.text();
+      logger.debug({ status: res.status, response: responseText.slice(0, 500) }, 'Brevo SMS response');
+
+      if (!res.ok) {
+        throw new Error(`Brevo SMS API error ${res.status}: ${responseText}`);
+      }
+
+      const data = JSON.parse(responseText) as { messageId?: string };
+      logger.info({ recipient, messageId: data.messageId }, 'SMS sent via Brevo');
+      return { success: true, messageId: data.messageId };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn({ attempt, recipient, err: errorMessage }, 'SMS send attempt failed');
+      if (attempt === 3) {
+        logger.error({ recipient, attempt, err: errorMessage, payload }, 'All SMS retry attempts exhausted');
+        throw new Error(errorMessage);
+      }
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 export async function sendEmailViaBrevo(
   to: string,
   subject: string,
@@ -72,9 +125,11 @@ export async function sendEmailViaBrevo(
   return sendWithHttpApi(to, subject, html, replyTo);
 }
 
+export { sendSmsViaBrevo };
+
 export function isBrevoConfigured(): boolean {
   return Boolean(
     process.env.BREVO_API_KEY &&
-    process.env.BREVO_FROM_EMAIL,
+      process.env.BREVO_FROM_EMAIL,
   );
 }

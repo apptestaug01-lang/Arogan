@@ -1,5 +1,5 @@
 import logger from '../middleware/logger.js';
-import { sendEmailViaBrevo, isBrevoConfigured } from './brevoEmailProvider.js';
+import { sendEmailViaBrevo, sendSmsViaBrevo, isBrevoConfigured } from './brevoEmailProvider.js';
 import {
   renderOtpTemplate,
   renderPasswordResetTemplate,
@@ -33,21 +33,31 @@ class NoopOtpProvider implements OtpProvider {
   }
 }
 
+function createSmsSender(): (to: string, body: string) => Promise<OtpDeliveryResult> {
+  const smsEnabled = process.env.BREVO_SMS_ENABLED === 'true';
+  if (smsEnabled && isBrevoConfigured()) {
+    return (to: string, body: string) => sendSmsViaBrevo(to, body);
+  }
+  return () => Promise.reject(new Error('SMS not configured'));
+}
+
 export const emailProvider: OtpProvider = (() => {
+  const smsSender = createSmsSender();
+
   if (process.env.NODE_ENV === 'production') {
     if (!isBrevoConfigured()) {
       throw new Error('Brevo SMTP must be configured in production');
     }
     return {
       sendEmail: (to, subject, html, replyTo) => sendEmailViaBrevo(to, subject, html, replyTo),
-      sendSms: () => Promise.reject(new Error('SMS not configured')),
+      sendSms: smsSender,
     };
   }
 
   if (isBrevoConfigured()) {
     return {
       sendEmail: (to, subject, html, replyTo) => sendEmailViaBrevo(to, subject, html, replyTo),
-      sendSms: () => Promise.reject(new Error('SMS not configured')),
+      sendSms: smsSender,
     };
   }
 

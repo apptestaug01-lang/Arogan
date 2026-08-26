@@ -5,10 +5,12 @@ describe('email service', () => {
     process.env.BREVO_API_KEY = 'test-api-key';
     process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
     process.env.BREVO_FROM_NAME = 'LoanFlow';
+    delete process.env.BREVO_SMS_ENABLED;
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   describe('isBrevoConfigured', () => {
@@ -33,6 +35,52 @@ describe('email service', () => {
       const { emailProvider } = require('../src/services/email.service.js');
       expect(emailProvider).toBeDefined();
     });
+  });
+
+  describe('SMS provider', () => {
+    it('should reject SMS when BREVO_SMS_ENABLED is not set', async () => {
+      process.env.BREVO_API_KEY = 'test-api-key';
+      process.env.BREVO_FROM_EMAIL = 'no-reply@loanflow.app';
+      jest.resetModules();
+      const { emailProvider } = require('../src/services/email.service.js');
+      await expect(emailProvider.sendSms('+919876543210', 'code')).rejects.toThrow('SMS not configured');
+    });
+
+    it('should use Brevo SMS when BREVO_SMS_ENABLED=true', async () => {
+      process.env.BREVO_SMS_ENABLED = 'true';
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ messageId: 'sms-123' })),
+      });
+      global.fetch = mockFetch;
+
+      jest.resetModules();
+      const { emailProvider } = require('../src/services/email.service.js');
+      const result = await emailProvider.sendSms('+919876543210', 'Your code is 123456');
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe('sms-123');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.brevo.com/v3/transactionalSMS/sms',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'api-key': 'test-api-key' }),
+        }),
+      );
+    });
+
+    it('should return failure when Brevo SMS API returns error', async () => {
+      process.env.BREVO_SMS_ENABLED = 'true';
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('Bad request'),
+      });
+      global.fetch = mockFetch;
+
+      jest.resetModules();
+      const { emailProvider } = require('../src/services/email.service.js');
+      await expect(emailProvider.sendSms('+919876543210', 'code')).rejects.toThrow('Brevo SMS API error 400');
+    }, 15000);
   });
 
   describe('template rendering', () => {
