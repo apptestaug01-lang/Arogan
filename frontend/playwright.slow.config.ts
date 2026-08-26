@@ -5,11 +5,9 @@ const env = process.env.E2E_ENV || 'local';
 const configs = {
   local: {
     frontendUrl: 'http://localhost:5173',
-    apiBase: 'http://localhost:4000/api',
   },
   render: {
     frontendUrl: 'https://loanflow-frontend-z67v.onrender.com',
-    apiBase: 'https://arogan-mx0n.onrender.com/api',
   },
 };
 
@@ -17,7 +15,7 @@ const config = configs[env] || configs.local;
 
 export default defineConfig({
   testDir: './tests-e2e',
-  timeout: 60000,
+  timeout: 120000,
   use: {
     headless: true,
     screenshot: 'on',
@@ -26,8 +24,12 @@ export default defineConfig({
     trace: 'on',
     viewport: { width: 1280, height: 720 },
   },
+  // Slow everything down so each UI validation is clearly visible in the recording.
+  launchOptions: {
+    slowMo: 700,
+  },
   reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['html', { outputFolder: 'playwright-report-slow', open: 'never' }],
     ['list'],
   ],
 });
