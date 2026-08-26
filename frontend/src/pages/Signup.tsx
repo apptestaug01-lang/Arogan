@@ -27,6 +27,7 @@ export default function Signup() {
   const validate = (): Record<string, string> => {
     const e: Record<string, string> = {};
     if (signupForm.fullName.length < 2) e.fullName = 'Full name must be at least 2 characters';
+    if (signupForm.fullName.length > 50) e.fullName = 'Full name must be at most 50 characters';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupForm.email)) e.email = 'Invalid email address';
     if (signupForm.mobile && !/^[6-9]\d{9}$/.test(signupForm.mobile)) {
       e.mobile = 'Must be a valid 10-digit Indian mobile number starting with 6-9';
@@ -55,9 +56,29 @@ export default function Signup() {
       await signup(signupForm);
       navigate('/login');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      const message = error.response?.data?.message || 'Signup failed';
-      setErrors({ submit: message });
+      const error = err as {
+        response?: {
+          data?: {
+            message?: string;
+            errors?: Array<{ field?: string; message: string }>;
+          };
+          status?: number;
+        };
+      };
+      if (error.response?.status === 429) {
+        setErrors({ submit: 'Too many attempts. Please try again later.' });
+      } else if (error.response?.data?.errors) {
+        const fieldErrors: Record<string, string> = {};
+        for (const e of error.response.data.errors) {
+          if (e.field) {
+            fieldErrors[e.field] = e.message;
+          }
+        }
+        setErrors({ ...fieldErrors, submit: error.response.data.message || 'Signup failed' });
+      } else {
+        const message = error.response?.data?.message || 'Signup failed';
+        setErrors({ submit: message });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -151,7 +172,7 @@ export default function Signup() {
               placeholder="Min 8 chars with upper, lower, number, special"
               value={signupForm.password}
               onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-              error={errors.password || errors.submit}
+              error={errors.password}
               required
             />
             <PasswordStrength password={signupForm.password} />

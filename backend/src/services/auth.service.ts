@@ -102,8 +102,9 @@ export async function signup(data: SignupData): Promise<{
       isOperational: true,
     };
   }
+  const normalizedEmail = data.email.trim().toLowerCase();
   const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email: normalizedEmail },
   });
   if (existingUser) {
     throw { statusCode: 409, message: 'Email already registered', isOperational: true };
@@ -122,8 +123,8 @@ export async function signup(data: SignupData): Promise<{
 
   const user = await prisma.user.create({
     data: {
-      fullName: data.fullName,
-      email: data.email,
+      fullName: data.fullName.trim(),
+      email: normalizedEmail,
       mobile: data.mobile || null,
       countryCode: data.countryCode,
       passwordHash,

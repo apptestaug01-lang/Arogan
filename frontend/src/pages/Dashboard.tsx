@@ -1,103 +1,29 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Bell, CheckCircle2, Cloud, FileText, FolderOpen, LayoutDashboard, LogOut, MoreHorizontal, Plus, Search, ShieldCheck, UploadCloud, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '../services/authContext';
-import { LogOut, User, Shield, BarChart3 } from 'lucide-react';
 
-const roleConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  BORROWER: { label: 'Borrower', icon: User, color: 'bg-blue-500' },
-  ADMIN: { label: 'Admin', icon: Shield, color: 'bg-purple-500' },
-  ANALYST: { label: 'Credit Analyst', icon: BarChart3, color: 'bg-orange-500' },
-  APPROVER: { label: 'Credit Approver', icon: BarChart3, color: 'bg-green-500' },
-};
+type View = 'dashboard' | 'applications' | 'documents' | 'storage';
+const items: { view: View; label: string; icon: React.ElementType }[] = [
+  { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { view: 'applications', label: 'Applications', icon: FileText },
+  { view: 'documents', label: 'Document upload', icon: UploadCloud }, { view: 'storage', label: 'S3 document vault', icon: FolderOpen },
+];
+const docs = [['Audited financials FY 2025–26.pdf', 'Financial statement · 3.4 MB', 'Verified'], ['Board resolution.pdf', 'Corporate document · 840 KB', 'Reviewing'], ['GST returns Q1.xlsx', 'Tax document · 1.2 MB', 'Uploaded']];
+const pill = (status: string) => <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${status === 'Verified' ? 'bg-emerald-50 text-emerald-700' : status === 'Reviewing' ? 'bg-amber-50 text-amber-700' : status === 'Uploaded' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>{status}</span>;
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  React.useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
-  }, [user, navigate]);
-
-  if (!user) {
-    return null;
-  }
-
-  const roleInfo = roleConfig[user.role] || roleConfig.BORROWER;
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const getRoleDashboard = (role: string) => {
-    switch (role) {
-      case 'BORROWER':
-        return {
-          title: 'My Applications',
-          description: 'View and track your loan applications.',
-        };
-      case 'ANALYST':
-        return {
-          title: 'Review Queue',
-          description: 'Review and assess incoming loan applications.',
-        };
-      case 'APPROVER':
-        return {
-          title: 'Approval Queue',
-          description: 'Make final decisions on loan applications.',
-        };
-      case 'ADMIN':
-        return {
-          title: 'Admin Dashboard',
-          description: 'Manage users, roles, and system settings.',
-        };
-      default:
-        return {
-          title: 'Dashboard',
-          description: 'Your dashboard.',
-        };
-    }
-  };
-
-  const dashboardContent = getRoleDashboard(user.role);
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${roleInfo.color} text-white`}>
-              <roleInfo.icon className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">LoanFlow</h1>
-              <p className="text-sm text-gray-600">
-                {user.email} · {roleInfo.label}
-              </p>
-            </div>
-          </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{dashboardContent.title}</CardTitle>
-            <CardDescription>{dashboardContent.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">
-              Role-specific features will be implemented in subsequent phases.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+  const { user, logout } = useAuth(); const navigate = useNavigate(); const [view, setView] = React.useState<View>('dashboard'); const [dragging, setDragging] = React.useState(false);
+  React.useEffect(() => { if (!user) navigate('/login'); }, [user, navigate]);
+  if (!user) return null;
+  const logoutNow = async () => { await logout(); navigate('/login'); };
+  const config: Record<View, [string, string]> = { dashboard: ['Good morning', 'Here is a clear view of your loan application activity.'], applications: ['Applications', 'Create, continue, and follow each financing request.'], documents: ['Document upload', 'Add files securely to the selected application.'], storage: ['S3 document vault', 'Track every document stored for this application.'] };
+  return <div className="min-h-screen bg-slate-50 text-slate-900"><div className="flex min-h-screen">
+    <aside className="hidden w-72 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex"><div className="flex h-20 items-center gap-3 border-b border-slate-100 px-7"><b className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 text-lg text-white">L</b><div><p className="font-bold">LoanFlow</p><p className="text-xs text-slate-500">Corporate lending</p></div></div><nav className="flex-1 px-4 py-6"><p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Workspace</p>{items.map(({ view: target, label, icon: Icon }) => <button key={target} onClick={() => setView(target)} className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium ${view === target ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}><Icon className="h-5 w-5" />{label}</button>)}</nav><div className="m-4 rounded-xl bg-slate-900 p-4 text-white"><p className="text-sm font-semibold">Need help?</p><p className="mt-1 text-xs leading-5 text-slate-300">Your relationship manager can help with application requirements.</p></div><div className="flex items-center gap-3 border-t border-slate-100 p-5"><div className="rounded-full bg-blue-500 p-2 text-white"><User className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{user.email}</p><p className="text-xs text-slate-500">Borrower</p></div><button onClick={logoutNow}><LogOut className="h-4 w-4 text-slate-400" /></button></div></aside>
+    <main className="min-w-0 flex-1"><header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8"><div className="flex w-full max-w-md items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-500"><Search className="h-4 w-4" />Search applications or documents</div><div className="ml-4 flex items-center gap-3"><Bell className="h-5 w-5 text-slate-500" /><Button className="hidden bg-blue-700 hover:bg-blue-800 sm:flex" onClick={() => setView('applications')}><Plus className="mr-1 h-4 w-4" />New application</Button></div></header><div className="mx-auto max-w-7xl px-5 py-8 sm:px-8"><p className="text-sm font-medium text-blue-700">Loan workspace</p><h1 className="mt-1 text-2xl font-bold sm:text-3xl">{config[view][0]}</h1><p className="mt-2 text-sm text-slate-500">{config[view][1]}</p><div className="mt-8">{view === 'dashboard' ? <Overview go={setView} /> : view === 'applications' ? <Applications /> : view === 'documents' ? <Uploader dragging={dragging} setDragging={setDragging} /> : <Vault />}</div></div></main>
+  </div></div>;
 }
+function Overview({ go }: { go: (v: View) => void }) { return <div className="space-y-6"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[['Active applications', '02', 'One needs your attention'], ['Documents uploaded', '18', '3 awaiting review'], ['Application completion', '72%', 'LAP-2026-0184'], ['Next action', '2 days', 'Upload FY returns']].map(([a,b,c]) => <div key={a} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm text-slate-500">{a}</p><p className="mt-2 text-2xl font-bold">{b}</p><p className="mt-2 text-xs text-slate-500">{c}</p></div>)}</div><div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-semibold">LAP-2026-0184 · ABC Infra Ltd.</h2><p className="mt-1 text-sm text-slate-500">Upload the remaining tax return to send this application for review.</p></div>{pill('Reviewing')}</div><div className="mt-5 h-2 rounded-full bg-slate-100"><div className="h-full w-[72%] rounded-full bg-blue-700" /></div><Button className="mt-5 bg-blue-700 hover:bg-blue-800" onClick={() => go('documents')}>Upload documents</Button></div></div>; }
+function Applications() { return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between p-5"><div><h2 className="font-semibold">Your applications</h2><p className="mt-1 text-sm text-slate-500">Track status and outstanding actions in one place.</p></div><Button className="bg-blue-700 hover:bg-blue-800"><Plus className="mr-1 h-4 w-4" />New application</Button></div>{[['LAP-2026-0184','Term loan','₹150 Cr','Reviewing'],['LAP-2026-0162','Working capital','₹75 Cr','Draft']].map(x => <div className="flex items-center gap-4 border-t border-slate-100 p-5" key={x[0]}><FileText className="h-5 w-5 text-blue-700" /><div className="flex-1"><b className="text-sm">{x[0]}</b><p className="text-xs text-slate-500">ABC Infra Ltd. · {x[1]} · {x[2]}</p></div>{pill(x[3])}<MoreHorizontal className="h-5 w-5 text-slate-400" /></div>)}</section>; }
+function Uploader({ dragging, setDragging }: { dragging: boolean; setDragging: (v: boolean) => void }) { return <div className="grid gap-6 xl:grid-cols-[1fr_300px]"><section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex justify-between"><div><h2 className="font-semibold">Upload to LAP-2026-0184</h2><p className="mt-1 text-sm text-slate-500">Files are encrypted and linked only to this application.</p></div><ShieldCheck className="h-6 w-6 text-emerald-600" /></div><div onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); }} className={`mt-6 flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed text-center ${dragging ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-slate-50'}`}><UploadCloud className="h-8 w-8 text-blue-700" /><p className="mt-3 font-semibold">Drop files here, or browse</p><p className="mt-2 text-sm text-slate-500">PDF, XLSX, JPG, PNG · Max 25 MB per file</p><Button variant="outline" className="mt-5 text-blue-700">Choose files</Button></div><h3 className="mt-6 text-sm font-semibold">Required documents</h3>{['Audited financials','Board resolution','GST returns','Bank statements'].map((d,i) => <div className="flex justify-between border-t border-slate-100 py-3" key={d}><span className="flex gap-3 text-sm"><CheckCircle2 className={`h-5 w-5 ${i<2?'text-emerald-500':'text-slate-300'}`} />{d}</span><span className="text-xs text-slate-500">{i<2?'Complete':'Required'}</span></div>)}</section><aside className="h-fit rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><Cloud className="h-5 w-5 text-blue-700" /><h2 className="mt-2 font-semibold">Storage safeguards</h2><p className="mt-3 text-sm leading-6 text-slate-600">Use short-lived pre-signed upload URLs. Show upload, malware scan, and document verification as separate states. Keep version, uploader, time, and application ID in the audit trail.</p></aside></div>; }
+function Vault() { return <div className="grid gap-6 xl:grid-cols-[1fr_300px]"><section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 p-5"><h2 className="font-semibold">LAP-2026-0184 documents</h2><p className="mt-1 text-sm text-slate-500">Last synced Aug 24, 2026 at 14:32 IST</p></div>{docs.map(([name,meta,status]) => <div key={name} className="flex items-center gap-4 border-b border-slate-100 p-5"><FileText className="h-5 w-5 text-blue-700" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{name}</p><p className="text-xs text-slate-500">{meta}</p></div>{pill(status)}</div>)}</section><aside className="h-fit rounded-xl border border-emerald-100 bg-emerald-50 p-5"><ShieldCheck className="h-5 w-5 text-emerald-700" /><h2 className="mt-2 font-semibold text-emerald-900">Protected storage</h2><p className="mt-3 text-sm leading-6 text-emerald-900/80">Only show files after backend confirmation. Do not expose S3 bucket names, object keys, or AWS credentials to users.</p></aside></div>; }
