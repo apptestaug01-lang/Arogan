@@ -6,6 +6,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import OtpVerify from './pages/OtpVerify';
 import Workspace from './pages/Workspace';
+import WelcomeView from './pages/workspace/WelcomeView';
 import DashboardView from './pages/workspace/DashboardView';
 import ApplicationsView from './pages/workspace/ApplicationsView';
 import NewApplicationView from './pages/workspace/NewApplicationView';
@@ -37,7 +38,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Workspace />}>
-            <Route index element={<DashboardView />} />
+            <Route index element={<WelcomeView />} />
+            <Route path="overview" element={<DashboardView />} />
             <Route path="applications" element={<ApplicationsView />} />
             <Route path="applications/new" element={<NewApplicationView />} />
             <Route path="documents" element={<DocumentUploadView />} />
