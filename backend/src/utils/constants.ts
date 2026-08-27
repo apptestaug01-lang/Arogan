@@ -37,3 +37,18 @@ export const OTP_RESEND_COOLDOWN_SECONDS =
 export const MAX_FAILED_ATTEMPTS = Number(process.env.MAX_FAILED_ATTEMPTS) || 5;
 
 export const LOCKOUT_MINUTES = Number(process.env.LOCKOUT_MINUTES) || 15;
+
+// Document upload (Chunk B)
+export const ALLOWED_DOCUMENT_CONTENT_TYPES: string[] = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
+export const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB (S3 single-PUT ceiling)
+export const PRESIGNED_UPLOAD_TTL_SECONDS = 15 * 60; // 15 minutes
