@@ -16,7 +16,7 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
           <span className="text-2xl font-bold text-gray-900">LoanFlow</span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 shadow-2xl rounded-2xl overflow-hidden bg-white">
+        <div className="grid md:grid-cols-2 gap-8 shadow-2xl rounded-2xl overflow-hidden bg-card">
           <div className="hidden md:flex flex-col justify-center bg-gradient-to-br from-primary-600 to-primary-800 p-10 text-white">
             <h1 className="text-4xl font-extrabold mb-4">{title}</h1>
             {description && (

@@ -197,7 +197,7 @@ export default function NewApplicationView() {
           <Input required placeholder="e.g., Plant expansion" value={form.purpose} onChange={set('purpose')} />
         </Field>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-sm font-medium text-gray-700">Collateral / security offered *</Label>
+          <Label className="text-sm font-medium text-foreground">Collateral / security offered *</Label>
           <textarea
             required
             className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

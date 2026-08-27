@@ -12,7 +12,7 @@ interface ToastItem {
 }
 
 const toastVariants = cva(
-  'pointer-events-auto flex w-80 items-start gap-3 rounded-xl border bg-white p-4 shadow-lg animate-fade-in',
+  'pointer-events-auto flex w-80 items-start gap-3 rounded-xl border bg-card p-4 shadow-lg animate-fade-in',
   {
     variants: {
       variant: {

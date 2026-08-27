@@ -112,7 +112,7 @@ export default function WelcomeView() {
           </TabsList>
           {requiredDocumentsMaster.map((section) => (
             <TabsContent key={section.id} value={section.id}>
-              <div className="rounded-xl border border-border bg-white p-5">
+              <div className="rounded-xl border border-border bg-card p-5">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {section.title}
                 </h3>
