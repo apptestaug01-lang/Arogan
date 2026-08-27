@@ -65,6 +65,11 @@ export const abortMultipartSchema = z.object({
   uploadId: z.string().min(1),
 });
 
+export const linkDocumentSchema = z.object({
+  applicationId: z.string().min(1, 'Application id is required'),
+  field: z.string().max(80).optional(),
+});
+
 export const loginPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or mobile number is required'),
   password: z.string().min(1, 'Password is required'),

@@ -7,6 +7,7 @@ import { getExplorer, ExplorerEntry } from '@/services/documents';
 
 interface DocumentExplorerProps {
   className?: string;
+  onFileOpen?: (documentId: string) => void;
 }
 
 type SortKey = 'name' | 'size' | 'modified';
@@ -29,7 +30,7 @@ function formatModified(value?: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 }
 
-export function DocumentExplorer({ className }: DocumentExplorerProps) {
+export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProps) {
   const [prefix, setPrefix] = React.useState('');
   const [folders, setFolders] = React.useState<ExplorerEntry[]>([]);
   const [files, setFiles] = React.useState<ExplorerEntry[]>([]);
@@ -166,16 +167,36 @@ export function DocumentExplorer({ className }: DocumentExplorerProps) {
               <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
             </button>
           ))}
-          {visibleFiles.map((f) => (
-            <div key={f.key} className="flex w-full items-center gap-3 px-6 py-3">
-              <FileIcon className="h-5 w-5 text-muted-foreground" />
-              <span className="truncate text-foreground">{f.name}</span>
-              <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
-                {f.size != null ? formatBytes(f.size) : '—'}
-                {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
-              </span>
-            </div>
-          ))}
+          {visibleFiles.map((f) =>
+            f.documentId ? (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => onFileOpen?.(f.documentId!)}
+                className="flex w-full items-center gap-3 px-6 py-3 text-left hover:bg-muted"
+              >
+                <FileIcon className="h-5 w-5 text-primary-600" />
+                <span className="truncate text-foreground">{f.name}</span>
+                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
+                  {f.size != null ? formatBytes(f.size) : '—'}
+                  {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
+                </span>
+              </button>
+            ) : (
+              <div
+                key={f.key}
+                className="flex w-full items-center gap-3 px-6 py-3 opacity-60"
+                title="This upload has not finished processing yet"
+              >
+                <FileIcon className="h-5 w-5 text-muted-foreground" />
+                <span className="truncate text-foreground">{f.name}</span>
+                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
+                  {f.size != null ? formatBytes(f.size) : '—'}
+                  {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
+                </span>
+              </div>
+            ),
+          )}
         </div>
         {nextToken && (
           <div className="flex justify-center p-4">

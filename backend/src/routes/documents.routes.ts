@@ -10,11 +10,14 @@ import {
   listUploadedParts,
 } from '../services/multipart.service.js'
 import { listExplorer } from '../services/explorer.service.js'
+import { getDocumentView } from '../services/viewer.service.js'
+import { linkDocument } from '../services/link.service.js'
 import {
   documentPresignSchema,
   documentCompleteSchema,
   completeMultipartSchema,
   abortMultipartSchema,
+  linkDocumentSchema,
 } from '../utils/validation.js'
 
 const router = Router()
@@ -129,6 +132,44 @@ router.post(
         parts: body.parts,
       })
       sendSuccess(res, 'Document recorded', { document }, 201)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/:documentId/view',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await getDocumentView({
+        userId: req.user!.id,
+        documentId: req.params.documentId,
+      })
+      sendSuccess(res, 'View URL issued', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.post(
+  '/:documentId/link',
+  authMiddleware,
+  requireAuth,
+  validate(linkDocumentSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { applicationId, field } = req.body
+      const document = await linkDocument({
+        userId: req.user!.id,
+        documentId: req.params.documentId,
+        applicationId,
+        field,
+      })
+      sendSuccess(res, 'Document linked to form', { document })
     } catch (err) {
       next(err)
     }
