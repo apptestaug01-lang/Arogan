@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   UploadPartCommand,
+  DeleteObjectCommand,
   PutPublicAccessBlockCommand,
   PutBucketCorsCommand,
   PutBucketLifecycleConfigurationCommand,
@@ -189,4 +190,14 @@ export async function checkStorageHealth(
     )
     return false
   }
+}
+
+export async function deleteObject(
+  key: string,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<void> {
+  await s3.send(
+    new DeleteObjectCommand({ Bucket: config.bucket, Key: key }),
+  )
 }

@@ -5,9 +5,15 @@ import * as documents from '@/services/documents';
 
 jest.mock('@/services/documents', () => ({
   getExplorer: jest.fn(),
+  deleteDocument: jest.fn(),
 }));
 
 const mockedGetExplorer = documents.getExplorer as jest.Mock;
+const mockedDelete = documents.deleteDocument as jest.Mock;
+
+jest.mock('@/components/workspace/ToastProvider', () => ({
+  useToast: () => jest.fn(),
+}));
 
 const ROOT_LISTING = {
   prefix: 'borrowers/user-1/',
@@ -27,6 +33,7 @@ const ROOT_LISTING = {
 describe('DocumentExplorer', () => {
   beforeEach(() => {
     mockedGetExplorer.mockReset();
+    mockedDelete.mockReset();
   });
 
   it('renders folders and files returned by the API', async () => {
@@ -102,5 +109,100 @@ describe('DocumentExplorer', () => {
 
     fireEvent.click(await screen.findByText('partial.bin'));
     expect(onFileOpen).not.toHaveBeenCalled();
+  });
+
+  it('renders a VERIFIED status badge for processed files', async () => {
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [
+        {
+          name: 'verified_doc.pdf',
+          type: 'file' as const,
+          key: 'borrowers/user-1/applications/app-1/documents/doc-1/verified_doc.pdf',
+          size: 2048,
+          lastModified: '2026-08-20T10:00:00.000Z',
+          documentId: 'doc-uuid-1',
+          status: 'VERIFIED',
+        },
+      ],
+      nextToken: null,
+    });
+
+    render(<DocumentExplorer />);
+
+    expect(await screen.findByText('VERIFIED')).toBeInTheDocument();
+  });
+
+  it('opens a confirm dialog and deletes the document on confirm', async () => {
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [
+        {
+          name: 'report.pdf',
+          type: 'file' as const,
+          key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+          size: 2048,
+          lastModified: '2026-08-20T10:00:00.000Z',
+          documentId: 'doc-uuid-1',
+          status: 'UPLOADED',
+        },
+      ],
+      nextToken: null,
+    });
+    mockedDelete.mockResolvedValue(undefined);
+
+    const onDocumentDeleted = jest.fn();
+    render(<DocumentExplorer onDocumentDeleted={onDocumentDeleted} />);
+
+    await screen.findByText('report.pdf');
+
+    const deleteButton = screen.getByLabelText('Delete report.pdf');
+    fireEvent.click(deleteButton);
+
+    expect(await screen.findByText('Delete document?')).toBeInTheDocument();
+    expect(screen.getByText(/will be removed/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(mockedDelete).toHaveBeenCalledWith('doc-uuid-1');
+    });
+    await waitFor(() => {
+      expect(onDocumentDeleted).toHaveBeenCalled();
+    });
+  });
+
+  it('closes the confirm dialog on Cancel without deleting', async () => {
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [
+        {
+          name: 'report.pdf',
+          type: 'file' as const,
+          key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+          size: 2048,
+          lastModified: '2026-08-20T10:00:00.000Z',
+          documentId: 'doc-uuid-1',
+          status: 'UPLOADED',
+        },
+      ],
+      nextToken: null,
+    });
+    mockedDelete.mockResolvedValue(undefined);
+
+    render(<DocumentExplorer />);
+
+    await screen.findByText('report.pdf');
+
+    fireEvent.click(screen.getByLabelText('Delete report.pdf'));
+    expect(await screen.findByText('Delete document?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Cancel'));
+
+    expect(screen.queryByText('Delete document?')).not.toBeInTheDocument();
+    expect(mockedDelete).not.toHaveBeenCalled();
   });
 });

@@ -1,14 +1,16 @@
 import * as React from 'react';
-import { X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { X, ChevronLeft, ChevronRight, Download, Trash2, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getDocumentView, DocumentViewResult } from '@/services/documents';
+import { Button } from '@/components/ui/button';
+import { getDocumentView, deleteDocument, DocumentViewResult } from '@/services/documents';
+import { useToast } from '@/components/workspace/ToastProvider';
 import { loadPdfDocument, renderPdfPage } from './renderPdf';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 interface DocumentViewerProps {
   documentId: string;
   onClose?: () => void;
+  onDocumentDeleted?: () => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -28,8 +30,9 @@ type LoadState =
   | { status: 'error'; error: string }
   | { status: 'ready'; data: DocumentViewResult };
 
-export function DocumentViewer({ documentId, onClose }: DocumentViewerProps) {
+export function DocumentViewer({ documentId, onClose, onDocumentDeleted }: DocumentViewerProps) {
   const [state, setState] = React.useState<LoadState>({ status: 'loading' });
+  const toast = useToast();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -59,21 +62,48 @@ export function DocumentViewer({ documentId, onClose }: DocumentViewerProps) {
             {state.status === 'ready' ? state.data.fileName : 'Document viewer'}
           </CardTitle>
           {state.status === 'ready' && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatBytes(state.data.size)} · {state.data.status}
+            <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{formatBytes(state.data.size)}</span>
+              <span>·</span>
+              <StatusBadge status={state.data.status} />
             </p>
           )}
         </div>
-        {onClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close viewer"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {state.status === 'ready' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                if (!confirm(`Delete ${state.data.fileName}? This cannot be undone.`)) return;
+                try {
+                  await deleteDocument(state.data.documentId);
+                  toast('Document deleted', 'success');
+                  onDocumentDeleted?.();
+                  onClose?.();
+                } catch (e) {
+                  toast(
+                    e instanceof Error ? e.message : 'Failed to delete document',
+                    'error',
+                  );
+                }
+              }}
+              aria-label="Delete document"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="Close viewer"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {state.status === 'loading' && (
@@ -211,6 +241,24 @@ function PdfView({ url, fileName }: { url: string; fileName: string }) {
       )}
       <canvas ref={canvasRef} className="w-full rounded-md border border-border" />
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const normalized = status.toUpperCase();
+  if (normalized === 'VERIFIED') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        <CheckCircle2 className="h-3 w-3" />
+        VERIFIED
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+      {normalized === 'UPLOADED' && <CheckCircle2 className="h-3 w-3" />}
+      {normalized}
+    </span>
   );
 }
 

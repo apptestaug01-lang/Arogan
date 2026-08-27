@@ -4,6 +4,7 @@ import { DocumentViewer } from '@/components/workspace/DocumentViewer';
 
 jest.mock('@/services/documents', () => ({
   getDocumentView: jest.fn(),
+  deleteDocument: jest.fn(),
 }));
 
 jest.mock('./renderPdf', () => ({
@@ -11,8 +12,14 @@ jest.mock('./renderPdf', () => ({
   renderPdfPage: jest.fn(),
 }));
 
-import { getDocumentView } from '@/services/documents';
+import { getDocumentView, deleteDocument } from '@/services/documents';
 import { loadPdfDocument, renderPdfPage } from './renderPdf';
+
+jest.mock('@/components/workspace/ToastProvider', () => ({
+  useToast: () => jest.fn(),
+}));
+
+const mockedDelete = deleteDocument as jest.Mock;
 
 beforeEach(() => {
   (getDocumentView as jest.Mock).mockReset();
@@ -93,5 +100,56 @@ describe('DocumentViewer', () => {
 
     render(<DocumentViewer documentId="doc-1" />);
     await waitFor(() => expect(getDocumentView).toHaveBeenCalledWith('doc-1'));
+  });
+
+  it('renders a VERIFIED status badge', async () => {
+    (getDocumentView as jest.Mock).mockResolvedValue({
+      documentId: 'doc-1',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      size: 2048,
+      status: 'VERIFIED',
+      viewUrl: 'https://signed/report.pdf',
+      expiresIn: 300,
+    });
+
+    render(<DocumentViewer documentId="doc-1" />);
+
+    expect(await screen.findByText('VERIFIED')).toBeInTheDocument();
+  });
+
+  it('deletes the document on confirm and calls the callbacks', async () => {
+    (getDocumentView as jest.Mock).mockResolvedValue({
+      documentId: 'doc-1',
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      size: 2048,
+      status: 'UPLOADED',
+      viewUrl: 'https://signed/report.pdf',
+      expiresIn: 300,
+    });
+    mockedDelete.mockResolvedValue(undefined);
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const onClose = jest.fn();
+    const onDocumentDeleted = jest.fn();
+
+    render(
+      <DocumentViewer
+        documentId="doc-1"
+        onClose={onClose}
+        onDocumentDeleted={onDocumentDeleted}
+      />,
+    );
+
+    await screen.findByText('report.pdf');
+
+    fireEvent.click(screen.getByLabelText('Delete document'));
+
+    await waitFor(() => {
+      expect(mockedDelete).toHaveBeenCalledWith('doc-1');
+    });
+    expect(onDocumentDeleted).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });
