@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express'
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js'
 import { validate } from '../middleware/validateRequest.js'
 import { sendSuccess, sendError } from '../utils/response.js'
-import { presignDocument, completeDocument } from '../services/document.service.js'
+import { presignDocument, completeDocument, deleteDocument } from '../services/document.service.js'
 import {
   presignMultipart,
   completeMultipart,
@@ -170,6 +170,23 @@ router.post(
         field,
       })
       sendSuccess(res, 'Document linked to form', { document })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.delete(
+  '/:documentId',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await deleteDocument({
+        userId: req.user!.id,
+        documentId: req.params.documentId,
+      })
+      sendSuccess(res, 'Document deleted', result)
     } catch (err) {
       next(err)
     }

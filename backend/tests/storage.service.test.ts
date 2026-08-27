@@ -15,12 +15,18 @@ jest.mock('@aws-sdk/client-s3', () => {
     PutBucketCorsCommand: class {},
     PutBucketLifecycleConfigurationCommand: class {},
     UploadPartCommand: class {},
+    DeleteObjectCommand: class {
+      input: unknown
+      constructor(input: unknown) {
+        this.input = input
+      }
+    },
   };
 });
 
-import { S3Client, HeadBucketCommand, PutPublicAccessBlockCommand, CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { S3Client, HeadBucketCommand, PutPublicAccessBlockCommand, CreateBucketCommand, PutBucketCorsCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getStorageConfig } from '../src/config/storage.config.js';
-import { createS3Client, ensureBucket, checkStorageHealth } from '../src/services/storage.service.js';
+import { createS3Client, ensureBucket, checkStorageHealth, deleteObject } from '../src/services/storage.service.js';
 
 const TEST_CONFIG = {
   endpoint: 'localhost',
@@ -134,6 +140,19 @@ describe('ensureBucket', () => {
     const calledCommands = client.send.mock.calls.map((c) => c[0].constructor);
     expect(calledCommands).toContain(CreateBucketCommand);
     expect(calledCommands).toContain(PutBucketCorsCommand);
+  });
+});
+
+describe('deleteObject', () => {
+  it('sends a DeleteObject command with the bucket and key', async () => {
+    const client = makeClient();
+    await deleteObject('borrowers/u1/app-1/doc-1/file.pdf', client, TEST_CONFIG);
+
+    expect(client.send).toHaveBeenCalledTimes(1);
+    const cmd = client.send.mock.calls[0][0];
+    expect(cmd).toBeInstanceOf(DeleteObjectCommand);
+    expect(cmd.input.Bucket).toBe('test-bucket');
+    expect(cmd.input.Key).toBe('borrowers/u1/app-1/doc-1/file.pdf');
   });
 });
 

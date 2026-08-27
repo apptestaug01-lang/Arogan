@@ -64,10 +64,10 @@ describe('listExplorer', () => {
     expect(res.nextToken).toBeNull()
   })
 
-  it('attaches the linked documentId to a file when one exists', async () => {
+  it('attaches the linked documentId and status to a file when one exists', async () => {
     const key = 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf'
     ;(prisma.document.findMany as jest.Mock).mockResolvedValue([
-      { id: 'doc-uuid-1', s3Key: key },
+      { id: 'doc-uuid-1', s3Key: key, status: 'VERIFIED' },
     ])
     setupSend({
       CommonPrefixes: [],
@@ -77,9 +77,10 @@ describe('listExplorer', () => {
     const res = await listExplorer({ userId: 'user-1' })
 
     expect(res.files[0].documentId).toBe('doc-uuid-1')
+    expect(res.files[0].status).toBe('VERIFIED')
     expect(prisma.document.findMany).toHaveBeenCalledWith({
-      where: { s3Key: { in: [key] } },
-      select: { id: true, s3Key: true },
+      where: { s3Key: { in: [key] }, status: { not: 'DELETED' } },
+      select: { id: true, s3Key: true, status: true },
     })
   })
 
@@ -128,6 +129,21 @@ describe('listExplorer', () => {
     })
     expect(res.prefix).toBe('borrowers/user-1/applications/app-1/')
     expect(res.folders[0].name).toBe('documents')
+  })
+
+  it('excludes deleted documents from the file listing', async () => {
+    const key = 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf'
+    ;(prisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-active', s3Key: key, status: 'UPLOADED' },
+    ])
+    setupSend({
+      CommonPrefixes: [],
+      Contents: [{ Key: key, Size: 1024, LastModified: new Date('2026-08-20T10:00:00Z') }],
+    })
+
+    const res = await listExplorer({ userId: 'user-1' })
+
+    expect(res.files[0].documentId).toBe('doc-active')
   })
 
   it('rejects a prefix that escapes the borrower root', async () => {

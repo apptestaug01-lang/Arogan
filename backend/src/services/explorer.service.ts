@@ -12,6 +12,7 @@ export interface ExplorerEntry {
   size?: number
   lastModified?: string
   documentId?: string
+  status?: string
 }
 
 export interface ListExplorerInput {
@@ -75,24 +76,28 @@ export async function listExplorer(
 
   const rawFiles = (result.Contents ?? []).filter((o) => (o.Key ?? '') !== base)
 
-  const documentIdByKey = new Map<string, string>()
+  const documentIdByKey = new Map<string, { id: string; status: string }>()
   if (rawFiles.length > 0) {
     const keys = rawFiles.map((o) => o.Key ?? '').filter(Boolean)
     const linked = await prisma.document.findMany({
-      where: { s3Key: { in: keys } },
-      select: { id: true, s3Key: true },
+      where: { s3Key: { in: keys }, status: { not: 'DELETED' } },
+      select: { id: true, s3Key: true, status: true },
     })
-    for (const d of linked) documentIdByKey.set(d.s3Key, d.id)
+    for (const d of linked) documentIdByKey.set(d.s3Key, { id: d.id, status: d.status })
   }
 
-  const files: ExplorerEntry[] = rawFiles.map((o) => ({
-    name: (o.Key ?? '').split('/').pop() ?? (o.Key ?? ''),
-    type: 'file' as const,
-    key: o.Key ?? '',
-    size: o.Size ?? 0,
-    lastModified: o.LastModified ? o.LastModified.toISOString() : undefined,
-    documentId: documentIdByKey.get(o.Key ?? ''),
-  }))
+  const files: ExplorerEntry[] = rawFiles.map((o) => {
+    const doc = documentIdByKey.get(o.Key ?? '')
+    return {
+      name: (o.Key ?? '').split('/').pop() ?? (o.Key ?? ''),
+      type: 'file' as const,
+      key: o.Key ?? '',
+      size: o.Size ?? 0,
+      lastModified: o.LastModified ? o.LastModified.toISOString() : undefined,
+      documentId: doc?.id,
+      status: doc?.status,
+    }
+  })
 
   return {
     prefix: base,

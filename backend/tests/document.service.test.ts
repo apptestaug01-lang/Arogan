@@ -17,6 +17,7 @@ jest.mock('@aws-sdk/client-s3', () => {
     CreateBucketCommand: class {},
     PutPublicAccessBlockCommand: class {},
     PutBucketCorsCommand: class {},
+    DeleteObjectCommand: class {},
   };
 });
 
@@ -28,6 +29,8 @@ jest.mock('../src/lib/prisma.js', () => ({
   prisma: {
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
   },
 }));
@@ -40,7 +43,7 @@ import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { prisma } from '../src/lib/prisma.js';
 import { logAuditEvent } from '../src/services/audit.service.js';
-import { presignDocument, completeDocument } from '../src/services/document.service.js';
+import { presignDocument, completeDocument, deleteDocument } from '../src/services/document.service.js';
 import { buildDocumentKey } from '../src/utils/documentKey.js';
 
 const PRESIGN_INPUT = {
@@ -166,5 +169,51 @@ describe('completeDocument', () => {
         contentType: 'application/pdf',
       }),
     ).rejects.toThrow('Uploaded object not found in storage');
+  });
+});
+
+describe('deleteDocument', () => {
+  const OWNER_DOC = { id: 'doc-1', userId: 'user-1', s3Key: 'borrowers/user-1/app-1/documents/doc-1/a.pdf', status: 'UPLOADED' };
+
+  beforeEach(() => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue(OWNER_DOC);
+    (prisma.document.update as jest.Mock).mockResolvedValue({ id: 'doc-1', status: 'DELETED' });
+    (new S3Client() as any).send.mockImplementation(() => Promise.resolve({}));
+  });
+
+  it('soft-deletes the document and deletes the S3 object', async () => {
+    const result = await deleteDocument({ userId: 'user-1', documentId: 'doc-1' });
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-1' },
+      data: { status: 'DELETED' },
+    });
+    expect((new S3Client() as any).send).toHaveBeenCalled();
+    expect(result).toEqual({ id: 'doc-1', status: 'DELETED' });
+  });
+
+  it('rejects when the document does not exist', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue(null);
+    await expect(
+      deleteDocument({ userId: 'user-1', documentId: 'nope' }),
+    ).rejects.toThrow('Document not found');
+  });
+
+  it('rejects with 403 when the caller does not own the document', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue({
+      id: 'doc-1', userId: 'other-user', s3Key: 'key', status: 'UPLOADED',
+    });
+    await expect(
+      deleteDocument({ userId: 'user-1', documentId: 'doc-1' }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('returns 409 when the document is already deleted', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue({
+      id: 'doc-1', userId: 'user-1', s3Key: 'key', status: 'DELETED',
+    });
+    await expect(
+      deleteDocument({ userId: 'user-1', documentId: 'doc-1' }),
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 });

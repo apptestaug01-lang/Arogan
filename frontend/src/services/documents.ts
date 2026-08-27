@@ -7,6 +7,7 @@ export interface ExplorerEntry {
   size?: number;
   lastModified?: string;
   documentId?: string;
+  status?: string;
 }
 
 export interface ExplorerResult {
@@ -58,4 +59,154 @@ export async function linkDocument(
     { applicationId, field },
   );
   return res.data.data.document;
+}
+
+// ---- Upload API (Chunk B: secure single-file) ----
+
+export interface PresignDocumentInput {
+  applicationId: string;
+  category: string;
+  fileName: string;
+  contentType: string;
+  contentLength: number;
+}
+
+export interface PresignDocumentResult {
+  documentId: string;
+  key: string;
+  uploadUrl: string;
+  expiresIn: number;
+}
+
+export async function presignDocument(
+  input: PresignDocumentInput,
+): Promise<PresignDocumentResult> {
+  const res = await api.post<{
+    data: PresignDocumentResult;
+  }>('/documents/presign', input);
+  return res.data.data;
+}
+
+export interface CompleteDocumentInput {
+  documentId: string;
+  applicationId: string;
+  category: string;
+  fileName: string;
+  contentType: string;
+}
+
+export interface CompleteDocumentResult {
+  id: string;
+  applicationId: string;
+  category: string;
+  originalName: string;
+  contentType: string;
+  size: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function completeDocument(
+  input: CompleteDocumentInput,
+): Promise<CompleteDocumentResult> {
+  const res = await api.post<{ data: { document: CompleteDocumentResult } }>(
+    `/documents/${input.documentId}/complete`,
+    {
+      applicationId: input.applicationId,
+      category: input.category,
+      fileName: input.fileName,
+      contentType: input.contentType,
+    },
+  );
+  return res.data.data.document;
+}
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  await api.delete(`/documents/${documentId}`);
+}
+
+// ---- Multipart API (Chunk C: large-file pipeline) ----
+
+export interface MultipartPart {
+  partNumber: number;
+  etag: string;
+}
+
+export interface PresignMultipartResult {
+  documentId: string;
+  key: string;
+  uploadId: string;
+  partUrls: string[];
+  partSize: number;
+  totalParts: number;
+  concurrency: number;
+  expiresIn: number;
+  abortAfterDays: number;
+}
+
+export async function presignMultipart(
+  input: PresignDocumentInput,
+): Promise<PresignMultipartResult> {
+  const res = await api.post<{ data: PresignMultipartResult }>(
+    '/documents/presign-multipart',
+    input,
+  );
+  return res.data.data;
+}
+
+export interface CompleteMultipartInput {
+  documentId: string;
+  applicationId: string;
+  category: string;
+  fileName: string;
+  contentType: string;
+  uploadId: string;
+  parts: MultipartPart[];
+}
+
+export async function completeMultipart(
+  input: CompleteMultipartInput,
+): Promise<CompleteDocumentResult> {
+  const res = await api.post<{ data: { document: CompleteDocumentResult } }>(
+    `/documents/${input.documentId}/complete-multipart`,
+    {
+      applicationId: input.applicationId,
+      category: input.category,
+      fileName: input.fileName,
+      contentType: input.contentType,
+      uploadId: input.uploadId,
+      parts: input.parts,
+    },
+  );
+  return res.data.data.document;
+}
+
+export interface AbortMultipartInput {
+  documentId: string;
+  applicationId: string;
+  fileName: string;
+  uploadId: string;
+}
+
+export async function abortMultipart(input: AbortMultipartInput): Promise<void> {
+  await api.post(`/documents/multipart/${input.uploadId}/abort`, {
+    applicationId: input.applicationId,
+    documentId: input.documentId,
+    fileName: input.fileName,
+    uploadId: input.uploadId,
+  });
+}
+
+export async function listUploadedParts(
+  uploadId: string,
+  applicationId: string,
+  documentId: string,
+  fileName: string,
+): Promise<number[]> {
+  const res = await api.get<{ data: { partNumbers: number[] } }>(
+    `/documents/multipart/${uploadId}/parts`,
+    { params: { applicationId, documentId, fileName } },
+  );
+  return res.data.data.partNumbers;
 }

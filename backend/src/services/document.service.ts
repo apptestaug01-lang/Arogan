@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadUrl, headObject } from './storage.service.js'
+import { createPresignedUploadUrl, headObject, deleteObject } from './storage.service.js'
 import { logAuditEvent } from './audit.service.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
@@ -84,4 +84,55 @@ export async function completeDocument(input: CompleteDocumentInput) {
   })
 
   return document
+}
+
+export interface DeleteDocumentInput {
+  userId: string
+  documentId: string
+}
+
+export class DocumentDeleteError extends Error {
+  statusCode: number
+  isOperational: boolean
+  constructor(message: string, statusCode = 404) {
+    super(message)
+    this.name = 'DocumentDeleteError'
+    this.statusCode = statusCode
+    this.isOperational = true
+  }
+}
+
+export async function deleteDocument(input: DeleteDocumentInput) {
+  const doc = await prisma.document.findUnique({ where: { id: input.documentId } })
+  if (!doc) {
+    throw new DocumentDeleteError('Document not found', 404)
+  }
+  if (doc.userId !== input.userId) {
+    throw new DocumentDeleteError('Not authorized to delete this document', 403)
+  }
+  if (doc.status === 'DELETED') {
+    throw new DocumentDeleteError('Document already deleted', 409)
+  }
+
+  // Best-effort object deletion. A missing object shouldn't block the
+  // metadata update — record the audit trail regardless.
+  await deleteObject(doc.s3Key).catch((err) => {
+    logAuditEvent('DOCUMENT_DELETE_OBJECT_FAILED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+      key: doc.s3Key,
+      error: err instanceof Error ? err.message : String(err),
+    }).catch(() => {})
+  })
+
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: { status: 'DELETED' },
+  })
+
+  await logAuditEvent('DOCUMENT_DELETED', undefined, undefined, input.userId, {
+    documentId: doc.id,
+    key: doc.s3Key,
+  })
+
+  return { id: doc.id, status: 'DELETED' }
 }

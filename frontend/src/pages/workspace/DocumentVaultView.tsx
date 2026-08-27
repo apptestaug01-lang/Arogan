@@ -16,7 +16,10 @@ export default function DocumentVaultView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <DocumentExplorer onFileOpen={(id) => setSelectedId(id)} />
+        <DocumentExplorer
+          onFileOpen={(id) => setSelectedId(id)}
+          onDocumentDeleted={() => setSelectedId(null)}
+        />
 
         <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">🛡 Protected storage</b>
@@ -28,7 +31,11 @@ export default function DocumentVaultView() {
       </div>
 
       {selectedId && (
-        <DocumentViewer documentId={selectedId} onClose={() => setSelectedId(null)} />
+        <DocumentViewer
+          documentId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onDocumentDeleted={() => setSelectedId(null)}
+        />
       )}
     </div>
   );

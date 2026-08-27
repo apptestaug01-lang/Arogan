@@ -79,6 +79,7 @@ enum DocumentStatus {
   PENDING
   UPLOADED
   VERIFIED
+  DELETED
 }
 
 model Document {

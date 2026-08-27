@@ -1,13 +1,16 @@
 import * as React from 'react';
-import { Folder, File as FileIcon, ChevronRight, Search } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Folder, File as FileIcon, ChevronRight, Search, Trash2, CheckCircle2, UploadCloud, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getExplorer, ExplorerEntry } from '@/services/documents';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/components/workspace/ToastProvider';
+import { getExplorer, deleteDocument, ExplorerEntry } from '@/services/documents';
 
 interface DocumentExplorerProps {
   className?: string;
   onFileOpen?: (documentId: string) => void;
+  onDocumentDeleted?: () => void;
 }
 
 type SortKey = 'name' | 'size' | 'modified';
@@ -30,7 +33,7 @@ function formatModified(value?: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 }
 
-export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProps) {
+export function DocumentExplorer({ className, onFileOpen, onDocumentDeleted }: DocumentExplorerProps) {
   const [prefix, setPrefix] = React.useState('');
   const [folders, setFolders] = React.useState<ExplorerEntry[]>([]);
   const [files, setFiles] = React.useState<ExplorerEntry[]>([]);
@@ -39,6 +42,9 @@ export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProp
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<SortKey>('name');
+  const toast = useToast();
+  const [deleteTarget, setDeleteTarget] = React.useState<ExplorerEntry | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const load = React.useCallback(async (p: string, token?: string) => {
     setLoading(true);
@@ -61,6 +67,34 @@ export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProp
   React.useEffect(() => {
     load(prefix, undefined);
   }, [prefix, load]);
+
+  React.useEffect(() => {
+    const handler = () => load(prefix, undefined);
+    window.addEventListener('document:uploaded', handler);
+    window.addEventListener('document:deleted', handler);
+    return () => {
+      window.removeEventListener('document:uploaded', handler);
+      window.removeEventListener('document:deleted', handler);
+    };
+  }, [load, prefix]);
+
+  const handleDelete = React.useCallback(async () => {
+    if (!deleteTarget?.documentId) return;
+
+    setDeleting(true);
+    try {
+      await deleteDocument(deleteTarget.documentId);
+      setDeleteTarget(null);
+      toast('Document deleted', 'success');
+      onDocumentDeleted?.();
+      window.dispatchEvent(new CustomEvent('document:deleted'));
+      load(prefix, undefined);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed to delete document', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, toast, onDocumentDeleted, load, prefix]);
 
   const segments = React.useMemo(() => {
     const parts = prefix.split('/').filter(Boolean);
@@ -106,7 +140,8 @@ export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProp
   const isEmpty = !loading && !error && visibleFolders.length === 0 && visibleFiles.length === 0;
 
   return (
-    <Card className={className}>
+    <>
+      <Card className={className}>
       <CardHeader>
         <CardTitle>Document explorer</CardTitle>
         <nav aria-label="Folder path" className="mt-2 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
@@ -167,36 +202,54 @@ export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProp
               <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
             </button>
           ))}
-          {visibleFiles.map((f) =>
-            f.documentId ? (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => onFileOpen?.(f.documentId!)}
-                className="flex w-full items-center gap-3 px-6 py-3 text-left hover:bg-muted"
-              >
-                <FileIcon className="h-5 w-5 text-primary-600" />
-                <span className="truncate text-foreground">{f.name}</span>
-                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
-                  {f.size != null ? formatBytes(f.size) : '—'}
-                  {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
-                </span>
-              </button>
-            ) : (
+          {visibleFiles.map((f) => {
+            const isProcessed = !!f.documentId;
+            return (
               <div
                 key={f.key}
-                className="flex w-full items-center gap-3 px-6 py-3 opacity-60"
-                title="This upload has not finished processing yet"
+                className={cn(
+                  'flex items-center justify-between px-6 py-3',
+                  isProcessed ? 'hover:bg-muted' : 'opacity-60',
+                )}
+                title={isProcessed ? undefined : 'Upload has not finished processing yet'}
               >
-                <FileIcon className="h-5 w-5 text-muted-foreground" />
-                <span className="truncate text-foreground">{f.name}</span>
-                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
-                  {f.size != null ? formatBytes(f.size) : '—'}
-                  {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => isProcessed && onFileOpen?.(f.documentId!)}
+                  disabled={!isProcessed}
+                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                >
+                  <FileIcon
+                    className={cn(
+                      'h-5 w-5',
+                      isProcessed ? 'text-primary-600' : 'text-muted-foreground',
+                    )}
+                  />
+                  <span className="truncate text-foreground">{f.name}</span>
+                </button>
+                <div className="flex min-w-0 items-center gap-2">
+                  {f.status && isProcessed && <FileStatusBadge status={f.status} />}
+                  <span className="whitespace-nowrap text-xs text-muted-foreground">
+                    {f.size != null ? formatBytes(f.size) : '—'}
+                    {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
+                  </span>
+                  {isProcessed && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(f);
+                      }}
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label={`Delete ${f.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            ),
-          )}
+            );
+          })}
         </div>
         {nextToken && (
           <div className="flex justify-center p-4">
@@ -207,6 +260,86 @@ export function DocumentExplorer({ className, onFileOpen }: DocumentExplorerProp
         )}
       </CardContent>
     </Card>
+
+    {deleteTarget && (
+      <DeleteConfirmDialog
+        file={deleteTarget}
+        open={!!deleteTarget}
+        loading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
+    )}
+    </>
+  );
+}
+
+function FileStatusBadge({ status }: { status: string }) {
+  const normalized = status.toUpperCase();
+  if (normalized === 'VERIFIED') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        <CheckCircle2 className="h-3 w-3" />
+        VERIFIED
+      </span>
+    );
+  }
+  if (normalized === 'UPLOADED') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+        <UploadCloud className="h-3 w-3" />
+        UPLOADED
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+      <Clock className="h-3 w-3" />
+      {normalized || 'PENDING'}
+    </span>
+  );
+}
+
+interface DeleteConfirmDialogProps {
+  file: ExplorerEntry;
+  open: boolean;
+  loading: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function DeleteConfirmDialog({
+  file,
+  open,
+  loading,
+  onCancel,
+  onConfirm,
+}: DeleteConfirmDialogProps) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Delete document?</CardTitle>
+          <CardDescription>
+            {file.name} will be removed from storage and can't be recovered.
+          </CardDescription>
+        </CardHeader>
+        <div className="flex justify-end gap-2 px-6 pb-6 pt-0">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }
 

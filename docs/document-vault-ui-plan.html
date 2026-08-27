@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Document Vault — UI Implementation Plan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: { 50: '#eff6ff', 600: '#2563eb', 700: '#1d4ed8' },
+          border: 'hsl(214 32% 91%)',
+          card: '#ffffff',
+          'card-foreground': '#0f172a',
+          muted: { DEFAULT: '#f1f5f9', foreground: '#64748b' },
+          danger: { 500: '#ef4444', 600: '#dc2626' },
+          foreground: '#0f172a',
+          input: 'hsl(214 32% 91%)',
+          accent: '#f1f5f9',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#f8fafc; color:#0f172a; }
+  .page-eyebrow { font-size:.75rem; color:#64748b; text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
+  .page-title { font-size:1.5rem; font-weight:700; color:#0f172a; margin:0; }
+  .page-sub { color:#64748b; margin-top:.25rem; font-size:.95rem; }
+  table { border-collapse: collapse; width:100%; font-size:.86rem; }
+  th, td { border:1px solid hsl(214 32% 91%); padding:.55rem .7rem; text-align:left; vertical-align:top; }
+  th { background:#e2e8f0; font-weight:600; }
+  tr:nth-child(even) td { background:#f8fafc; }
+  h2 { margin-top:2rem; border-left:4px solid #2563eb; padding-left:.6rem; }
+  h3 { margin-top:1.25rem; }
+  code { background:#e2e8f0; padding:.05rem .3rem; border-radius:.25rem; font-size:.8rem; }
+  .pill { display:inline-block; padding:.1rem .5rem; border-radius:9999px; font-size:.72rem; font-weight:600; }
+  .pill-p0 { background:#fee2e2; color:#b91c1c; }
+  .pill-p1 { background:#ffedd5; color:#c2410c; }
+  .pill-p2 { background:#fef9c3; color:#a16207; }
+  .pill-p3 { background:#dcfce7; color:#15803d; }
+  .pill-done { background:#dcfce7; color:#15803d; }
+  .pill-reuse { background:#dbeafe; color:#1d4ed8; }
+  .pill-new { background:#f3e8ff; color:#7e22ce; }
+  .mock { background:#fff; border:1px solid hsl(214 32% 91%); border-radius:.75rem; padding:1rem; margin-top:.5rem; }
+  .note { background:#fffbeb; border:1px solid #fde68a; padding:.6rem .8rem; border-radius:.5rem; font-size:.85rem; }
+  .wrap { max-width:1180px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+  a { color:#2563eb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>S3 Document Vault — Frontend/UI Implementation Plan</h1>
+<p class="page-sub">
+  Companion to <code>docs/s3-document-upload-plan.html</code>. Backend chunks A–E are merged to <code>main</code>.
+  This document plans the remaining <b>frontend wiring</b> so the existing (real) explorer + viewer render
+  live data, and designs the missing screens. All UX reuses the existing mock-up design system — no new
+  color palette, no invented primitives.
+</p>
+
+<div class="note">
+  <b>Design system (grounded, not hallucinated):</b> tokens <code>page-eyebrow</code> / <code>page-title</code> /
+  <code>page-sub</code>; primitives <code>Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter</code>
+  (<code>components/ui/card.tsx</code>); <code>Button</code> (variants default/outline/ghost/destructive/link, sizes default/sm/lg/icon);
+  <code>Input</code>; <code>SectionRow</code> (<code>components/workspace/SectionRow.tsx</code>) for checklist rows; icons from
+  <code>lucide-react</code> (Folder, File, UploadCloud, X, ChevronLeft, ChevronRight, Download, Trash2, Paperclip, CheckCircle2);
+  layout <code>grid gap-6 lg:grid-cols-[1fr_300px]</code>; status color <code>text-emerald-600</code> for "Complete".
+  <b>There is NO Dialog/Modal primitive</b> in the UI lib — modals are built as a fixed overlay + <code>Card</code>.
+  Current "Required documents" list is <b>mock data</b> from <code>@/mock/workspace</code> and must be replaced by
+  real document records.
+</div>
+
+<!-- ============================ PLAN ============================ -->
+<h2>1. Implementation plan (phased)</h2>
+<table>
+  <thead>
+    <tr><th>Phase</th><th>Goal</th><th>Work items</th><th>Outcome / acceptance</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="pill pill-p0">P0</span></td>
+      <td>Close the upload loop so the vault shows real files</td>
+      <td>#1 wire FileDropzone → presign/complete; add upload API clients; refresh after upload</td>
+      <td>Upload a file in the app → it appears in explorer → clicking it opens the viewer. (Today the explorer is empty because nothing uploads.)</td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-p1">P1</span></td>
+      <td>Large-file (&gt;100 MB) support</td>
+      <td>#2 frontend multipart orchestration + per-file progress</td>
+      <td>A 200 MB document uploads in parts and lands in the vault/explorer.</td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-p2">P2</span></td>
+      <td>Product feel + link-to-form</td>
+      <td>#6 delete (backend+UI); #8 nav glue; #5 VaultPicker + form-chip (needs form/<code>DocumentLink</code> schema)</td>
+      <td>Single coherent vault surface; docs can be deleted; docs attachable to a form.</td>
+    </tr>
+    <tr>
+      <td><span class="pill pill-p3">P3</span></td>
+      <td>Optional hardening (Chunk F) + polish</td>
+      <td>#7 VERIFIED status / ClamAV; #9 client validation alignment</td>
+      <td>Status pipeline reflects scan/verify; client guards match backend constants.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================ GAP ============================ -->
+<h2>2. Gap analysis — what's missing to light up the app</h2>
+<table>
+  <thead>
+    <tr><th>#</th><th>Capability (plan ref)</th><th>Backend</th><th>Frontend / UI today</th><th>Missing to show in app</th><th>Priority</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Upload → S3 (A/B, Req 1)</td><td><span class="pill pill-done">done</span> presign+complete</td><td><span class="pill pill-new">mock</span> FileDropzone local-only</td><td>Upload API client + wire FileDropzone to presign→PUT→complete</td><td><span class="pill pill-p0">P0</span></td></tr>
+    <tr><td>2</td><td>&gt;100 MB multipart (C, Req 2)</td><td><span class="pill pill-done">done</span></td><td><span class="pill pill-new">none</span></td><td>Frontend multipart orchestrator + progress</td><td><span class="pill pill-p1">P1</span></td></tr>
+    <tr><td>3</td><td>Browse / explorer (D, Req 3)</td><td><span class="pill pill-done">done</span></td><td><span class="pill pill-done">real</span> DocumentExplorer @ /dashboard/vault</td><td>None (polish only)</td><td><span class="pill pill-p3">P3</span></td></tr>
+    <tr><td>4</td><td>Viewer (E, Req 4)</td><td><span class="pill pill-done">done</span></td><td><span class="pill pill-done">real</span> DocumentViewer</td><td>None — works once files exist</td><td><span class="pill pill-done">done</span></td></tr>
+    <tr><td>5</td><td>Link-to-form / VaultPicker (E)</td><td><span class="pill pill-done">done</span> POST /:id/link</td><td><span class="pill pill-new">none</span> no picker/chip</td><td>VaultPicker modal + form-chip (needs form schema)</td><td><span class="pill pill-p2">P2</span></td></tr>
+    <tr><td>6</td><td>Delete (plan §9 DELETE /:id)</td><td><span class="pill pill-new">missing</span></td><td><span class="pill pill-new">none</span></td><td>Backend soft+object delete + UI action</td><td><span class="pill pill-p2">P2</span></td></tr>
+    <tr><td>7</td><td>Status / VERIFIED (F)</td><td><span class="pill pill-p3">partial</span> status stored</td><td><span class="pill pill-p3">partial</span> raw status text</td><td>ClamAV scan → VERIFIED (optional)</td><td><span class="pill pill-p3">P3</span></td></tr>
+    <tr><td>8</td><td>Nav / UX glue</td><td>—</td><td><span class="pill pill-p3">weak</span> upload &amp; vault split</td><td>Unify into one vault tab; auto-open after upload</td><td><span class="pill pill-p2">P2</span></td></tr>
+    <tr><td>9</td><td>Client validation alignment</td><td>≤5 GB; pdf/png/jpeg/webp/doc/docx/xls/xlsx</td><td><span class="pill pill-p3">weak</span> hard-codes "25 MB" + few types</td><td>Align dropzone copy + guards with backend constants</td><td><span class="pill pill-p3">P3</span></td></tr>
+  </tbody>
+</table>
+
+<!-- ============================ REUSE ============================ -->
+<h2>3. Reuse inventory — existing UI that can be kept</h2>
+<table>
+  <thead>
+    <tr><th>#</th><th>Existing file</th><th>State</th><th>Reuse decision</th><th>Effort</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><code>components/workspace/DocumentExplorer.tsx</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b> (calls <code>getExplorer</code>; already returns <code>documentId</code>)</td><td>None</td></tr>
+    <tr><td>2</td><td><code>components/workspace/DocumentViewer.tsx</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b></td><td>None</td></tr>
+    <tr><td>3</td><td><code>components/workspace/renderPdf.ts</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b></td><td>None</td></tr>
+    <tr><td>4</td><td><code>pages/workspace/DocumentVaultView.tsx</code></td><td><span class="pill pill-done">real</span> @ /dashboard/vault</td><td><b>Reuse as-is</b>; optionally merge upload tab</td><td>Small</td></tr>
+    <tr><td>5</td><td><code>components/ui/{card,button,input}.tsx</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b> for all new UI</td><td>None</td></tr>
+    <tr><td>6</td><td><code>components/workspace/ToastProvider.tsx</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b> for progress/errors</td><td>None</td></tr>
+    <tr><td>7</td><td><code>components/workspace/SectionRow.tsx</code></td><td><span class="pill pill-done">real</span></td><td><b>Reuse as-is</b> for required-docs / upload-progress rows</td><td>None</td></tr>
+    <tr><td>8</td><td><code>pages/workspace/DocumentUploadView.tsx</code></td><td><span class="pill pill-reuse">shell</span></td><td><b>Reuse shell</b>; swap mock list for real</td><td>Small</td></tr>
+    <tr><td>9</td><td><code>components/workspace/FileDropzone.tsx</code></td><td><span class="pill pill-new">mock</span></td><td><b>Reuse layout</b>; replace local state with S3 calls; drop fake "25 MB" label</td><td>Medium</td></tr>
+    <tr><td>10</td><td>(none) <code>VaultPicker</code></td><td><span class="pill pill-new">missing</span></td><td><b>Build</b> (explorer in picker mode)</td><td>New</td></tr>
+    <tr><td>11</td><td>(none) upload progress / part-tracker</td><td><span class="pill pill-new">missing</span></td><td><b>Build</b> (uses SectionRow + progress)</td><td>New</td></tr>
+    <tr><td>12</td><td>(none) delete action / confirm</td><td><span class="pill pill-new">missing</span></td><td><b>Build</b> (overlay + Card)</td><td>New</td></tr>
+    <tr><td>13</td><td>(none) form-chip</td><td><span class="pill pill-new">missing</span></td><td><b>Build</b> once form schema exists</td><td>New</td></tr>
+  </tbody>
+</table>
+<p><b>Tally:</b> 7 components reuse as-is, 2 reuse-with-small-changes (upload view + dropzone), 4 must be built. Only <code>FileDropzone</code> is genuinely throwaway logic.</p>
+
+<!-- ============================ DEEP DIVE ============================ -->
+<h2>4. Deep-dive table — what each remaining item needs</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Item</th><th>Backend dependency</th><th>Frontend file(s)</th>
+      <th>Design (mock-up adherence)</th><th>Core logic</th><th>Acceptance / tests</th><th>Effort</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>#1 Upload wiring</b></td>
+      <td>Existing: <code>POST /presign</code>, <code>POST /:id/complete</code></td>
+      <td><code>services/documents.ts</code> (add <code>presignDocument</code>, <code>completeDocument</code>); rewrite <code>FileDropzone.tsx</code>; refresh in <code>DocumentUploadView.tsx</code></td>
+      <td>Keep dropzone markup; use <code>Button</code> (variant outline) for "Choose files", <code>Card</code> list via <code>SectionRow</code>, <code>useToast</code> for feedback. Replace "Max 25 MB" with backend-aligned copy.</td>
+      <td>For each file: <code>presignDocument</code> → <code>axios.put(uploadUrl, file, {headers, onUploadProgress})</code> → <code>completeDocument</code>. On success toast + clear row + bump explorer (refetch or event).</td>
+      <td>Upload a PDF → <code>GET /explorer</code> shows it; click → viewer opens. Unit: presign/complete client; component test: mocks API, asserts PUT + complete called, toast shown.</td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td><b>#2 Multipart frontend</b></td>
+      <td>Existing: <code>presign-multipart</code>, <code>complete-multipart</code>, <code>multipart/:id/abort</code>, <code>multipart/:id/parts</code></td>
+      <td><code>services/documents.ts</code> (multipart clients); <code>FileDropzone.tsx</code> branch on size &gt; 100 MB</td>
+      <td>Same dropzone; per-file progress bar (reuse <code>SectionRow</code> with a thin <code>&lt;div&gt;</code> track) + <code>text-emerald-600</code> "Complete".</td>
+      <td>When <code>file.size &gt; 100MB</code>: <code>presignMultipart</code> → slice into 64 MB parts → <code>PUT</code> each (track progress) → <code>completeMultipart</code>. Abort on error via <code>abortMultipart</code>.</td>
+      <td>200 MB file uploads in N parts; appears in explorer; partial failure triggers abort + error toast. Component test with mocked part PUTs.</td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td><b>#5 VaultPicker + link</b></td>
+      <td>Existing <code>POST /:id/link</code>; needs a <code>DocumentLink</code>/form schema first</td>
+      <td>New <code>VaultPicker.tsx</code>; <code>linkDocument</code> client already exists; form-chip in form pages</td>
+      <td>Modal = fixed overlay + <code>Card</code> (no Dialog primitive). Inside: reuse <code>DocumentExplorer</code> in controlled mode (hide onFileOpen→ select). Footer <code>Button</code> "Attach". Chip = rounded <code>Card</code>/badge with <code>Paperclip</code> + name + <code>X</code>.</td>
+      <td>Parent passes <code>onSelect(doc)</code>; picker renders explorer; selecting a file calls <code>linkDocument(doc.id, applicationId, field)</code> then closes. Chip opens <code>DocumentViewer</code>.</td>
+      <td>Form "Attach from Vault" → picker → pick → chip appears → chip opens viewer. Test: picker renders explorer, select fires <code>linkDocument</code>.</td>
+      <td>New (blocked on schema)</td>
+    </tr>
+    <tr>
+      <td><b>#6 Delete</b></td>
+      <td><b>New backend</b>: <code>DELETE /:id</code> (soft-delete row + <code>DeleteObject</code>), ownership check, audit</td>
+      <td><code>services/documents.ts</code> (<code>deleteDocument</code>); trash action in <code>DocumentExplorer</code> row + <code>DocumentViewer</code></td>
+      <td>Confirm = overlay + <code>Card</code> with <code>CardDescription</code> warning + <code>Button variant=destructive</code> "Delete". Reuse <code>Trash2</code> icon.</td>
+      <td>Row "⋯" menu / trash icon → confirm → <code>deleteDocument(id)</code> → optimistic remove from list + toast.</td>
+      <td>Delete removes file from explorer and S3; 403 if not owner. Backend + route tests; component test for confirm flow.</td>
+      <td>Medium (backend+UI)</td>
+    </tr>
+    <tr>
+      <td><b>#7 VERIFIED status</b></td>
+      <td>Chunk F: ClamAV scan on complete → flip <code>VERIFIED</code></td>
+      <td><code>DocumentViewer</code> header + explorer row show status badge</td>
+      <td>Use existing status text; add small <code>CheckCircle2</code> (emerald) for VERIFIED, amber for UPLOADED. No new palette.</td>
+      <td>Map <code>status</code> → badge; no logic change beyond display until backend emits VERIFIED.</td>
+      <td>Viewer shows status; once backend VERIFIED, badge turns emerald. Component test for each status.</td>
+      <td>Small (UI) + large (backend, optional)</td>
+    </tr>
+    <tr>
+      <td><b>#8 Nav glue</b></td>
+      <td>—</td>
+      <td><code>App.tsx</code> routes; <code>DocumentVaultView.tsx</code></td>
+      <td>Keep <code>/dashboard/documents</code> (upload) and <code>/dashboard/vault</code> (browse); optionally Tabs (<code>@radix-ui/react-tabs</code> already a dep) inside one page. Use <code>page-*</code> tokens.</td>
+      <td>After successful upload, surface "View in vault" link (router push / state) opening <code>DocumentViewer</code> directly.</td>
+      <td>Upload → one click opens viewer; both surfaces share state via a lightweight store/event.</td>
+      <td>Small</td>
+    </tr>
+    <tr>
+      <td><b>#9 Validation alignment</b></td>
+      <td>Constants: ≤5 GB; allowed content types</td>
+      <td><code>FileDropzone.tsx</code> guards; shared <code>constants.ts</code> mirror</td>
+      <td>Same dropzone look; copy driven by shared constants, not hardcoded.</td>
+      <td>Validate type/size client-side before <code>presign</code>; else toast error with allowed list.</td>
+      <td>Rejects oversize/unsupported with correct message; mirrors backend.</td>
+      <td>Small</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================ MISSING SCREENS ============================ -->
+<h2>5. Missing-screen designs (built to match the existing mock-up)</h2>
+<p>Each design uses only confirmed primitives/tokens. Markup is illustrative (Tailwind utility classes identical to the app).</p>
+
+<h3>5.1 VaultPicker (link-to-form) — <span class="pill pill-new">build</span></h3>
+<p>Reuses <code>DocumentExplorer</code> in controlled mode inside an overlay+<code>Card</code>. No Dialog primitive exists, so the overlay is a fixed inset with a centered <code>Card</code> (max-w).</p>
+<div class="mock">
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl rounded-xl border bg-card shadow">
+      <div class="flex items-center justify-between p-4 pb-0">
+        <h3 class="text-2xl font-semibold">Attach from Vault</h3>
+        <button class="rounded-md p-2 hover:bg-accent"><span>✕</span></button>
+      </div>
+      <div class="p-4">
+        <!-- reuse DocumentExplorer, onFileOpen -> select -->
+        <div class="rounded-xl border p-3 text-sm text-muted-foreground">📁 applications / LAP-2026-0184 / documents / KYC
+          <div class="mt-2 flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted">
+            <span>📄</span><span>aadhar.pdf</span><span class="ml-auto text-xs text-muted-foreground">212 KB</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 p-4 pt-0">
+        <button class="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">Cancel</button>
+        <button class="rounded-md bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700">Attach</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>5.2 Upload progress / part-tracker — <span class="pill pill-new">build</span></h3>
+<p>Reuses <code>SectionRow</code> for each file; progress is a thin track. "Complete" uses the existing <code>text-emerald-600</code> status color.</p>
+<div class="mock">
+  <div class="rounded-xl border bg-card p-4">
+    <h3 class="text-xl font-semibold mb-3">Uploading to LAP-2026-0184</h3>
+    <div class="divide-y divide-border">
+      <div class="py-2">
+        <div class="flex items-center justify-between text-sm">
+          <span>financials-2026.xlsx</span>
+          <span class="text-emerald-600 font-medium">Complete</span>
+        </div>
+        <div class="mt-1 h-1.5 w-full rounded bg-muted"><div class="h-1.5 rounded bg-primary-600" style="width:100%"></div></div>
+      </div>
+      <div class="py-2">
+        <div class="flex items-center justify-between text-sm">
+          <span>video-pitch.mp4 (180 MB)</span>
+          <span class="text-muted-foreground">Uploading part 7/9…</span>
+        </div>
+        <div class="mt-1 h-1.5 w-full rounded bg-muted"><div class="h-1.5 rounded bg-primary-600" style="width:78%"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>5.3 Delete confirmation — <span class="pill pill-new">build</span></h3>
+<p>Overlay + <code>Card</code>, <code>CardDescription</code> for the warning, <code>Button variant=destructive</code> per the existing button system.</p>
+<div class="mock">
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+    <div class="w-full max-w-sm rounded-xl border bg-card shadow">
+      <div class="p-6 pb-0">
+        <h3 class="text-2xl font-semibold">Delete document?</h3>
+        <p class="mt-2 text-sm text-muted-foreground">aadhar.pdf will be removed from storage and can’t be recovered.</p>
+      </div>
+      <div class="flex justify-end gap-2 p-6 pt-4">
+        <button class="rounded-md border border-input px-3 py-2 text-sm hover:bg-accent">Cancel</button>
+        <button class="rounded-md bg-danger-500 px-4 py-2 text-sm text-white hover:bg-danger-600">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>5.4 Form-chip (document attachment) — <span class="pill pill-new">build</span></h3>
+<p>A compact pill with <code>Paperclip</code>, file name, and <code>X</code> to detach. Opens <code>DocumentViewer</code> on click. Consistent with <code>Card</code>/badge styling.</p>
+<div class="mock">
+  <div class="flex flex-wrap gap-2">
+    <span class="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm">
+      <span>📎</span> aadhar.pdf <button class="text-muted-foreground hover:text-foreground">✕</button>
+    </span>
+    <span class="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm">
+      <span>📎</span> pancard.pdf <button class="text-muted-foreground hover:text-foreground">✕</button>
+    </span>
+  </div>
+</div>
+
+<!-- ============================ ANTI-HALLUCINATION ============================ -->
+<h2>6. Guardrails (do not invent)</h2>
+<ul>
+  <li>No new color palette — only <code>primary-600/700</code>, <code>danger-500/600</code>, <code>emerald-600</code> (already used), <code>muted-foreground</code>, <code>border</code>, <code>card</code>.</li>
+  <li>No Dialog/Modal library — modals are overlay + <code>Card</code> (confirmed absent from UI lib).</li>
+  <li>Icons only from <code>lucide-react</code> (Folder, File, UploadCloud, X, ChevronLeft/Right, Download, Trash2, Paperclip, CheckCircle2).</li>
+  <li>Layout uses the confirmed <code>grid gap-6 lg:grid-cols-[1fr_300px]</code> and <code>page-*</code> tokens.</li>
+  <li>The "Required documents" list currently reads <code>@/mock/workspace</code>; replace with real document records, don't keep mock data in the shipped flow.</li>
+  <li><code>VaultPicker</code> and <code>form-chip</code> are blocked until a form / <code>DocumentLink</code> schema exists (out of scope of chunks A–E).</li>
+</ul>
+
+<p class="page-sub" style="margin-top:2rem">Generated plan · Document Vault frontend · depends on merged backend chunks A–E.</p>
+
+</div>
+</body>
+</html>

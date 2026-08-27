@@ -36,6 +36,7 @@ jest.mock('@aws-sdk/client-s3', () => {
     CreateBucketCommand: class {},
     PutPublicAccessBlockCommand: class {},
     PutBucketCorsCommand: class {},
+    DeleteObjectCommand: class {},
   };
 });
 
@@ -47,6 +48,8 @@ jest.mock('../src/lib/prisma.js', () => ({
   prisma: {
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
   },
 }));
@@ -131,5 +134,43 @@ describe('documents routes', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.document.id).toBe('doc-1');
     expect((prisma.document.create as jest.Mock).mock.calls[0][0].data.userId).toBe('user-1');
+  });
+
+  it('deletes a document owned by the caller', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue({
+      id: 'doc-1', userId: 'user-1', s3Key: 'some-key', status: 'UPLOADED',
+    });
+    (prisma.document.update as jest.Mock).mockResolvedValue({
+      id: 'doc-1', status: 'DELETED',
+    });
+
+    const res = await request(makeApp()).delete('/api/documents/doc-1');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-1' },
+      data: { status: 'DELETED' },
+    });
+  });
+
+  it('returns 404 when deleting a non-existent document', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue(null);
+
+    const res = await request(makeApp()).delete('/api/documents/nope');
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('returns 403 when deleting another user\'s document', async () => {
+    (prisma.document.findUnique as jest.Mock).mockResolvedValue({
+      id: 'doc-1', userId: 'other-user', s3Key: 'some-key', status: 'UPLOADED',
+    });
+
+    const res = await request(makeApp()).delete('/api/documents/doc-1');
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
   });
 });
