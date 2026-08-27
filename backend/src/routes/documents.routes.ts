@@ -9,6 +9,7 @@ import {
   abortMultipart,
   listUploadedParts,
 } from '../services/multipart.service.js'
+import { listExplorer } from '../services/explorer.service.js'
 import {
   documentPresignSchema,
   documentCompleteSchema,
@@ -35,6 +36,28 @@ router.post(
         contentLength: body.contentLength,
       })
       sendSuccess(res, 'Upload URL issued', result, 200)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/explorer',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { prefix, continuation } = req.query as {
+        prefix?: string
+        continuation?: string
+      }
+      const result = await listExplorer({
+        userId: req.user!.id,
+        prefix,
+        continuationToken: continuation,
+      })
+      sendSuccess(res, 'Explorer listing', result)
     } catch (err) {
       next(err)
     }
