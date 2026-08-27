@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Upload, Extraction &amp; S3 Integration — $0 Plan</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #e2e8f0;
+      --brand: #0284c7;
+      --brand-soft: #e0f2fe;
+      --ok: #15803d;
+      --warn: #b45309;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      line-height: 1.6;
+    }
+    header { background: var(--bg); color: #e2e8f0; padding: 40px 24px 32px; }
+    header .wrap { max-width: 1000px; margin: 0 auto; }
+    header h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.02em; }
+    header p { margin: 0; color: #94a3b8; font-size: 15px; }
+    main { max-width: 1000px; margin: 0 auto; padding: 28px 24px 64px; }
+    section {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 22px 24px; margin-bottom: 22px; box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    }
+    h2 { font-size: 19px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); letter-spacing: -0.01em; }
+    h3 { font-size: 15px; margin: 18px 0 8px; color: var(--brand); }
+    p, li { font-size: 14.5px; color: var(--muted); }
+    ul, ol { padding-left: 20px; margin: 8px 0; }
+    li { margin: 5px 0; }
+    strong { color: var(--ink); }
+    code {
+      background: #f1f5f9; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px;
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #0f172a;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--muted); vertical-align: top; }
+    th { background: #f8fafc; color: var(--ink); font-weight: 600; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 6px; }
+    .tag.rec { background: var(--brand-soft); color: var(--brand); }
+    .tag.opt { background: #fef3c7; color: var(--warn); }
+    .tag.sec { background: #fee2e2; color: var(--danger); }
+    .tag.free { background: #dcfce7; color: var(--ok); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+    .note { background: #f8fafc; border-left: 3px solid var(--brand); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13.5px; margin-top: 12px; }
+    .phase { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
+    .phase .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+    .flow { background: #0f172a; color: #cbd5e1; border-radius: 12px; padding: 16px 18px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.9; overflow-x: auto; }
+    .flow b { color: #7dd3fc; }
+    footer { text-align: center; color: #94a3b8; font-size: 12.5px; padding: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Document Capture, Extraction &amp; Storage — $0 Plan</h1>
+      <p>Borrower uploads → MinIO (S3-compatible) → read/display → open-source extraction → save to DB. Zero cloud spend.</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Folder structure -->
+    <section>
+      <h2>1. Borrower source folder structure</h2>
+      <p>Inventory from <code>23-Aug-26\Docs</code>. These 7 categories become the canonical S3/MinIO document categories.</p>
+      <table>
+        <thead><tr><th>#</th><th>Folder</th><th>Subfolders / contents</th><th>Maps to app section</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>KYC</strong></td><td><code>Company KYC</code> (AOA, COI, MOA, Shareholding, Udyog Aadhar) · <code>Promoter/Director KYC</code> (Aadhar, PAN, ITR)</td><td>KYC</td></tr>
+          <tr><td>2</td><td><strong>Financials</strong></td><td>FY 19-20, 20-21, Signed 21-22</td><td>Financial &amp; Bank Records</td></tr>
+          <tr><td>3</td><td><strong>Bank Statements</strong></td><td>(empty in sample)</td><td>Financial &amp; Bank Records</td></tr>
+          <tr><td>4</td><td><strong>Existing Sanction Letters</strong></td><td>8 files (ICICI, HDFC, SCB, renewals, repayment schedules)</td><td>Additional</td></tr>
+          <tr><td>5</td><td><strong>Other Documents</strong></td><td>Net-worth certs, order book, top-5 suppliers/debtors</td><td>Additional</td></tr>
+          <tr><td>6</td><td><strong>Property</strong></td><td>Plan, registration docs, tax receipt</td><td>Collateral / Security</td></tr>
+          <tr><td>7</td><td><strong>Stock Statement</strong></td><td>7 monthly SCB statements</td><td>Additional</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><strong>Recommendation:</strong> treat these 7 folders as canonical categories; add 4/5/7 (not yet in the master checklist) to it.</div>
+    </section>
+
+    <!-- 2. Current state -->
+    <section>
+      <h2>2. Current codebase state (gaps)</h2>
+      <div class="grid2">
+        <div>
+          <h3>Backend</h3>
+          <ul>
+            <li>No storage / upload / S3 code (only hash hits in <code>package-lock.json</code>).</li>
+            <li>No <code>Document</code> / <code>Attachment</code> Prisma model — schema has <code>User</code>, <code>Session</code>, <code>OTPRequest</code>, <code>AuditLog</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Frontend</h3>
+          <ul>
+            <li><code>FileDropzone</code> keeps <code>File[]</code> in local state only — no network.</li>
+            <li><code>DocumentUploadView</code> / <code>DocumentVaultView</code> render <strong>mock</strong> data.</li>
+            <li>Reusable: <code>authMiddleware.ts</code> + <code>AuditLog</code> model exist for tenant scoping &amp; audit.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Storage options (free-focused) -->
+    <section>
+      <h2>3. Storage &amp; S3-integration options <span class="tag free">$0 path highlighted</span></h2>
+      <table>
+        <thead><tr><th>Option</th><th>License</th><th>Cost</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>MinIO</strong> (self-hosted, S3-compatible)</td>
+            <td>Apache-2.0</td>
+            <td><span class="tag free">$0</span></td>
+            <td><span class="tag rec">RECOMMENDED</span> Runs in a container on your own host. AWS SDK v3 + pre-signed URLs work <b>unchanged</b>. No cloud bill, ever.</td>
+          </tr>
+          <tr>
+            <td>AWS S3 + AWS SDK v3</td>
+            <td>Apache-2.0 (SDK)</td>
+            <td>Paid (free tier 12 mo)</td>
+            <td>Standard path; bills after free tier. Use only if you later want managed.</td>
+          </tr>
+          <tr>
+            <td>Cloudflare R2</td>
+            <td>Proprietary</td>
+            <td>$0 egress (account needed)</td>
+            <td>S3-compatible; free egress but still a cloud account + eventual cost.</td>
+          </tr>
+          <tr>
+            <td>Local filesystem + presign-like tokens</td>
+            <td>—</td>
+            <td><span class="tag free">$0</span></td>
+            <td>Simplest but you lose S3 SDK parity and scalability.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note"><strong>Key point:</strong> whichever store you pick, the app code uses <code>@aws-sdk/client-s3</code> + <code>@aws-sdk/s3-request-presigner</code> — so swapping MinIO ↔ AWS S3 is a config change, not a rewrite.</div>
+    </section>
+
+    <!-- 4. Security -->
+    <section>
+      <h2>4. Security model — per-customer isolation</h2>
+      <ul>
+        <li><strong>Bucket/store:</strong> block all public access; no public objects.</li>
+        <li><strong>Key structure:</strong> <code>tenants/{tenantId}/applications/{applicationId}/documents/{docId}/{uuid}-{filename}</code> — <code>tenantId</code> enforced server-side, never trusted from client.</li>
+        <li><strong>Least privilege:</strong> one app identity with <code>s3:PutObject</code> / <code>s3:GetObject</code> scoped to bucket + <code>s3:prefix</code>; <strong>never</strong> <code>s3:*</code>.</li>
+        <li><strong>Pre-signed URLs:</strong> exact key + exact op + short TTL (upload ~15 min, download ~5 min); constrain <code>Content-Type</code> &amp; <code>Content-Length</code> on PUT.</li>
+        <li><strong>Encryption at rest:</strong> SSE-KMS or SSE-S3 (MinIO supports SSE).</li>
+        <li><strong>Authorization + audit:</strong> every list/get verifies caller owns <code>tenantId</code>/<code>applicationId</code>; log upload/download/delete to <code>AuditLog</code>.</li>
+        <li><strong>Malware / validation:</strong> size + type allow-list; post-upload virus scan (ClamAV) before marking <code>Verified</code>.</li>
+        <li><strong>Immutability:</strong> versioning + Object Lock to prevent tampering / accidental deletes.</li>
+      </ul>
+    </section>
+
+    <!-- 5. Read -> understand -> display -> save -->
+    <section>
+      <h2>5. Read → display → understand → save to DB <span class="tag free">fully open-source</span></h2>
+      <p>Your docs are almost all PDFs (some possibly scanned), so the core need is PDF text + optional OCR, then structuring the data.</p>
+      <table>
+        <thead><tr><th>Step</th><th>Open-source tool</th><th>License</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td>Read / view</td><td><b>MinIO pre-signed URL</b> → <b>pdfjs-dist</b> (browser)</td><td>Apache-2.0</td><td>Browser fetches file directly from store (no app egress cost) and renders PDF on screen.</td></tr>
+          <tr><td>Extract text</td><td><b>unpdf</b> / <b>pdfjs-dist</b> / <b>pdf-parse</b></td><td>MIT / Apache-2.0</td><td>Server-side text extraction; <b>unpdf</b> is serverless/edge-friendly (no native deps).</td></tr>
+          <tr><td>OCR (scanned)</td><td><b>tesseract.js</b></td><td>Apache-2.0</td><td>Runs locally; no API fee.</td></tr>
+          <tr><td>Structure data</td><td><b>rule-based</b> (regex on known formats)</td><td>—</td><td>$0, deterministic; great for bank statements / ITRs.</td></tr>
+          <tr><td>Structure data (AI)</td><td><b>Ollama</b> + open weights (Llama 3 / Mistral)</td><td>MIT / Apache-2.0</td><td>Local LLM maps free-form text → your DB schema. <b>No paid API.</b></td></tr>
+          <tr><td>Tables (alt)</td><td><b>unstructured</b> (Py) · <b>pdfplumber</b>/<b>camelot</b> (Py)</td><td>Apache-2.0 / MIT / MIT</td><td>Precise table extraction if ruil-based isn't enough (invoke via subprocess).</td></tr>
+          <tr><td>Persist</td><td>Your <b>Postgres + Prisma</b> (self-hosted) or <b>SQLite</b></td><td>—</td><td>Store extracted structured fields; reuse <code>AuditLog</code>.</td></tr>
+        </tbody>
+      </table>
+      <div class="note"><strong>Avoid:</strong> paid API parsers (OpenAI / Anthropic / LlamaParse) — they cost per call. The free stack above covers read, display, extraction, and DB write with <b>$0</b> runtime cost, assuming you supply the host.</div>
+    </section>
+
+    <!-- 6. Zero-cost architecture -->
+    <section>
+      <h2>6. Recommended $0 architecture</h2>
+      <div class="flow">
+<b>Borrower</b> ──presigned PUT──▶ <b>MinIO</b> (self-hosted S3) ◀──presigned GET── <b>Browser viewer</b> (pdfjs-dist, $0 compute)
+   │                                              │
+   └── metadata POST ──▶ <b>Node/Express</b> ──▶ <b>unpdf</b>/<b>tesseract.js</b> ──▶ rule-based | <b>Ollama</b> ──▶ <b>Postgres</b>/SQLite
+      </div>
+      <ul>
+        <li><strong>Storage:</strong> MinIO container on your own host — identical S3 API, no bill.</li>
+        <li><strong>Compute:</strong> Node backend + MinIO as containers; no Lambda/AWS billing.</li>
+        <li><strong>Intelligence:</strong> local Ollama (open weights) for structuring; rule-based as the free baseline.</li>
+        <li><strong>DB:</strong> self-hosted Postgres (already in stack) or SQLite for zero infra.</li>
+      </ul>
+      <div class="note"><strong>Honest caveat:</strong> "free" assumes you provide the host (laptop / spare server / free-tier VPS). For truly zero-hardware you'd need a cloud free tier (R2/AWS) — not permanent $0. MinIO-on-your-own-host is the pure $0 path.</div>
+    </section>
+
+    <!-- 7. Roadmap -->
+    <section>
+      <h2>7. Implementation roadmap</h2>
+      <div class="phase"><div class="n">1</div><div><h3>Data model <span class="tag rec">backend</span></h3><p>Add <code>Document</code> Prisma model: <code>tenantId</code>, <code>applicationId</code>, <code>category</code>, <code>s3Key</code>, <code>originalName</code>, <code>size</code>, <code>checksum</code>, <code>status</code>, <code>extractedData</code> (Json), <code>uploadedBy</code>.</p></div></div>
+      <div class="phase"><div class="n">2</div><div><h3>Storage service <span class="tag rec">backend</span></h3><p><code>storage.service.ts</code> over <b>MinIO</b> via AWS SDK v3: <code>createPresignedUploadUrl</code>, <code>createPresignedDownloadUrl</code>, <code>deleteObject</code>. Tenant-scoped <code>documents.routes.ts</code> + audit.</p></div></div>
+      <div class="phase"><div class="n">3</div><div><h3>Frontend upload + viewer <span class="tag rec">frontend</span></h3><p><code>FileDropzone</code> → presigned PUT → metadata POST. <code>DocumentVaultView</code> shows files via presigned GET rendered with <b>pdfjs-dist</b>.</p></div></div>
+      <div class="phase"><div class="n">4</div><div><h3>Extraction &amp; structuring <span class="tag free">$0</span></h3><p>On-demand <code>/extract</code> route: <b>unpdf</b> (+<b>tesseract.js</b> if scanned) → rule-based or <b>Ollama</b> → save <code>extractedData</code> to DB.</p></div></div>
+      <div class="phase"><div class="n">5</div><div><h3>Hardening <span class="tag opt">optional</span></h3><p>ClamAV scan, versioning + Object Lock, alerting on cross-tenant access attempts.</p></div></div>
+      <div class="note">No code has been written. Awaiting your go-ahead on the first slice.</div>
+    </section>
+
+    <!-- 8. Document Vault Module — chunk-by-chunk deep dive -->
+    <section>
+      <h2>8. Document Vault Module — enterprise deep dive (chunk-by-chunk) <span class="tag rec">separate module</span></h2>
+      <p>This is the <strong>crux module</strong> that turns the §3–§7 analysis into a shippable, enterprise-grade capability. It runs entirely on the open-source, <span class="tag free">$0</span> MinIO (S3-compatible) stack already selected. It is built as an <strong>independent module</strong> so it can be scoped, reviewed, and shipped without touching loan-decision logic.</p>
+
+      <h3>Requirement → chunk traceability</h3>
+      <table>
+        <thead><tr><th>#</th><th>Business requirement</th><th>Owned by chunk</th><th>Non-functional guardrail</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Secured &amp; signed</strong> uploads</td><td>Chunk 1</td><td>Presigned PUT, server-built keys, TTL, no public ACL</td></tr>
+          <tr><td>2</td><td>Uploads <strong>&gt; 100 MB</strong></td><td>Chunk 2</td><td>S3 multipart, per-part resume/retry/progress</td></tr>
+          <tr><td>3</td><td><strong>Explorer view</strong> of the store</td><td>Chunk 4</td><td>Delimiter-based tree, tenant-scoped list, pagination</td></tr>
+          <tr><td>4</td><td>Each file <strong>readable</strong> + <strong>linkable to forms</strong> ($0)</td><td>Chunk 5</td><td>Presigned GET → browser, no server egress, no paid OCR</td></tr>
+          <tr><td>—</td><td>Enterprise hardening (encryption, audit, scan)</td><td>Chunk 6</td><td>SSE, versioning, Object Lock, ClamAV, rate-limit</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note"><strong>Scope rule for this module:</strong> bytes live in MinIO <em>only</em>. The app persists <strong>metadata</strong> (key, owner, status) in Postgres/Prisma. <strong>No extraction/OCR/AI yet</strong> — that is §5/§7 Chunk 4, intentionally deferred so this module ships $0 and risk-free. Files are readable straight from the bucket for now.</div>
+
+      <!-- Chunk 0 -->
+      <div class="phase"><div class="n">0</div><div>
+        <h3>Module contract &amp; boundaries <span class="tag rec">design</span></h3>
+        <p><strong>In scope:</strong> secure presigned upload, &gt;100 MB multipart pipeline, explorer (tree) view, readable viewer, link-to-form. <strong>Out of scope (later):</strong> text extraction, OCR, LLM structuring (§5), hardening extras (Chunk 6 optional).</p>
+        <ul>
+          <li><strong>Backend surface:</strong> <code>storage.service.ts</code> (MinIO via AWS SDK v3) + <code>documents.routes.ts</code> (tenant-scoped, authMiddleware-enforced).</li>
+          <li><strong>Frontend surface:</strong> a self-contained <code>DocumentVault</code> module — <code>FileDropzone</code> (already exists, currently local-only), new <code>DocumentExplorer</code>, new <code>DocumentViewer</code>, and a <code>VaultPicker</code> used by forms.</li>
+          <li><strong>Reused assets:</strong> <code>authMiddleware.ts</code> (tenant from session, never client) and the <code>AuditLog</code> Prisma model. <strong>New model:</strong> <code>Document</code> (Chunk 3).</li>
+          <li><strong>SLA guardrails:</strong> tenant isolation enforced server-side; every read/write logged; browser talks to MinIO directly (no app-server egress cost).</li>
+        </ul>
+      </div></div>
+
+      <!-- Chunk 1 -->
+      <div class="phase"><div class="n">1</div><div>
+        <h3>Secure, signed uploads <span class="tag sec">Req 1</span></h3>
+        <p>The browser must <strong>never</strong> hold MinIO credentials. The server mints a short-lived, single-object, single-operation presigned URL.</p>
+        <h3>Deep-dive decisions</h3>
+        <ul>
+          <li><strong>Key is server-built:</strong> <code>tenants/{tenantId}/applications/{applicationId}/documents/{docId}/{uuid}-{filename}</code>. <code>tenantId</code>/<code>applicationId</code> come from the authenticated session, not the request body.</li>
+          <li><strong>Presign endpoint:</strong> <code>POST /api/documents/presign</code> → returns the PUT URL + required <code>Content-Type</code>/<code>x-amz-meta-*</code> fields. Gated by <code>authMiddleware</code>.</li>
+          <li><strong>Binding policy (the security core):</strong> TTL ≈ 15 min; <code>Content-Type</code> constrained to an allow-list (pdf, png, jpg, docx, xlsx…); <code>Content-Length</code> capped (e.g. 5 GB); server-computed checksum must match on complete.</li>
+          <li><strong>Bucket posture:</strong> <code>BlockPublicAccess = ALL</code>; no public ACL; a bucket policy that <em>denies everything except via a presigned URL</em> issued by the app role (least privilege: <code>s3:PutObject</code>/<code>s3:GetObject</code> only, never <code>s3:*</code>).</li>
+          <li><strong>CORS:</strong> locked to the app origin + <code>PUT</code>/<code>GET</code> + the exact allowed headers — no <code>*</code>.</li>
+        </ul>
+        <div class="flow">
+<b>Browser</b> ──auth─▶ <b>POST /presign</b> (server builds key, checks tenant) ──▶ presigned <b>PUT URL</b> (TTL 15m, CT+size bound)
+   └──PUT file直▶ <b>MinIO</b> (rejects if CT/size/checksum mismatch)
+   <b>Server</b> then writes <b>Document</b> metadata + <b>AuditLog</b> (upload_initiated→completed)
+        </div>
+        <div class="note"><strong>Why presigned PUT (not presigned POST):</strong> PUT gives a single, tamper-evident object contract and clean checksum validation; POST is fine for simple forms but weaker on content-type/length guarantees at scale.</div>
+      </div></div>
+
+      <!-- Chunk 2 -->
+      <div class="phase"><div class="n">2</div><div>
+        <h3>Large-file pipeline &gt; 100 MB <span class="tag rec">Req 2</span></h3>
+        <p>A single PUT is fragile for big files (memory, timeout, no resume). For &gt;100 MB we use <strong>S3 multipart upload</strong>, which MinIO supports natively and which the AWS SDK v3 drives unchanged.</p>
+        <h3>Deep-dive decisions</h3>
+        <ul>
+          <li><strong>Flow:</strong> <code>POST /api/documents/presign-multipart</code> (size, name, category) → server calls <code>CreateMultipartUpload</code> and returns the <code>uploadId</code> + one <strong>presigned <code>UploadPart</code> URL per part</strong>.</li>
+          <li><strong>Client:</strong> slices the file into parts (8–64 MB; 10 MB is a safe default). A 100 MB file → ~10 parts; 250 MB → ~25 parts. Each part is PUT to its presigned URL; ETag + part number are collected.</li>
+          <li><strong>Finalize:</strong> <code>POST /api/documents/complete-multipart</code> (uploadId + parts[]) → server calls <code>CompleteMultipartUpload</code>, then writes <code>Document</code> + audit.</li>
+          <li><strong>Resume / abort:</strong> the server keeps an <em>upload session</em> (uploadId + received part ETags) keyed by a client token; on failure the client re-requests missing parts (resume) or calls <code>AbortMultipartUpload</code> (cancel). Parts already uploaded are not re-sent.</li>
+          <li><strong>Concurrency &amp; limits:</strong> 4–5 parallel part uploads; respect the 10,000-part ceiling (pick part size so <code>size / partSize ≤ 10000</code>); show real progress per part.</li>
+          <li><strong>Cleanup:</strong> a lifecycle rule aborts <em>incomplete</em> multipart uploads after 7 days so orphaned parts don't accrue.</li>
+        </ul>
+        <div class="note"><strong>Acceptance for this chunk:</strong> a 250 MB PDF uploads with live progress, survives a paused/resumed network drop by re-sending only missing parts, and lands as one valid object in MinIO.</div>
+      </div></div>
+
+      <!-- Chunk 3 -->
+      <div class="phase"><div class="n">3</div><div>
+        <h3>Metadata, lifecycle &amp; audit <span class="tag rec">backend</span></h3>
+        <p>Bytes stay in MinIO; the database tracks <em>where</em> they are and <em>who</em> owns them.</p>
+        <ul>
+          <li><strong><code>Document</code> model:</strong> <code>id</code>, <code>tenantId</code>, <code>applicationId</code>, <code>category</code> (the 7 canonical folders from §1), <code>s3Key</code>, <code>originalName</code>, <code>size</code>, <code>checksum</code>, <code>contentType</code>, <code>status</code> (PENDING→UPLOADED→VERIFIED), <code>uploadedBy</code>, <code>createdAt</code>.</li>
+          <li><strong>Routes:</strong> <code>presign</code>, <code>presign-multipart</code>, <code>complete-multipart</code>, <code>GET /</code> (scoped list), <code>GET /:id/view</code> (presigned download), <code>DELETE /:id</code> (soft-delete + object delete), <code>POST /:id/link</code> (attach to form).</li>
+          <li><strong>Audit:</strong> every <code>presign</code>, <code>complete</code>, <code>view</code>, <code>link</code>, <code>delete</code> writes an <code>AuditLog</code> row with <code>tenantId</code>, actor, and object key. Cross-tenant key access attempts are rejected <em>and</em> alerted.</li>
+          <li><strong>Status:</strong> starts <code>UPLOADED</code> (readable now); moves to <code>VERIFIED</code> only after the optional ClamAV scan in Chunk 6.</li>
+        </ul>
+      </div></div>
+
+      <!-- Chunk 4 -->
+      <div class="phase"><div class="n">4</div><div>
+        <h3>Explorer view of the store <span class="tag rec">Req 3</span></h3>
+        <p>Users browse the bucket like a file manager, but the listing is always <strong>tenant-scoped and server-enforced</strong>.</p>
+        <h3>Deep-dive decisions</h3>
+        <ul>
+          <li><strong>Backend listing:</strong> <code>ListObjectsV2</code> with <code>prefix = tenants/{tenantId}/</code> and <code>delimiter = '/'</code>. <code>CommonPrefixes</code> → folders; <code>Contents</code> → files (with <code>size</code>, <code>lastModified</code>, <code>key</code>). Pagination via <code>ContinuationToken</code>.</li>
+          <li><strong>Tree shape:</strong> root → application folders → the 7 categories → documents. The 7 canonical folders from §1 become the first-level categories so the UI matches the business taxonomy.</li>
+          <li><strong>Frontend <code>DocumentExplorer</code>:</strong> breadcrumb, folder grid, file list with sort/search (server-side prefix filter), pagination. It reuses the existing mock <code>DocumentVaultView</code> as its visual base and swaps mock data for the real list API.</li>
+          <li><strong>Click-to-open:</strong> selecting a file calls Chunk 5's viewer — the explorer never exposes raw keys to the user, only display metadata.</li>
+        </ul>
+        <div class="flow">
+<b>GET /api/documents/explorer?prefix=…&amp;continuation=…</b>
+   └─▶ <b>ListObjectsV2</b> (tenant prefix + "/") ──▶ { folders:[…], files:[{key,size,modified}], nextToken }
+   └─▶ <b>DocumentExplorer</b> renders tree; clicking a file ──▶ Chunk 5 viewer
+        </div>
+      </div></div>
+
+      <!-- Chunk 5 -->
+      <div class="phase"><div class="n">5</div><div>
+        <h3>Readable viewer + link-to-form <span class="tag free">Req 4 · $0</span></h3>
+        <p>Every uploaded file must be <strong>openable in-app</strong> and <strong>attachable to a loan form</strong> — with <strong>zero runtime cost</strong>: the browser fetches straight from MinIO, no server proxy, no paid OCR.</p>
+        <h3>Deep-dive decisions</h3>
+        <ul>
+          <li><strong>Read:</strong> <code>GET /api/documents/:id/view</code> returns a presigned <strong>GET</strong> URL (TTL ≈ 5 min). The browser opens it directly — PDFs via <code>pdfjs-dist</code>, images via <code>&lt;img&gt;</code>, others via download. <strong>No bytes ever touch the app server.</strong></li>
+          <li><strong>Viewer component <code>DocumentViewer</code>:</strong> streaming render, page nav for PDFs, filename/size/status header. Reuses <code>pdfjs-dist</code> already chosen in §5.</li>
+          <li><strong>Link-to-form:</strong> each form section gets an <strong>"Attach from Vault"</strong> button → opens <code>VaultPicker</code> (Chunk 4 explorer in picker mode) → user selects a doc → <code>POST /api/documents/:id/link { formId, field }</code>. This sets the document's <code>applicationId</code>/link row. The form renders a document <em>chip</em> that opens the viewer.</li>
+          <li><strong>$0 guarantee:</strong> for now the file is only <em>read</em> and <em>linked</em> — no extraction pipeline runs, so there is no compute or API cost. Structured-data capture is explicitly deferred to §5/§7 Chunk 4.</li>
+        </ul>
+        <div class="note"><strong>Why this is safe to ship first:</strong> it delivers immediate business value (upload big secured files, browse them, open them, attach them to forms) on the free stack, while the costly intelligence layer stays optional and isolated.</div>
+      </div></div>
+
+      <!-- Chunk 6 -->
+      <div class="phase"><div class="n">6</div><div>
+        <h3>Enterprise hardening <span class="tag opt">optional</span></h3>
+        <p>Production-grade guards layered on after the module works.</p>
+        <ul>
+          <li><strong>Encryption at rest:</strong> SSE-S3 (or SSE-KMS if you later move to AWS) on the bucket.</li>
+          <li><strong>Immutability:</strong> versioning + <strong>Object Lock</strong> (WORM) so a verified document can't be silently overwritten or deleted — important for loan/compliance records.</li>
+          <li><strong>Malware:</strong> ClamAV scan on <code>complete-multipart</code> before status flips to <code>VERIFIED</code>; quarantine on hit.</li>
+          <li><strong>Resilience:</strong> rate-limit presign per tenant; 7-day abort rule for incomplete multipart; alert on any cross-tenant access attempt.</li>
+          <li><strong>Observability:</strong> metrics on upload size/distribution, presign volume, and failed parts.</li>
+        </ul>
+      </div></div>
+
+      <div class="note"><strong>Build order:</strong> Chunk 0 → 1 (secure single-file upload) → 3 (metadata) → 4 (explorer) → 5 (viewer + link) gives a usable $0 product. Chunk 2 (&gt;100 MB multipart) and Chunk 6 (hardening) are independent follow-ons. <strong>No code has been written yet</strong> — this section is the implementation contract for the Document Vault Module.</div>
+    </section>
+
+    <!-- 9. Implementation checklist — TDD, chunk-by-chunk -->
+    <section>
+      <h2>9. Implementation checklist — test-driven, chunk-by-chunk (execution order) <span class="tag rec">how to build</span></h2>
+      <p>This section is the <strong>executable checklist</strong> that re-sequences §7 (roadmap) and §8 (module deep dive) into the only correct build order: <strong>S3 foundation first, then upload, then browse/read/link</strong>. Every chunk is delivered <strong>test-first</strong> — write the failing test, then the code that makes it pass.</p>
+
+      <h3>Master prerequisite checklist (do once, before Chunk A)</h3>
+      <ul>
+        <li>☐ MinIO reachable from the app host (container / same network).</li>
+        <li>☐ Env contract agreed: <code>MINIO_ENDPOINT</code>, <code>MINIO_ACCESS_KEY</code>, <code>MINIO_SECRET_KEY</code>, <code>MINIO_BUCKET</code>, <code>MINIO_REGION</code>.</li>
+        <li>☐ App role has least-privilege policy (<code>s3:PutObject</code>/<code>s3:GetObject</code>/<code>s3:ListBucket</code>/<code>s3:DeleteObject</code> + multipart) scoped to the bucket only.</li>
+        <li>☐ Test harness ready: MinIO testcontainer + Prisma test DB + mocked <code>authMiddleware</code> (inject <code>tenantId</code>).</li>
+      </ul>
+
+      <!-- Chunk A -->
+      <div class="phase"><div class="n">A</div><div>
+        <h3>S3 / MinIO foundation <span class="tag rec">build first</span></h3>
+        <p><strong>Goal:</strong> a working, private, S3-compatible store the app can talk to. Nothing user-facing yet.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td>Provision MinIO (docker-compose) + apply <code>BlockPublicAccess=ALL</code> &amp; CORS (app origin only).</td><td><b>Integration:</b> anonymous <code>GetObject</code> → 403; CORS preflight from foreign origin → rejected.</td></tr>
+            <tr><td><code>storage.service.ts</code>: build S3 client from env, <code>ensureBucket()</code> (create+lock if missing), health check.</td><td><b>Unit:</b> client resolves from env; wrong region throws. <b>Integration:</b> PutObject→GetObject round-trip returns identical bytes.</td></tr>
+            <tr><td>Wire <code>authMiddleware</code> so <code>tenantId</code> is available to storage routes.</td><td><b>Unit:</b> missing session → 401; tenant injected into request context.</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> a green integration test proves the app can privately put/get an object in MinIO, and public access is impossible. §7 Phase 2 begins here.</div>
+      </div></div>
+
+      <!-- Chunk B -->
+      <div class="phase"><div class="n">B</div><div>
+        <h3>Secure single-file upload <span class="tag sec">Req 1</span></h3>
+        <p><strong>Goal:</strong> a borrower uploads one file via a presigned URL; key is server-built; metadata + audit recorded.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /api/documents/presign</code> → server-built key <code>tenants/{tid}/applications/{aid}/documents/{docId}/{uuid}-{name}</code>, TTL 15m, CT/size bound.</td><td><b>Unit:</b> key builder strips client-supplied tenant/path; wrong content-type rejected. <b>Integration:</b> response URL contains exact key + expires ≤ 15m.</td></tr>
+            <tr><td>Client <code>FileDropzone</code> PUTs to presigned URL; server <code>complete</code> writes <code>Document</code> + <code>AuditLog</code>.</td><td><b>Integration:</b> upload via presigned URL lands object with declared CT/size; tampered checksum → rejected; <code>AuditLog</code> row exists.</td></tr>
+            <tr><td>Cross-tenant guard: presign ignores any client <code>tenantId</code>.</td><td><b>Integration:</b> caller A cannot presign into tenant B's prefix (403/key forced to A).</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> E2E — log in as borrower, drop a PDF, it appears in MinIO under the correct tenant key, and an audit row exists. §8 Chunk 1 + 3.</div>
+      </div></div>
+
+      <!-- Chunk C -->
+      <div class="phase"><div class="n">C</div><div>
+        <h3>Large-file pipeline &gt; 100 MB <span class="tag rec">Req 2</span></h3>
+        <p><strong>Goal:</strong> multipart upload with progress, resume and abort.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td><code>presign-multipart</code> → <code>uploadId</code> + per-part presigned URLs; client slices 8–64 MB parts, 4–5 parallel.</td><td><b>Unit:</b> part-size math keeps <code>size/partSize ≤ 10000</code>. <b>Integration:</b> 250 MB file uploads via presigned parts; final object reassembles identically (checksum match).</td></tr>
+            <tr><td><code>complete-multipart</code> + resume session (store received ETags) + <code>AbortMultipartUpload</code> on cancel.</td><td><b>Integration:</b> aborting leaves no final object; resuming re-sends only missing parts and succeeds.</td></tr>
+            <tr><td>Incomplete-multipart abort lifecycle rule (7 days).</td><td><b>Integration:</b> orphaned upload part is cleaned by lifecycle (or asserted via aborted state).</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> E2E — pause mid-upload, drop network, resume; only missing parts re-send; file opens correctly. §8 Chunk 2.</div>
+      </div></div>
+
+      <!-- Chunk D -->
+      <div class="phase"><div class="n">D</div><div>
+        <h3>Explorer view <span class="tag rec">Req 3</span></h3>
+        <p><strong>Goal:</strong> browse the store as a tenant-scoped file tree.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /api/documents/explorer</code> via <code>ListObjectsV2</code> (prefix=tenant, delimiter=<code>/</code>), pagination token.</td><td><b>Integration:</b> returns folders (CommonPrefixes) + files with size/modified; cross-tenant prefix → empty/denied.</td></tr>
+            <tr><td><code>DocumentExplorer</code> UI (breadcrumb, folders, sort/search, pagination) over real API.</td></td><td><b>E2E:</b> navigate 7 category folders; deep link to a subfolder renders correct list.</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> a borrower sees only their tenant's documents, organized like the §1 taxonomy. §8 Chunk 4.</div>
+      </div></div>
+
+      <!-- Chunk E -->
+      <div class="phase"><div class="n">E</div><div>
+        <h3>Readable viewer + link-to-form <span class="tag free">Req 4 · $0</span></h3>
+        <p><strong>Goal:</strong> open any file in-app and attach it to a loan form — no server egress, no paid OCR.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /api/documents/:id/view</code> → presigned GET (TTL 5m); <code>DocumentViewer</code> (pdfjs-dist) renders.</td><td><b>Integration:</b> view URL opens the exact object; expired URL → 403. <b>E2E:</b> click file in explorer → PDF renders in viewer.</td></tr>
+            <tr><td><code>VaultPicker</code> + <code>POST /:id/link {formId,field}</code>; form shows document chip.</td><td><b>Unit:</b> link sets <code>applicationId</code>/link row. <b>E2E:</b> "Attach from Vault" → pick doc → form chip opens viewer.</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> full loop works at $0 — upload (A/B/C) → browse (D) → open &amp; attach (E). §8 Chunk 5. Extraction stays deferred (§5/§7).</div>
+      </div></div>
+
+      <!-- Chunk F -->
+      <div class="phase"><div class="n">F</div><div>
+        <h3>Enterprise hardening <span class="tag opt">optional</span></h3>
+        <p><strong>Goal:</strong> production-grade guarantees on top of the working module.</p>
+        <table>
+          <thead><tr><th>Task</th><th>Test-driven acceptance (write test first)</th></tr></thead>
+          <tbody>
+            <tr><td>SSE at rest; versioning + Object Lock (WORM).</td><td><b>Integration:</b> object metadata shows SSE; locked object delete → denied.</td></tr>
+            <tr><td>ClamAV scan on complete → flips <code>VERIFIED</code>; quarantine on hit.</td><td><b>Integration:</b> clean file → VERIFIED; EICAR sample → quarantined, not VERIFIED.</td></tr>
+            <tr><td>Per-tenant rate-limit on presign; alert on cross-tenant attempts.</td><td><b>Integration:</b> burst presign → 429; forged tenant → alert fired.</td></tr>
+          </tbody>
+        </table>
+        <div class="note"><strong>Definition of Done:</strong> security review passes; audit + alerting confirm tamper-resistance and malware gating.</div>
+      </div></div>
+
+      <h3>Chunk dependency graph</h3>
+      <div class="flow">
+<b>A: S3 foundation</b> ──▶ <b>B: secure upload</b> ──▶ <b>D: explorer</b> ──▶ <b>E: viewer + link</b>  (usable $0 product)
+        │                         │
+        └────────────────────────▶ <b>C: &gt;100MB multipart</b>  (parallel to B, same foundation)
+        │                         │
+        └────────────────────────▶ <b>F: hardening</b>  (independent layer on top of A–E)
+      </div>
+      <div class="note"><strong>QA gating:</strong> a chunk is "done" only when its <em>test-driven acceptance</em> column is green (unit + integration, plus E2E where noted). No chunk is merged until its tests pass. This is the authoritative sequence — §7 is the high-level roadmap, §8 is the design contract, §9 is what to execute.</div>
+    </section>
+  </main>
+
+  <footer>Generated plan · LoanFlow Borrower Workspace · Pre-implementation analysis · $0 open-source stack</footer>
+</body>
+</html>

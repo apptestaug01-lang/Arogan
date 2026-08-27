@@ -45,7 +45,7 @@ export default function Workspace() {
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex h-screen overflow-hidden bg-background">
         <aside className="hidden w-64 shrink-0 lg:flex">
           <Sidebar />
         </aside>
@@ -71,7 +71,7 @@ export default function Workspace() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-8">
+          <header className="flex h-[70px] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 shadow-sm sm:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <Button
                 variant="ghost"
@@ -124,7 +124,7 @@ export default function Workspace() {
           </header>
 
           <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-[1120px] animate-fade-in p-4 pb-24 sm:p-8 lg:pb-8">
+            <div className="mx-auto w-full max-w-[1120px] animate-fade-in p-4 pb-24 sm:p-8 lg:pb-8">
               <Outlet />
             </div>
           </main>
