@@ -43,7 +43,7 @@ export default function DocumentUploadView() {
           </CardContent>
         </Card>
 
-        <aside className="h-fit rounded-xl border border-border bg-white p-5 text-sm text-muted-foreground">
+        <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">☁ Storage safeguards</b>
           <br />
           <br />

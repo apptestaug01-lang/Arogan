@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { FolderOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { SectionRow } from '@/components/workspace/SectionRow';
 import { StatusTag } from '@/components/workspace/StatusTag';
@@ -16,21 +17,35 @@ export default function DocumentVaultView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>LAP-2026-0184 documents</CardTitle>
-            <CardDescription>Last synced Aug 24, 2026 at 14:32 IST</CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            {documents.map((d) => (
-              <SectionRow key={d.id} title={d.name} description={d.meta}>
-                <StatusTag status={d.status} />
-              </SectionRow>
-            ))}
-          </CardContent>
-        </Card>
+        {documents.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
+              <FolderOpen className="h-10 w-10 text-muted-foreground" />
+              <div>
+                <p className="font-semibold text-foreground">No documents stored yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Uploaded files for this application will appear here, versioned and audited.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>LAP-2026-0184 documents</CardTitle>
+              <CardDescription>Last synced Aug 24, 2026 at 14:32 IST</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {documents.map((d) => (
+                <SectionRow key={d.id} title={d.name} description={d.meta}>
+                  <StatusTag status={d.status} />
+                </SectionRow>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
-        <aside className="h-fit rounded-xl border border-border bg-white p-5 text-sm text-muted-foreground">
+        <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">🛡 Protected storage</b>
           <br />
           <br />
