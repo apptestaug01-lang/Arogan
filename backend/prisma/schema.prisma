@@ -40,6 +40,7 @@ model User {
 
   sessions       Session[]
   auditLogs      AuditLog[]
+  documents      Document[]
 }
 
 model Session {
@@ -72,4 +73,29 @@ model AuditLog {
   ipAddress String?
   userAgent String?
   timestamp DateTime @default(now())
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  VERIFIED
+}
+
+model Document {
+  id            String         @id
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  applicationId String
+  category      String
+  s3Key         String         @unique
+  originalName  String
+  contentType   String
+  size          Int
+  checksum      String
+  status        DocumentStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([applicationId])
 }

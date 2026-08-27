@@ -2,10 +2,14 @@ import {
   S3Client,
   CreateBucketCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
   PutPublicAccessBlockCommand,
   PutBucketCorsCommand,
 } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
+import { PRESIGNED_UPLOAD_TTL_SECONDS } from '../utils/constants.js'
 import logger from '../middleware/logger.js'
 
 export function createS3Client(config: StorageConfig = getStorageConfig()): S3Client {
@@ -81,6 +85,35 @@ export async function ensureBucket(
       CORSConfiguration: { CORSRules: CORS_RULES },
     }),
   )
+}
+
+export async function createPresignedUploadUrl(
+  key: string,
+  contentType: string,
+  contentLength: number,
+  expiresIn: number = PRESIGNED_UPLOAD_TTL_SECONDS,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+    ContentType: contentType,
+    ContentLength: contentLength,
+  })
+  return getSignedUrl(s3, command, { expiresIn })
+}
+
+export async function headObject(
+  key: string,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<{ size: number; checksum: string }> {
+  const result = await s3.send(
+    new HeadObjectCommand({ Bucket: config.bucket, Key: key }),
+  )
+  const checksum = result.ETag ? result.ETag.replace(/"/g, '') : ''
+  return { size: result.ContentLength ?? 0, checksum }
 }
 
 export async function checkStorageHealth(

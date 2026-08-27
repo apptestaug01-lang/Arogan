@@ -32,6 +32,21 @@ export const signupSchema = z.object({
   path: ['confirmPassword'],
 });
 
+export const documentPresignSchema = z.object({
+  applicationId: z.string().min(1, 'Application id is required'),
+  category: z.string().min(1).max(50),
+  fileName: z.string().min(1).max(200),
+  contentType: z.string().min(1),
+  contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024),
+});
+
+export const documentCompleteSchema = z.object({
+  applicationId: z.string().min(1, 'Application id is required'),
+  category: z.string().min(1).max(50),
+  fileName: z.string().min(1).max(200),
+  contentType: z.string().min(1),
+});
+
 export const loginPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or mobile number is required'),
   password: z.string().min(1, 'Password is required'),
