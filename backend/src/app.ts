@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { authRouter } from './routes/auth.js';
+import { storageRouter } from './routes/storage.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
 import { sanitizeInput } from './middleware/sanitize.js';
@@ -100,6 +101,7 @@ async function checkDatabaseHealth(): Promise<boolean> {
 }
 
 app.use('/api/auth', authRouter);
+app.use('/api/storage', storageRouter);
 
 app.use(notFound);
 app.use(errorHandler);
