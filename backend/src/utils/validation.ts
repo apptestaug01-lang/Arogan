@@ -47,6 +47,24 @@ export const documentCompleteSchema = z.object({
   contentType: z.string().min(1),
 });
 
+export const completeMultipartSchema = z.object({
+  applicationId: z.string().min(1, 'Application id is required'),
+  category: z.string().min(1).max(50),
+  fileName: z.string().min(1).max(200),
+  contentType: z.string().min(1),
+  uploadId: z.string().min(1),
+  parts: z
+    .array(z.object({ partNumber: z.number().int().positive(), etag: z.string().min(1) }))
+    .min(1),
+});
+
+export const abortMultipartSchema = z.object({
+  applicationId: z.string().min(1, 'Application id is required'),
+  documentId: z.string().min(1),
+  fileName: z.string().min(1).max(200),
+  uploadId: z.string().min(1),
+});
+
 export const loginPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or mobile number is required'),
   password: z.string().min(1, 'Password is required'),

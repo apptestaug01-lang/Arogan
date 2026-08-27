@@ -13,6 +13,8 @@ jest.mock('@aws-sdk/client-s3', () => {
     HeadBucketCommand: class {},
     PutPublicAccessBlockCommand: class {},
     PutBucketCorsCommand: class {},
+    PutBucketLifecycleConfigurationCommand: class {},
+    UploadPartCommand: class {},
   };
 });
 
