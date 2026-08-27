@@ -3,6 +3,7 @@ import app from './app.js';
 import { prisma } from './lib/prisma.js';
 import logger from './middleware/logger.js';
 import { stopCleanupJob } from './services/cleanup.service.js';
+import { ensureBucket } from './services/storage.service.js';
 
 const port = process.env.PORT || 4000;
 
@@ -19,6 +20,20 @@ async function connectDB(): Promise<void> {
 }
 
 await connectDB();
+
+async function bootstrapStorage(): Promise<void> {
+  try {
+    await ensureBucket();
+    logger.info('Storage bucket ensured');
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      'Storage bucket initialization skipped — MinIO not reachable. Document uploads will fail until storage is configured.',
+    );
+  }
+}
+
+await bootstrapStorage();
 
 server.listen(port, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${port}`);
