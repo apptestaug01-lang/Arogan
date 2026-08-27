@@ -3,6 +3,7 @@ import {
   CreateBucketCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   UploadPartCommand,
   PutPublicAccessBlockCommand,
@@ -11,7 +12,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
-import { PRESIGNED_UPLOAD_TTL_SECONDS, MULTIPART_ABORT_DAYS } from '../utils/constants.js'
+import { PRESIGNED_UPLOAD_TTL_SECONDS, PRESIGNED_DOWNLOAD_TTL_SECONDS, MULTIPART_ABORT_DAYS } from '../utils/constants.js'
 import logger from '../middleware/logger.js'
 
 export function createS3Client(config: StorageConfig = getStorageConfig()): S3Client {
@@ -145,6 +146,19 @@ export async function createPresignedUploadUrl(
     Key: key,
     ContentType: contentType,
     ContentLength: contentLength,
+  })
+  return getSignedUrl(s3, command, { expiresIn })
+}
+
+export async function createPresignedDownloadUrl(
+  key: string,
+  expiresIn: number = PRESIGNED_DOWNLOAD_TTL_SECONDS,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
   })
   return getSignedUrl(s3, command, { expiresIn })
 }

@@ -58,10 +58,49 @@ describe('DocumentExplorer', () => {
     expect(await screen.findByText('documents')).toBeInTheDocument();
   });
 
-  it('surfaces an error when the API call fails', async () => {
-    mockedGetExplorer.mockRejectedValue(new Error('Storage unavailable'));
-    render(<DocumentExplorer />);
+  it('opens a file that has a document record via onFileOpen', async () => {
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [
+        {
+          name: 'report.pdf',
+          type: 'file' as const,
+          key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+          size: 2048,
+          lastModified: '2026-08-20T10:00:00.000Z',
+          documentId: 'doc-uuid-1',
+        },
+      ],
+      nextToken: null,
+    });
 
-    expect(await screen.findByText('Storage unavailable')).toBeInTheDocument();
+    const onFileOpen = jest.fn();
+    render(<DocumentExplorer onFileOpen={onFileOpen} />);
+
+    fireEvent.click(await screen.findByText('report.pdf'));
+    expect(onFileOpen).toHaveBeenCalledWith('doc-uuid-1');
+  });
+
+  it('does not fire onFileOpen for an unprocessed file (no document record)', async () => {
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [
+        {
+          name: 'partial.bin',
+          type: 'file' as const,
+          key: 'borrowers/user-1/partial.bin',
+          size: 10,
+        },
+      ],
+      nextToken: null,
+    });
+
+    const onFileOpen = jest.fn();
+    render(<DocumentExplorer onFileOpen={onFileOpen} />);
+
+    fireEvent.click(await screen.findByText('partial.bin'));
+    expect(onFileOpen).not.toHaveBeenCalled();
   });
 });

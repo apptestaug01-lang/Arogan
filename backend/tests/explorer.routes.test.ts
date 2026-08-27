@@ -36,7 +36,16 @@ jest.mock('@aws-sdk/client-s3', () => {
   }
 })
 
+jest.mock('../src/lib/prisma.js', () => ({
+  prisma: {
+    document: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+  },
+}))
+
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { prisma } from '../src/lib/prisma.js'
 import express from 'express'
 import request from 'supertest'
 import { documentsRouter } from '../src/routes/documents.routes.js'
@@ -60,6 +69,7 @@ function setupSend(result: any) {
 describe('GET /api/documents/explorer', () => {
   beforeEach(() => {
     authed = true
+    ;(prisma.document.findMany as jest.Mock).mockResolvedValue([])
   })
 
   it('rejects unauthenticated access with 401', async () => {

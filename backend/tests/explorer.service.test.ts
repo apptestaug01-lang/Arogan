@@ -17,7 +17,16 @@ jest.mock('@aws-sdk/client-s3', () => {
   }
 })
 
+jest.mock('../src/lib/prisma.js', () => ({
+  prisma: {
+    document: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+  },
+}))
+
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { prisma } from '../src/lib/prisma.js'
 import { listExplorer, ExplorerError } from '../src/services/explorer.service.js'
 
 // resetMocks wipes the beforeEach implementation, so re-establish send() per test.
@@ -27,6 +36,10 @@ function setupSend(result: any) {
     return Promise.resolve({})
   })
 }
+
+beforeEach(() => {
+  ;(prisma.document.findMany as jest.Mock).mockResolvedValue([])
+})
 
 describe('listExplorer', () => {
   it('returns folders (CommonPrefixes) and files (Contents) at the borrower root', async () => {
@@ -49,6 +62,36 @@ describe('listExplorer', () => {
     expect(res.files[0].size).toBe(2048)
     expect(res.files[0].lastModified).toBe('2026-08-20T10:00:00.000Z')
     expect(res.nextToken).toBeNull()
+  })
+
+  it('attaches the linked documentId to a file when one exists', async () => {
+    const key = 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf'
+    ;(prisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-uuid-1', s3Key: key },
+    ])
+    setupSend({
+      CommonPrefixes: [],
+      Contents: [{ Key: key, Size: 2048, LastModified: new Date('2026-08-20T10:00:00Z') }],
+    })
+
+    const res = await listExplorer({ userId: 'user-1' })
+
+    expect(res.files[0].documentId).toBe('doc-uuid-1')
+    expect(prisma.document.findMany).toHaveBeenCalledWith({
+      where: { s3Key: { in: [key] } },
+      select: { id: true, s3Key: true },
+    })
+  })
+
+  it('leaves documentId undefined for an unlinked file', async () => {
+    ;(prisma.document.findMany as jest.Mock).mockResolvedValue([])
+    setupSend({
+      CommonPrefixes: [],
+      Contents: [{ Key: 'borrowers/user-1/a.pdf', Size: 10 }],
+    })
+
+    const res = await listExplorer({ userId: 'user-1' })
+    expect(res.files[0].documentId).toBeUndefined()
   })
 
   it('drops the directory marker so the current folder is not listed as a file', async () => {

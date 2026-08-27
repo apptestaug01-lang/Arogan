@@ -52,6 +52,7 @@ export const ALLOWED_DOCUMENT_CONTENT_TYPES: string[] = [
 
 export const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB (S3 single-PUT ceiling)
 export const PRESIGNED_UPLOAD_TTL_SECONDS = 15 * 60; // 15 minutes
+export const PRESIGNED_DOWNLOAD_TTL_SECONDS = 5 * 60; // 5 minutes (viewer links)
 
 // Multipart upload (Chunk C) — >100 MB chunking strategy
 export const MULTIPART_THRESHOLD_BYTES = 100 * 1024 * 1024; // 100 MB

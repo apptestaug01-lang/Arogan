@@ -1,6 +1,7 @@
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getStorageClient } from './storage.service.js'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
+import { prisma } from '../lib/prisma.js'
 
 const EXPLORER_DELIMITER = '/'
 
@@ -10,6 +11,7 @@ export interface ExplorerEntry {
   key: string
   size?: number
   lastModified?: string
+  documentId?: string
 }
 
 export interface ListExplorerInput {
@@ -71,15 +73,26 @@ export async function listExplorer(
     return { name, type: 'folder', key }
   })
 
-  const files: ExplorerEntry[] = (result.Contents ?? [])
-    .filter((o) => (o.Key ?? '') !== base)
-    .map((o) => ({
-      name: (o.Key ?? '').split('/').pop() ?? (o.Key ?? ''),
-      type: 'file' as const,
-      key: o.Key ?? '',
-      size: o.Size ?? 0,
-      lastModified: o.LastModified ? o.LastModified.toISOString() : undefined,
-    }))
+  const rawFiles = (result.Contents ?? []).filter((o) => (o.Key ?? '') !== base)
+
+  const documentIdByKey = new Map<string, string>()
+  if (rawFiles.length > 0) {
+    const keys = rawFiles.map((o) => o.Key ?? '').filter(Boolean)
+    const linked = await prisma.document.findMany({
+      where: { s3Key: { in: keys } },
+      select: { id: true, s3Key: true },
+    })
+    for (const d of linked) documentIdByKey.set(d.s3Key, d.id)
+  }
+
+  const files: ExplorerEntry[] = rawFiles.map((o) => ({
+    name: (o.Key ?? '').split('/').pop() ?? (o.Key ?? ''),
+    type: 'file' as const,
+    key: o.Key ?? '',
+    size: o.Size ?? 0,
+    lastModified: o.LastModified ? o.LastModified.toISOString() : undefined,
+    documentId: documentIdByKey.get(o.Key ?? ''),
+  }))
 
   return {
     prefix: base,
