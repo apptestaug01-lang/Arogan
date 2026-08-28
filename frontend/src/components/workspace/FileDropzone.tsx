@@ -1,6 +1,7 @@
 import * as React from 'react';
 import axios, { AxiosProgressEvent } from 'axios';
 import { UploadCloud, X, Trash2, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { SectionRow } from '@/components/workspace/SectionRow';
@@ -26,6 +27,12 @@ export interface FileDropzoneProps {
   category?: string;
   onUploadComplete?: () => void;
   className?: string;
+  existingDocs?: { originalName: string; size: number | null }[];
+}
+
+export interface FileDropzoneHandle {
+  openPicker: () => void;
+  cancelAll: () => void;
 }
 
 type UploadStatus =
@@ -53,16 +60,20 @@ interface UploadItem {
 
 const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx';
 
-export function FileDropzone({
-  applicationId = 'LAP-2026-0184',
-  category = 'Documents',
-  onUploadComplete,
-  className,
-}: FileDropzoneProps) {
+export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzoneProps>(
+  function FileDropzone(
+    { applicationId = 'LAP-2026-0184', category = 'Documents', onUploadComplete, className, existingDocs }: FileDropzoneProps,
+    ref: React.ForwardedRef<FileDropzoneHandle>,
+  ) {
   const [dragging, setDragging] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadItem[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const toast = useToast();
+
+  const existingDocsRef = React.useRef(existingDocs);
+  React.useEffect(() => {
+    existingDocsRef.current = existingDocs;
+  }, [existingDocs]);
 
   const updateItem = React.useCallback((id: string, patch: Partial<UploadItem>) => {
     setUploads((prev) =>
@@ -295,6 +306,14 @@ export function FileDropzone({
         return;
       }
 
+      const isDuplicate = existingDocsRef.current?.some(
+        (d) => d.originalName === file.name && d.size != null && d.size === file.size,
+      );
+      if (isDuplicate) {
+        toast(`${file.name} already exists in ${category}`, 'info');
+        return;
+      }
+
       const isMultipart = file.size > MULTIPART_THRESHOLD_BYTES;
       const id = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const item: UploadItem = {
@@ -350,6 +369,32 @@ export function FileDropzone({
     [removeItem, startUpload],
   );
 
+  const cancelAll = React.useCallback(() => {
+    setUploads((prev) => {
+      prev.forEach((u) => {
+        if (u.status === 'uploading' || u.status === 'presigning' || u.status === 'completing') {
+          u.abortController?.abort();
+          if (u.isMultipart && u.uploadId && u.documentId) {
+            abortMultipart({
+              documentId: u.documentId,
+              applicationId,
+              category,
+              fileName: u.file.name,
+              uploadId: u.uploadId,
+            }).catch(() => {});
+          }
+        }
+      });
+      return prev.map((u) =>
+        u.status === 'uploading' || u.status === 'presigning' || u.status === 'completing'
+          ? { ...u, status: 'idle', message: 'Cancelled', error: undefined }
+          : u,
+      );
+    });
+  }, [applicationId, category]);
+
+  React.useImperativeHandle(ref, () => ({ openPicker: () => inputRef.current?.click(), cancelAll }), [cancelAll]);
+
   React.useEffect(() => {
     if (uploads.length === 0) return;
     const allDone = uploads.every((u) => u.status === 'complete' || u.status === 'error');
@@ -385,7 +430,9 @@ export function FileDropzone({
         <UploadCloud className="h-8 w-8 text-primary-600" />
         <p className="mt-3 font-semibold text-foreground">Drop files here, or browse</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX · Up to 5 GB per file
+          Tagged as{' '}
+          <span className="font-semibold text-primary-600">{category}</span> · PDF, PNG, JPG,
+          WEBP, DOC, DOCX, XLS, XLSX · Up to 5 GB per file
         </p>
         <button
           type="button"
@@ -406,6 +453,13 @@ export function FileDropzone({
 
       {uploads.length > 0 && (
         <div className="space-y-2">
+          {uploads.some((u) => u.status === 'uploading' || u.status === 'presigning') && (
+            <div className="flex justify-end">
+              <Button size="sm" variant="ghost" onClick={cancelAll} aria-label="Cancel all uploads">
+                Cancel All
+              </Button>
+            </div>
+          )}
           {uploads.map((item) => (
             <UploadRow
               key={item.id}
@@ -419,7 +473,7 @@ export function FileDropzone({
       )}
     </div>
   );
-}
+});
 
 interface UploadRowProps {
   item: UploadItem;

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanFlow — Enterprise Architecture Document</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: true } });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #e2e8f0;
+      --brand: #1763d1;
+      --brand-soft: #eff6ff;
+      --accent: #0e7490;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --crit: #b91c1c;
+      --crit-bg: #fef2f2;
+      --ok: #047857;
+      --ok-bg: #ecfdf5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: #f1f5f9;
+      line-height: 1.6;
+    }
+    header.cover {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #1763d1 100%);
+      color: #fff;
+      padding: 64px 48px 56px;
+    }
+    header.cover .kicker { letter-spacing: .2em; text-transform: uppercase; font-size: 12px; opacity: .85; }
+    header.cover h1 { font-size: 44px; margin: 12px 0 8px; font-weight: 800; letter-spacing: -0.02em; }
+    header.cover p { max-width: 760px; opacity: .92; font-size: 16px; }
+    header.cover .meta { margin-top: 24px; display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px; opacity: .9; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 32px 80px; }
+    .toc {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 24px 28px; margin-bottom: 36px;
+    }
+    .toc h2 { margin: 0 0 12px; font-size: 18px; }
+    .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 40px; }
+    .toc a { color: var(--brand); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    section {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 32px 36px; margin-bottom: 28px;
+    }
+    section h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+    section h3 { font-size: 18px; margin: 28px 0 10px; color: var(--accent); }
+    section p, section li { color: var(--muted); }
+    .lead { color: var(--ink); font-weight: 500; }
+    .diagram {
+      background: #fff; border: 1px solid var(--line); border-radius: 12px;
+      padding: 18px; margin: 18px 0; overflow-x: auto;
+    }
+    .tree {
+      background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 20px 24px;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+      line-height: 1.55; overflow-x: auto;
+    }
+    .tree .c { color: #7dd3fc; }
+    .tree .f { color: #cbd5e1; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: var(--brand-soft); color: var(--ink); font-weight: 600; }
+    td code, .tree code { color: #f97316; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+    .b-ok { background: var(--ok-bg); color: var(--ok); }
+    .b-warn { background: var(--warn-bg); color: var(--warn); }
+    .b-crit { background: var(--crit-bg); color: var(--crit); }
+    .callout { border-left: 4px solid var(--brand); background: var(--brand-soft); padding: 14px 18px; border-radius: 8px; margin: 16px 0; }
+    .callout.warn { border-color: var(--warn); background: var(--warn-bg); }
+    .callout.crit { border-color: var(--crit); background: var(--crit-bg); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } .toc ol { columns: 1; } }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .pill { background: #f1f5f9; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+    .num { color: var(--brand); font-weight: 800; }
+  </style>
+</head>
+<body>
+  <header class="cover">
+    <div class="kicker">Enterprise Architecture &amp; Solution Blueprint</div>
+    <h1>LoanFlow — Business Loan Application Platform</h1>
+    <p>System architecture, data model, UX/backend design, deployment topology, and a prioritized gap analysis for an enterprise-ready business-lending workspace (Borrower Workspace, secure document vault, and S3/MinIO + Brevo integrations).</p>
+    <div class="meta">
+      <span>Document version: 1.0</span>
+      <span>Status: As-implemented review</span>
+      <span>Prepared by: Solution Architecture</span>
+      <span>Scope: Frontend + Backend + Infrastructure</span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="toc">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Project Structure</a></li>
+        <li><a href="#s2">Database &amp; Data Model</a></li>
+        <li><a href="#s3">UI, UX &amp; Backend Design</a></li>
+        <li><a href="#s4">Overall System Architecture</a></li>
+        <li><a href="#s5">Gap Analysis &amp; Recommendations</a></li>
+        <li><a href="#s6">Integration Inventory</a></li>
+        <li><a href="#s7">Roadmap to Enterprise Readiness</a></li>
+      </ol>
+    </div>
+
+    <!-- ============================ 1. PROJECT STRUCTURE ============================ -->
+    <section id="s1">
+      <h2>1. Project Structure</h2>
+      <p class="lead">LoanFlow is a decoupled single-page application (React 19 + Vite) fronting a TypeScript/Express API. The two are independent npm projects (not a workspace monorepo) sharing only conventions and the Prisma schema contract.</p>
+
+      <div class="pill-row">
+        <span class="pill">React 19</span><span class="pill">Vite 5</span><span class="pill">TypeScript 5.6 (strict)</span>
+        <span class="pill">Tailwind 3.4</span><span class="pill">shadcn/ui (Radix)</span><span class="pill">React Router 7</span>
+        <span class="pill">Axios</span><span class="pill">Jest + Testing Library</span><span class="pill">Playwright</span>
+      </div>
+      <div class="pill-row">
+        <span class="pill">Node 20</span><span class="pill">Express 4</span><span class="pill">Prisma 5 + PostgreSQL 16</span>
+        <span class="pill">@aws-sdk/client-s3 (MinIO)</span><span class="pill">JWT + bcrypt</span><span class="pill">Zod</span>
+        <span class="pill">Helmet / CORS / Rate-limit</span><span class="pill">Pino logging</span><span class="pill">Brevo (email/SMS)</span>
+      </div>
+
+      <h3>Repository layout</h3>
+      <div class="tree">
+<span class="c">BusinessLoanApp/</span>
+├── <span class="c">frontend/</span>                  <span class="f"># React SPA</span>
+│   ├── src/
+│   │   ├── main.tsx             <span class="f"># BrowserRouter &gt; AuthProvider &gt; App</span>
+│   │   ├── App.tsx              <span class="f"># routes + ErrorBoundary</span>
+│   │   ├── lib/utils.ts         <span class="f"># cn() = clsx + tailwind-merge</span>
+│   │   ├── constants/documents.ts
+│   │   ├── services/            <span class="f"># api.ts, auth.ts, authContext.tsx, documents.ts</span>
+│   │   ├── components/ui/       <span class="f"># shadcn primitives</span>
+│   │   ├── components/workspace/ <span class="f"># Sidebar, FileDropzone, StatusTag, MetricCard, SectionRow, Explorer, Viewer, ToastProvider</span>
+│   │   ├── pages/               <span class="f"># Login, Signup, OtpVerify, ForgotPassword, ResetPassword, Workspace</span>
+│   │   ├── pages/workspace/      <span class="f"># Welcome, Dashboard, Applications, NewApplication, DocumentUpload, DocumentVault, DocumentManage</span>
+│   │   └── mock/workspace.ts     <span class="f"># typed static data (decoupled from backend)</span>
+│   ├── tests/ + tests-e2e/      <span class="f"># Jest unit + Playwright e2e</span>
+│   └── Dockerfile
+├── <span class="c">backend/</span>                   <span class="f"># Express API</span>
+│   ├── src/
+│   │   ├── server.ts            <span class="f"># boot: connectDB, bootstrapStorage, http server</span>
+│   │   ├── app.ts               <span class="f"># middleware + route mounting</span>
+│   │   ├── config/              <span class="f"># env.ts (NODE_ENV loader), storage.config.ts</span>
+│   │   ├── middleware/          <span class="f"># auth, rateLimit, validateRequest, sanitize, logger, errorHandler, notFound</span>
+│   │   ├── routes/              <span class="f"># auth.ts, storage.routes.ts, documents.routes.ts</span>
+│   │   ├── services/            <span class="f"># auth, otp, token, storage, multipart, document, link, explorer, viewer, email, brevoEmailProvider, audit, cleanup</span>
+│   │   ├── templates/emailTemplates.ts
+│   │   ├── lib/prisma.ts        <span class="f"># singleton client</span>
+│   │   └── utils/               <span class="f"># constants, validation, crypto, env.validation, response, documentKey</span>
+│   ├── prisma/                  <span class="f"># schema.prisma + migrations/01_init</span>
+│   └── Dockerfile
+├── docker-compose.yml           <span class="f"># postgres + backend + frontend (no MinIO)</span>
+├── docker-compose.minio.yml      <span class="f"># MinIO + bucket init</span>
+├── render.yaml                  <span class="f"># Render deploy manifest</span>
+├── README.md / SECURITY.md / AGENTS.md
+└── kilo.json
+      </div>
+
+      <h3>Layered backend topology</h3>
+      <div class="diagram">
+        <div class="mermaid">
+flowchart TD
+  C[Client / Axios] -->|HTTPS + JWT cookie| MW[Express App]
+  subgraph Middleware
+    MW --> HEL[Helmet + CSP]
+    HEL --> CORS[CORS]
+    CORS --> CP[Cookie Parser]
+    CP --> JSON[express.json 10MB]
+    JSON --> SAN[sanitizeInput]
+    SAN --> LOG[Request Logger]
+    LOG --> RL[Global Rate Limiter]
+  end
+  RL --> R[Route Handlers]
+  R --> SVC[Domain Services]
+  R --> VAL[Zod validateRequest]
+  SVC --> PR[Prisma Client]
+  SVC --> S3[(MinIO / S3)]
+  SVC --> BRE[Brevo API]
+  PR --> DB[(PostgreSQL)]
+  SVC --> AUD[(AuditLog)]
+  R --> EH[Central Error Handler]
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 2. DATABASE ============================ -->
+    <section id="s2">
+      <h2>2. Database &amp; Data Model</h2>
+      <p class="lead">PostgreSQL 16 accessed via Prisma 5. Five core models support identity, sessions, OTP, audit, and documents. The schema is the source of truth; however, the <code>Document</code> model is applied via <code>prisma db push</code> at container start rather than a versioned migration (see Gap #4).</p>
+
+      <div class="diagram">
+        <div class="mermaid">
+erDiagram
+  User {
+    string id PK
+    string fullName
+    string email UK
+    string mobile
+    string countryCode
+    string passwordHash
+    Role role
+    bool emailVerified
+    bool isActive
+    datetime lockedUntil
+    int failedAttempts
+    datetime lastLoginAt
+    string passwordResetToken UK
+    datetime passwordResetExpiresAt
+  }
+  Session {
+    string id PK
+    string userId FK
+    string refreshToken UK
+    datetime expiresAt
+    bool revoked
+  }
+  OTPRequest {
+    string id PK
+    string identifier
+    string codeHash
+    OtpChannel channel
+    datetime expiresAt
+    bool used
+    int attemptCount
+  }
+  AuditLog {
+    string id PK
+    string userId FK
+    string action
+    json details
+    string ipAddress
+    string userAgent
+  }
+  Document {
+    string id PK
+    string userId FK
+    string applicationId
+    string category
+    string s3Key UK
+    string originalName
+    string contentType
+    int size
+    string checksum
+    DocumentStatus status
+  }
+  User ||--o{ Session : "has"
+  User ||--o{ AuditLog : "generates"
+  User ||--o{ Document : "owns"
+  OTPRequest ||--|| User : "loosely keyed by identifier (phone/email)"
+        </div>
+      </div>
+
+      <h3>Enums</h3>
+      <table>
+        <tr><th>Enum</th><th>Values</th><th>Notes</th></tr>
+        <tr><td><code>Role</code></td><td>BORROWER (default), ADMIN, ANALYST, APPROVER</td><td>RBAC defined but not enforced in routes (Gap #2)</td></tr>
+        <tr><td><code>OtpChannel</code></td><td>EMAIL, SMS</td><td>SMS falls back to email if Brevo SMS disabled</td></tr>
+        <tr><td><code>DocumentStatus</code></td><td>PENDING (default), UPLOADED, VERIFIED, DELETED</td><td>Only UPLOADED/DELETED are written; PENDING/VERIFIED unused (Gap #3)</td></tr>
+      </table>
+
+      <h3>Access patterns</h3>
+      <ul>
+        <li><strong>Documents:</strong> scoped by <code>userId</code> + optional <code>category</code> filter; soft-delete via <code>status='DELETED'</code>; indexed on <code>userId</code> and <code>applicationId</code>.</li>
+        <li><strong>Object key convention:</strong> <code>borrowers/{userId}/applications/{applicationId}/documents/{category}/{documentId}/{fileName}</code> (sanitized path segments, prefix-guarded so a user cannot escape their root).</li>
+        <li><strong>No pagination</strong> on document listing — full list returned per user.</li>
+      </ul>
+    </section>
+
+    <!-- ============================ 3. UI / UX / BACKEND ============================ -->
+    <section id="s3">
+      <h2>3. UI, UX &amp; Backend Design</h2>
+
+      <div class="grid2">
+        <div>
+          <h3>Frontend UX</h3>
+          <ul>
+            <li><strong>Shell:</strong> <code>Workspace.tsx</code> — fixed sidebar + topbar (breadcrumb, search, "New application") + <code>&lt;Outlet/&gt;</code>; mobile drawer + bottom nav.</li>
+            <li><strong>Design system:</strong> shadcn/ui (slate) + Tailwind tokens in <code>index.css</code> (<code>:root</code> light, <code>.dark</code> dark), Inter font, <code>cn()</code> helper, <code>ToastProvider</code> (success/info/error).</li>
+            <li><strong>Document upload UX:</strong> "Upload to" single-category pills, drag/drop <code>FileDropzone</code>, per-file progress + multipart part counter, <strong>duplicate guard</strong> (name+size) against vault, checklist filter pills, <strong>auto-filter to uploaded category</strong>, "<em>X of N categories have files</em>" status, bulk delete.</li>
+            <li><strong>Inter-view comms:</strong> DOM custom events <code>document:uploaded</code> / <code>document:deleted</code> (decoupled refresh).</li>
+            <li><strong>State:</strong> React Context (<code>AuthProvider</code>) + local <code>useState</code>; no global store. Tokens in <code>localStorage</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Backend behavior</h3>
+          <ul>
+            <li><strong>Auth:</strong> stateless JWT access (15m) + DB-backed refresh session (7d, rotated). Account lockout after 5 fails (+15m). OTP (SHA-256 hashed, 60s TTL, rate-limited).</li>
+            <li><strong>Upload:</strong> server issues presigned URL (≤100MB single PUT; &gt;100MB multipart, 64MB parts, concurrency 4). Client PUTs to S3 directly; <code>complete</code> does <code>HeadObject</code> then creates <code>Document</code>.</li>
+            <li><strong>Storage:</strong> cached S3 client, <code>forcePathStyle</code> (MinIO), <code>WHEN_REQUIRED</code> checksum, bucket bootstrap (CORS, lifecycle abort of stale multipart at 7d).</li>
+            <li><strong>Email:</strong> Brevo REST (4-retry backoff) for OTP, reset, welcome, login-notification, password-changed. No-op provider in dev without Brevo.</li>
+            <li><strong>Cross-cutting:</strong> Helmet CSP, input sanitization, per-endpoint rate limiting, Pino JSON logs, audit trail for auth + document events.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Request lifecycle — document upload</h3>
+      <div class="diagram">
+        <div class="mermaid">
+sequenceDiagram
+  participant U as User (Browser)
+  participant FD as FileDropzone
+  participant API as Express /documents
+  participant S3 as MinIO/S3
+  participant DB as PostgreSQL
+  U->>FD: Select category + drop file
+  FD->>FD: Validate type/size + duplicate guard
+  FD->>API: POST /presign (contentType, size)
+  API->>S3: CreatePresignedPut / CreateMultipartUpload
+  API-->>FD: Presigned URL(s)
+  FD->>S3: PUT object / parts directly
+  FD->>API: POST /:id/complete
+  API->>S3: HeadObject (verify size/ETag)
+  API->>DB: INSERT Document (status=UPLOADED)
+  API-->>FD: 201 Created
+  FD-->>U: Toast + dispatch document:uploaded
+        </div>
+      </div>
+
+      <h3>Routing map (frontend)</h3>
+      <div class="diagram">
+        <div class="mermaid">
+flowchart LR
+  A[/] -->|auth?| WS[Workspace]
+  A --> L[Login] --> O[OtpVerify]
+  A --> S[Signup] --> FP[ForgotPassword] --> RP[ResetPassword]
+  WS --> OV[Overview / Welcome]
+  WS --> DBV[Dashboard]
+  WS --> AP[Applications]
+  WS --> NA[New Application]
+  WS --> DU[Document Upload]
+  WS --> VA[Document Vault]
+  WS --> MG[Manage &amp; Delete]
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 4. OVERALL ARCHITECTURE ============================ -->
+    <section id="s4">
+      <h2>4. Overall System Architecture</h2>
+      <p class="lead">The platform runs as three Render web services plus a managed PostgreSQL, with S3-compatible MinIO for object storage and Brevo for transactional email/SMS. The browser talks only to the Express API; large files bypass the app server and go straight to object storage via presigned URLs.</p>
+
+      <div class="diagram">
+        <div class="mermaid">
+flowchart TB
+  Browser[Browser SPA :5173 / :80] -->|HTTPS| FE[React Frontend<br/>Render: loanflow-frontend]
+  FE -->|/api proxy + Bearer JWT| BE[Express API<br/>Render: loanflow-backend :4000]
+  BE -->|Prisma| PG[(Render PostgreSQL 16)]
+  BE -->|presigned URLs| S3[MinIO (S3-compatible)<br/>Render: loanflow-minio :9000]
+  S3 -->|PUT/GET direct| Browser
+  BE -->|REST fetch| BRE[Brevo API<br/>email + SMS]
+  BE -->|AuditLog| PG
+  subgraph CI[No CI pipeline]
+    GH[(Git push)] -->|autoDeploy| BE
+    GH --> FE
+  end
+        </div>
+      </div>
+
+      <h3>Integration topology</h3>
+      <table>
+        <tr><th>Capability</th><th>Technology</th><th>Direction</th><th>Key config</th></tr>
+        <tr><td>Relational data</td><td>PostgreSQL 16 (Prisma)</td><td>BE ↔ DB</td><td><code>DATABASE_URL</code></td></tr>
+        <tr><td>Object storage</td><td>MinIO / S3-compatible</td><td>BE issues presign; Browser PUT/GET</td><td><code>MINIO_ENDPOINT/BUCKET</code>, bucket <code>loanflow-documents</code></td></tr>
+        <tr><td>Transactional email/SMS</td><td>Brevo v3 SMTP + SMS</td><td>BE → Brevo</td><td><code>BREVO_API_KEY</code>, <code>BREVO_FROM_EMAIL</code></td></tr>
+        <tr><td>Auth tokens</td><td>JWT (jsonwebtoken) + bcrypt</td><td>BE ↔ Browser</td><td><code>JWT_ACCESS/REFRESH_SECRET</code></td></tr>
+        <tr><td>Edge security</td><td>Helmet, CORS, Rate-limit</td><td>Browser → BE</td><td><code>CORS_ORIGIN</code>, <code>RATE_LIMIT_*</code></td></tr>
+        <tr><td>Observability</td><td>Pino JSON logs + AuditLog</td><td>BE → DB</td><td><code>LOG_LEVEL</code></td></tr>
+      </table>
+
+      <div class="callout">
+        <strong>Deployment note:</strong> Render <code>autoDeploy: true</code> rebuilds on every push to the default branch with <strong>no CI gate</strong>. The backend container runs <code>prisma db push</code> at startup to sync the schema.
+      </div>
+    </section>
+
+    <!-- ============================ 5. GAP ANALYSIS ============================ -->
+    <section id="s5">
+      <h2>5. Gap Analysis &amp; Recommendations</h2>
+      <p class="lead">Findings from a full code review, prioritized by enterprise-readiness impact. Severity reflects security, compliance, and deployability risk.</p>
+      <table>
+        <tr><th>#</th><th>Sev</th><th>Finding</th><th>Recommendation</th></tr>
+        <tr><td class="num">1</td><td><span class="badge b-crit">Critical</span></td><td>Backend throws on boot if Brevo is not configured in production (<code>email.service.ts</code>); <code>BREVO_API_KEY</code> is absent from <code>render.yaml</code>.</td><td>Add <code>BREVO_API_KEY</code> as a secret on Render, or make email best-effort (don't crash boot) and queue notifications.</td></tr>
+        <tr><td class="num">2</td><td><span class="badge b-crit">Critical</span></td><td>Database credentials are committed in plaintext in <code>render.yaml</code> (and MinIO defaults <code>minioadmin/minioadmin</code>).</td><td>Move all secrets to Render secret store (<code>sync:false</code>); rotate DB + MinIO credentials; purge from git history.</td></tr>
+        <tr><td class="num">3</td><td><span class="badge b-warn">High</span></td><td>RBAC is decorative — <code>requireRole</code> exists but no route enforces ADMIN/ANALYST/APPROVER.</td><td>Wire <code>requireRole</code> into protected endpoints and <code>ProtectedRoute allowedRoles</code> on the frontend, or formally scope to BORROWER-only for now.</td></tr>
+        <tr><td class="num">4</td><td><span class="badge b-warn">High</span></td><td>Prisma drift: <code>Document</code> + <code>DocumentStatus</code> are not in <code>01_init</code>; no <code>migration_lock.toml</code>; prod relies on <code>db push</code>.</td><td>Generate a real migration (<code>Document</code> + enum) and commit <code>migration_lock.toml</code>, or formally adopt <code>db push</code> with documented process.</td></tr>
+        <tr><td class="num">5</td><td><span class="badge b-warn">High</span></td><td>Frontend <code>VITE_API_URL</code> points to <code>arogan-mx0n.onrender.com</code> while backend/CORS use <code>loanflow-*</code> hostnames — likely broken API/CORS in prod.</td><td>Reconcile URLs; drive <code>VITE_API_URL</code> and <code>CORS_ORIGIN</code> from a single source; verify against live service names.</td></tr>
+        <tr><td class="num">6</td><td><span class="badge b-warn">High</span></td><td>No document verification / malware-scan pipeline; <code>VERIFIED</code>/<code>PENDING</code> never written. Compliance gap for a loan/financial app.</td><td>Add a scan/verification stage (async job or AV service) that transitions UPLOADED → VERIFIED before analyst review.</td></tr>
+        <tr><td class="num">7</td><td><span class="badge b-warn">Medium</span></td><td>No CI/CD — no lint/typecheck/test gate; blind <code>autoDeploy</code> ships broken builds.</td><td>Add a GitHub Actions workflow (lint + typecheck + jest + build) and protect the branch or disable autoDeploy.</td></tr>
+        <tr><td class="num">8</td><td><span class="badge b-warn">Medium</span></td><td>No cache/queue/Redis; rate-limiting, sessions, and cleanup are per-instance in-memory — breaks under horizontal scaling.</td><td>Introduce Redis for shared rate-limit/cleanup state if scaling beyond a single instance.</td></tr>
+        <tr><td class="num">9</td><td><span class="badge b-warn">Medium</span></td><td>Unbounded <code>AuditLog</code> with no retention; <code>cleanup.service</code> only prunes sessions/OTPs.</td><td>Add an AuditLog retention/archive job and a TTL policy.</td></tr>
+        <tr><td class="num">10</td><td><span class="badge b-ok">Low</span></td><td>Duplicate guard is name+size only (same content, different name/size bypasses it).</td><td>Consider content hash (ETag/checksum) comparison for stronger de-duplication.</td></tr>
+        <tr><td class="num">11</td><td><span class="badge b-ok">Low</span></td><td>OTP TTL = 60s (very tight); SMS text hardcodes "60 seconds" regardless of config.</td><td>Raise TTL to 5–10 min and read the value from config in templates.</td></tr>
+        <tr><td class="num">12</td><td><span class="badge b-ok">Low</span></td><td>Several hardcoded values: <code>applicationId='LAP-2026-0184'</code>, mock-only Dashboard/Applications, <code>text-success-500</code> not in Tailwind, inconsistent delete-confirm (modal vs <code>window.confirm</code>).</td><td>Parameterize application context; wire Dashboard/Applications to live APIs; standardize tokens and a single DeleteConfirmDialog.</td></tr>
+        <tr><td class="num">13</td><td><span class="badge b-ok">Low</span></td><td><code>nodemailer</code> unused dependency; minor dead code (<code>generateRefreshToken</code>, <code>logAudit</code>).</td><td>Remove unused deps/code; keeps the supply surface small.</td></tr>
+        <tr><td class="num">14</td><td><span class="badge b-ok">Low</span></td><td>E2E specs contain real-looking credentials in source.</td><td>Move test credentials to env vars / secrets; never commit real passwords.</td></tr>
+      </table>
+    </section>
+
+    <!-- ============================ 6. INTEGRATION INVENTORY ============================ -->
+    <section id="s6">
+      <h2>6. Integration Inventory</h2>
+      <table>
+        <tr><th>Integration</th><th>Mechanism</th><th>Status</th></tr>
+        <tr><td>PostgreSQL</td><td>Prisma ORM (Render managed, Oregon)</td><td><span class="badge b-ok">Active</span></td></tr>
+        <tr><td>MinIO (S3-compatible)</td><td>@aws-sdk/client-s3 + s3-request-presigner</td><td><span class="badge b-ok">Active</span></td></tr>
+        <tr><td>Brevo (email + SMS)</td><td>Native fetch to api.brevo.com v3</td><td><span class="badge b-warn">Active but key missing in prod manifest</span></td></tr>
+        <tr><td>Redis / Queue / Cache</td><td>None</td><td><span class="badge b-warn">Not present</span></td></tr>
+        <tr><td>CI/CD</td><td>Render autoDeploy only</td><td><span class="badge b-warn">No CI gate</span></td></tr>
+        <tr><td>Analytics / KYC / Payments</td><td>None</td><td><span class="badge b-warn">Out of scope</span></td></tr>
+      </table>
+    </section>
+
+    <!-- ============================ 7. ROADMAP ============================ -->
+    <section id="s7">
+      <h2>7. Roadmap to Enterprise Readiness</h2>
+      <div class="grid2">
+        <div>
+          <h3>Phase 0 — Stabilize (days)</h3>
+          <ul>
+            <li>Rotate &amp; externalize all secrets (DB, MinIO, Brevo).</li>
+            <li>Add <code>BREVO_API_KEY</code> to Render; verify boot.</li>
+            <li>Reconcile <code>VITE_API_URL</code> / <code>CORS_ORIGIN</code>.</li>
+            <li>Generate the missing <code>Document</code> migration + lock file.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Phase 1 — Harden (weeks)</h3>
+          <ul>
+            <li>Add CI gate (lint/typecheck/test) + protected branch.</li>
+            <li>Enforce RBAC on routes and frontend guards.</li>
+            <li>Add document scan/verification pipeline (UPLOADED → VERIFIED).</li>
+            <li>Introduce AuditLog retention + pagination.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout warn">
+        <strong>What is solid today:</strong> layered backend, defense-in-depth middleware (Helmet/CSP, CORS, sanitization, rate limiting, bcrypt, JWT rotation, lockout, audit), clean S3 presigned-upload pattern, a polished, modular Borrower Workspace UI, and strong unit + e2e test coverage.
+      </div>
+    </section>
+
+    <footer>
+      LoanFlow Architecture Document v1.0 — Generated from source review of <code>frontend/</code>, <code>backend/</code>, <code>render.yaml</code>, and <code>prisma/schema.prisma</code>. Diagrams render via Mermaid (requires internet access to the CDN).
+    </footer>
+  </div>
+</body>
+</html>
