@@ -60,6 +60,7 @@ export const completeMultipartSchema = z.object({
 
 export const abortMultipartSchema = z.object({
   applicationId: z.string().min(1, 'Application id is required'),
+  category: z.string().min(1).max(50),
   documentId: z.string().min(1),
   fileName: z.string().min(1).max(200),
   uploadId: z.string().min(1),

@@ -12,6 +12,7 @@ import ApplicationsView from './pages/workspace/ApplicationsView';
 import NewApplicationView from './pages/workspace/NewApplicationView';
 import DocumentUploadView from './pages/workspace/DocumentUploadView';
 import DocumentVaultView from './pages/workspace/DocumentVaultView';
+import DocumentManageView from './pages/workspace/DocumentManageView';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppErrorBoundary } from './components/ErrorBoundary';
 
@@ -44,6 +45,7 @@ function App() {
             <Route path="applications/new" element={<NewApplicationView />} />
             <Route path="documents" element={<DocumentUploadView />} />
             <Route path="vault" element={<DocumentVaultView />} />
+            <Route path="manage" element={<DocumentManageView />} />
           </Route>
         </Route>
       </Routes>

@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express'
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js'
 import { validate } from '../middleware/validateRequest.js'
 import { sendSuccess, sendError } from '../utils/response.js'
-import { presignDocument, completeDocument, deleteDocument } from '../services/document.service.js'
+import { presignDocument, completeDocument, deleteDocument, listUserDocuments, bulkDeleteDocuments } from '../services/document.service.js'
 import {
   presignMultipart,
   completeMultipart,
@@ -61,6 +61,24 @@ router.get(
         continuationToken: continuation,
       })
       sendSuccess(res, 'Explorer listing', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/documents',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { category } = req.query as { category?: string }
+      const documents = await listUserDocuments({
+        userId: req.user!.id,
+        category,
+      })
+      sendSuccess(res, 'Documents listed', { documents })
     } catch (err) {
       next(err)
     }
@@ -193,6 +211,28 @@ router.delete(
   },
 )
 
+router.delete(
+  '/',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { documentIds } = req.body as { documentIds?: string[] }
+      if (!Array.isArray(documentIds) || documentIds.length === 0) {
+        sendError(res, 'documentIds must be a non-empty array', 400)
+        return
+      }
+      const result = await bulkDeleteDocuments({
+        userId: req.user!.id,
+        documentIds,
+      })
+      sendSuccess(res, 'Documents deleted', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
 router.post(
   '/multipart/:uploadId/abort',
   authMiddleware,
@@ -205,6 +245,7 @@ router.post(
         userId: req.user!.id,
         documentId: body.documentId,
         applicationId: body.applicationId,
+        category: body.category,
         fileName: body.fileName,
         uploadId: body.uploadId,
       })
@@ -221,18 +262,20 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { applicationId, documentId, fileName } = req.query as {
+      const { applicationId, category, documentId, fileName } = req.query as {
         applicationId?: string
+        category?: string
         documentId?: string
         fileName?: string
       }
-      if (!applicationId || !documentId || !fileName) {
-        sendError(res, 'applicationId, documentId and fileName are required', 400)
+      if (!applicationId || !category || !documentId || !fileName) {
+        sendError(res, 'applicationId, category, documentId and fileName are required', 400)
         return
       }
       const partNumbers = await listUploadedParts({
         userId: req.user!.id,
         applicationId,
+        category,
         documentId,
         fileName,
         uploadId: req.params.uploadId,

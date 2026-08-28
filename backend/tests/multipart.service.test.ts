@@ -112,7 +112,7 @@ describe('presignMultipart', () => {
   it('issues one presigned URL per part and binds uploadId/part numbers', async () => {
     setupSend()
     const result = await presignMultipart(INPUT)
-    const expectedKey = buildDocumentKey('user-1', 'app-1', result.documentId, 'big.pdf')
+    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', result.documentId, 'big.pdf')
     const totalParts = Math.ceil((250 * MB) / (64 * MB))
 
     expect(result.uploadId).toBe('upload-1')
@@ -170,7 +170,7 @@ describe('completeMultipart', () => {
       ],
     })
 
-    const expectedKey = buildDocumentKey('user-1', 'app-1', 'doc-1', 'big.pdf')
+    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', 'doc-1', 'big.pdf')
     expect(result.id).toBe('doc-1')
 
     const completeCall = (new S3Client() as any).send.mock.calls.find(
@@ -222,6 +222,7 @@ describe('abortMultipart / listUploadedParts', () => {
     await abortMultipart({
       userId: 'user-1',
       applicationId: 'app-1',
+      category: 'KYC',
       documentId: 'doc-1',
       fileName: 'big.pdf',
       uploadId: 'upload-1',
@@ -237,6 +238,7 @@ describe('abortMultipart / listUploadedParts', () => {
     const parts = await listUploadedParts({
       userId: 'user-1',
       applicationId: 'app-1',
+      category: 'KYC',
       documentId: 'doc-1',
       fileName: 'big.pdf',
       uploadId: 'upload-1',

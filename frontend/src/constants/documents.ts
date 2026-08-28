@@ -41,6 +41,20 @@ export const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
 
 export const ACCEPTED_FILE_EXTENSIONS = Object.keys(CONTENT_TYPE_BY_EXTENSION);
 
+// Controlled set of upload buckets. The value here matches the S3 category
+// folder name, so keep these stable — changing one renames the folder layout.
+export const DOCUMENT_CATEGORIES = [
+  'KYC',
+  'Financials',
+  'Bank Statements',
+  'Existing Sanction Letters',
+  'Other Documents',
+  'Property',
+  'Stock Statement',
+] as const;
+
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
 export function getFileExtension(name: string): string {
   const parts = name.split('.');
   return parts.length > 1 ? parts.pop()!.toLowerCase() : '';

@@ -30,6 +30,7 @@ jest.mock('../src/lib/prisma.js', () => ({
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
   },
@@ -43,7 +44,7 @@ import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { prisma } from '../src/lib/prisma.js';
 import { logAuditEvent } from '../src/services/audit.service.js';
-import { presignDocument, completeDocument, deleteDocument } from '../src/services/document.service.js';
+import { presignDocument, completeDocument, deleteDocument, listUserDocuments, bulkDeleteDocuments } from '../src/services/document.service.js';
 import { buildDocumentKey } from '../src/utils/documentKey.js';
 
 const PRESIGN_INPUT = {
@@ -70,7 +71,7 @@ describe('presignDocument', () => {
     expect(result.expiresIn).toBe(900);
     expect(result.documentId).toEqual(expect.any(String));
 
-    const expectedKey = buildDocumentKey('user-1', 'app-1', result.documentId, 'aadhar.pdf');
+    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', result.documentId, 'aadhar.pdf');
     expect(result.key).toBe(expectedKey);
 
     const [client, command, options] = (getSignedUrl as jest.Mock).mock.calls[0];
@@ -125,7 +126,7 @@ describe('completeDocument', () => {
       contentType: 'application/pdf',
     });
 
-    const expectedKey = buildDocumentKey('user-1', 'app-1', 'doc-1', 'aadhar.pdf');
+    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', 'doc-1', 'aadhar.pdf');
     expect(result.id).toBe('doc-1');
     expect(prisma.document.create).toHaveBeenCalledWith({
       data: {
@@ -169,6 +170,59 @@ describe('completeDocument', () => {
         contentType: 'application/pdf',
       }),
     ).rejects.toThrow('Uploaded object not found in storage');
+  });
+});
+
+describe('listUserDocuments', () => {
+  it('returns active documents for the caller, excluding deleted ones', async () => {
+    (prisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-1', applicationId: 'app-1', category: 'KYC', originalName: 'a.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    const result = await listUserDocuments({ userId: 'user-1' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe('KYC');
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', status: { not: 'DELETED' } },
+        orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+      }),
+    );
+  });
+
+  it('filters by category when provided', async () => {
+    (prisma.document.findMany as jest.Mock).mockResolvedValue([]);
+    await listUserDocuments({ userId: 'user-1', category: 'KYC' });
+    expect(prisma.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-1', status: { not: 'DELETED' }, category: 'KYC' } }),
+    );
+  });
+});
+
+describe('bulkDeleteDocuments', () => {
+  const OWNED = { id: 'doc-1', userId: 'user-1', s3Key: 'borrowers/user-1/app-1/documents/KYC/doc-1/a.pdf', status: 'UPLOADED' };
+
+  beforeEach(() => {
+    (prisma.document.findMany as jest.Mock).mockResolvedValue([OWNED]);
+    (prisma.document.update as jest.Mock).mockResolvedValue({ id: 'doc-1', status: 'DELETED' });
+    (new S3Client() as any).send.mockImplementation(() => Promise.resolve({}));
+  });
+
+  it('soft-deletes each owned document and removes the S3 object', async () => {
+    const result = await bulkDeleteDocuments({ userId: 'user-1', documentIds: ['doc-1'] });
+    expect(result.deleted).toBe(1);
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-1' },
+      data: { status: 'DELETED' },
+    });
+    expect((new S3Client() as any).send).toHaveBeenCalled();
+  });
+
+  it('returns early when no ids are supplied', async () => {
+    const result = await bulkDeleteDocuments({ userId: 'user-1', documentIds: [] });
+    expect(result.deleted).toBe(0);
+    expect(prisma.document.update).not.toHaveBeenCalled();
   });
 });
 

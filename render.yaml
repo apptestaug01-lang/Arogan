@@ -47,6 +47,32 @@ services:
         value: LoanFlow
       - key: BREVO_REPLY_TO
         value: cursorai981@gmail.com
+      - key: MINIO_ENDPOINT
+        value: loanflow-minio.onrender.com
+      - key: MINIO_PORT
+        value: "443"
+      - key: MINIO_USE_SSL
+        value: "true"
+      - key: MINIO_ACCESS_KEY
+        value: minioadmin
+      - key: MINIO_SECRET_KEY
+        value: minioadmin
+      - key: MINIO_BUCKET
+        value: loanflow-documents
+      - key: MINIO_REGION
+        value: us-east-1
+
+  - type: web
+    name: loanflow-minio
+    image: minio/minio:latest
+    plan: free
+    startCommand: server /data --address 0.0.0.0:$PORT --console-address 0.0.0.0:9001
+    healthCheckPath: /minio/health/live
+    env:
+      - key: MINIO_ROOT_USER
+        value: minioadmin
+      - key: MINIO_ROOT_PASSWORD
+        value: minioadmin
 
   - type: web
     name: loanflow-frontend

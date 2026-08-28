@@ -4,76 +4,52 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SectionRow } from '@/components/workspace/SectionRow';
 import { FileDropzone } from '@/components/workspace/FileDropzone';
-import { requiredDocs, DocumentItem } from '@/mock/workspace';
-import { getExplorer, ExplorerResult } from '@/services/documents';
+import { listDocuments, DocumentSummary } from '@/services/documents';
+import { DOCUMENT_CATEGORIES } from '@/constants/documents';
 import { FolderOpen } from 'lucide-react';
-
-const DOCUMENT_CATEGORIES = [
-  'KYC',
-  'Financials',
-  'Bank Statements',
-  'Existing Sanction Letters',
-  'Other Documents',
-  'Property',
-  'Stock Statement',
-] as const;
-
-function isDocUploaded(docs: DocumentItem[], name: string): boolean {
-  return docs.some((d) => d.name.toLowerCase().includes(name.toLowerCase()));
-}
 
 export default function DocumentUploadView() {
   const navigate = useNavigate();
   const [category, setCategory] = React.useState<string>(DOCUMENT_CATEGORIES[0]);
   const [applicationId] = React.useState('LAP-2026-0184');
-  const [uploadedDocs, setUploadedDocs] = React.useState<DocumentItem[]>([]);
+  const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [justUploaded, setJustUploaded] = React.useState(false);
 
-  const fetchUploadedDocs = React.useCallback(async () => {
+  const fetchDocuments = React.useCallback(async () => {
     try {
-      const res = await getExplorer();
-      const collected: DocumentItem[] = [];
-
-      function collectFiles(result: ExplorerResult) {
-        for (const f of result.files) {
-          collected.push({
-            id: f.documentId || f.key,
-            name: f.name,
-            meta: f.size ? `${Math.round(f.size / 1024)} KB` : '',
-            status: 'Uploaded',
-          });
-        }
-      }
-      collectFiles(res);
-
-      for (const folder of res.folders) {
-        const sub = await getExplorer(folder.key, undefined).catch(() => null);
-        if (sub) {
-          collectFiles(sub);
-        }
-      }
-
-      setUploadedDocs(collected);
+      const docs = await listDocuments();
+      setDocuments(docs);
     } catch {
-      // Non-fatal: required docs status defaults to mock data
+      // Non-fatal: checklist defaults to "Required" until the next refresh.
     }
   }, []);
 
   React.useEffect(() => {
-    fetchUploadedDocs();
-  }, [fetchUploadedDocs]);
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  React.useEffect(() => {
+    const handler = () => fetchDocuments();
+    window.addEventListener('document:uploaded', handler);
+    window.addEventListener('document:deleted', handler);
+    return () => {
+      window.removeEventListener('document:uploaded', handler);
+      window.removeEventListener('document:deleted', handler);
+    };
+  }, [fetchDocuments]);
 
   const handleUploadComplete = () => {
     setJustUploaded(true);
-    fetchUploadedDocs();
+    fetchDocuments();
     window.dispatchEvent(new CustomEvent('document:uploaded'));
   };
 
-  const statusFor = (name: string): 'Complete' | 'Required' => {
-    return uploadedDocs.length > 0 && isDocUploaded(uploadedDocs, name)
-      ? 'Complete'
-      : 'Required';
-  };
+  const statusFor = (cat: string): 'Complete' | 'Required' =>
+    documents.some((d) => d.category === cat) ? 'Complete' : 'Required';
+
+  const completedCount = DOCUMENT_CATEGORIES.filter(
+    (c) => statusFor(c) === 'Complete',
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -113,12 +89,18 @@ export default function DocumentUploadView() {
             />
 
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-foreground">Required documents</h3>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Required categories</h3>
+                <span className="text-xs text-muted-foreground">
+                  {completedCount}/{DOCUMENT_CATEGORIES.length} complete
+                </span>
+              </div>
               <div className="divide-y divide-border">
-                {requiredDocs.map((d) => {
-                  const status = statusFor(d.name);
+                {DOCUMENT_CATEGORIES.map((c) => {
+                  const status = statusFor(c);
+                  const count = documents.filter((d) => d.category === c).length;
                   return (
-                    <SectionRow key={d.id} title={d.name}>
+                    <SectionRow key={c} title={c} description={count > 0 ? `${count} file${count > 1 ? 's' : ''}` : undefined}>
                       <span
                         className={
                           status === 'Complete'

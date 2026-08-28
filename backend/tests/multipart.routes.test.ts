@@ -147,14 +147,14 @@ describe('documents multipart routes', () => {
     setupMocks()
     const res = await request(makeApp())
       .post('/api/documents/multipart/upload-1/abort')
-      .send({ applicationId: 'app-1', documentId: 'doc-1', fileName: 'b.pdf', uploadId: 'upload-1' })
+      .send({ applicationId: 'app-1', category: 'KYC', documentId: 'doc-1', fileName: 'b.pdf', uploadId: 'upload-1' })
     expect(res.status).toBe(200)
   })
 
   it('lists uploaded parts for resume', async () => {
     setupMocks()
     const res = await request(makeApp())
-      .get('/api/documents/multipart/upload-1/parts?applicationId=app-1&documentId=doc-1&fileName=b.pdf')
+      .get('/api/documents/multipart/upload-1/parts?applicationId=app-1&category=KYC&documentId=doc-1&fileName=b.pdf')
     expect(res.status).toBe(200)
     expect(res.body.data.partNumbers).toEqual([1])
   })
