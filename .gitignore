@@ -10,9 +10,12 @@ build/
 .env
 .env.local
 .env.production
+.env.render
 .env.staging
 .env.*.local
 !.env.example
+!.env.render.example
+!.env.local.example
 frontend/.env
 
 # Docker
