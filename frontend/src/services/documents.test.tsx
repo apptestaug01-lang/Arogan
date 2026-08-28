@@ -189,6 +189,7 @@ describe('documents service', () => {
       await abortMultipart({
         documentId: 'doc-1',
         applicationId: 'app-1',
+        category: 'Financials',
         fileName: 'large.pdf',
         uploadId: 'upload-123',
       });
@@ -197,6 +198,7 @@ describe('documents service', () => {
         '/documents/multipart/upload-123/abort',
         {
           applicationId: 'app-1',
+          category: 'Financials',
           documentId: 'doc-1',
           fileName: 'large.pdf',
           uploadId: 'upload-123',
@@ -211,11 +213,11 @@ describe('documents service', () => {
         data: { data: { partNumbers: [1, 3] } },
       });
 
-      const result = await listUploadedParts('upload-123', 'app-1', 'doc-1', 'large.pdf');
+      const result = await listUploadedParts('upload-123', 'app-1', 'Financials', 'doc-1', 'large.pdf');
 
       expect(mockedApi.get).toHaveBeenCalledWith(
         '/documents/multipart/upload-123/parts',
-        { params: { applicationId: 'app-1', documentId: 'doc-1', fileName: 'large.pdf' } },
+        { params: { applicationId: 'app-1', category: 'Financials', documentId: 'doc-1', fileName: 'large.pdf' } },
       );
       expect(result).toEqual([1, 3]);
     });

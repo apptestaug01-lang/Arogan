@@ -39,6 +39,8 @@ export default function Workspace() {
       items.push({ label: 'Document upload', to: '/dashboard/documents' });
     } else if (pathname.startsWith('/dashboard/vault')) {
       items.push({ label: 'S3 document vault', to: '/dashboard/vault' });
+    } else if (pathname.startsWith('/dashboard/manage')) {
+      items.push({ label: 'Manage & delete', to: '/dashboard/manage' });
     }
     return items;
   }, [pathname]);

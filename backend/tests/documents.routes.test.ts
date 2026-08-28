@@ -49,6 +49,7 @@ jest.mock('../src/lib/prisma.js', () => ({
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
   },
@@ -172,5 +173,39 @@ describe('documents routes', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);
+  });
+
+  it('lists the caller\'s active documents', async () => {
+    (prisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-1', applicationId: 'app-1', category: 'KYC', originalName: 'a.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    const res = await request(makeApp()).get('/api/documents/documents');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.documents).toHaveLength(1);
+    expect(res.body.data.documents[0].category).toBe('KYC');
+  });
+
+  it('bulk-deletes documents owned by the caller', async () => {
+    (prisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-1', userId: 'user-1', s3Key: 'some-key', status: 'UPLOADED' },
+    ]);
+    (prisma.document.update as jest.Mock).mockResolvedValue({ id: 'doc-1', status: 'DELETED' });
+    new S3Client().send.mockResolvedValue({});
+
+    const res = await request(makeApp()).delete('/api/documents').send({ documentIds: ['doc-1'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-1' },
+      data: { status: 'DELETED' },
+    });
+  });
+
+  it('rejects a bulk delete with an empty id list', async () => {
+    const res = await request(makeApp()).delete('/api/documents').send({ documentIds: [] });
+    expect(res.status).toBe(400);
   });
 });

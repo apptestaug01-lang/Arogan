@@ -185,6 +185,7 @@ export async function completeMultipart(
 export interface AbortMultipartInput {
   documentId: string;
   applicationId: string;
+  category: string;
   fileName: string;
   uploadId: string;
 }
@@ -192,6 +193,7 @@ export interface AbortMultipartInput {
 export async function abortMultipart(input: AbortMultipartInput): Promise<void> {
   await api.post(`/documents/multipart/${input.uploadId}/abort`, {
     applicationId: input.applicationId,
+    category: input.category,
     documentId: input.documentId,
     fileName: input.fileName,
     uploadId: input.uploadId,
@@ -201,12 +203,41 @@ export async function abortMultipart(input: AbortMultipartInput): Promise<void> 
 export async function listUploadedParts(
   uploadId: string,
   applicationId: string,
+  category: string,
   documentId: string,
   fileName: string,
 ): Promise<number[]> {
   const res = await api.get<{ data: { partNumbers: number[] } }>(
     `/documents/multipart/${uploadId}/parts`,
-    { params: { applicationId, documentId, fileName } },
+    { params: { applicationId, category, documentId, fileName } },
   );
   return res.data.data.partNumbers;
+}
+
+// ---- Document listing (per-category checklist + manage view) ----
+
+export interface DocumentSummary {
+  id: string;
+  applicationId: string;
+  category: string;
+  originalName: string;
+  contentType: string;
+  size: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listDocuments(category?: string): Promise<DocumentSummary[]> {
+  const params: Record<string, string> = {};
+  if (category) params.category = category;
+  const res = await api.get<{ data: { documents: DocumentSummary[] } }>(
+    '/documents/documents',
+    { params },
+  );
+  return res.data.data.documents;
+}
+
+export async function bulkDeleteDocuments(documentIds: string[]): Promise<void> {
+  await api.delete('/documents', { data: { documentIds } });
 }

@@ -271,6 +271,7 @@ export function FileDropzone({
             await abortMultipart({
               documentId: presignResult?.documentId || item.documentId || '',
               applicationId,
+              category,
               fileName: file.name,
               uploadId,
             });
@@ -331,6 +332,7 @@ export function FileDropzone({
         abortMultipart({
           documentId: item.documentId || '',
           applicationId,
+          category,
           fileName: item.file.name,
           uploadId: item.uploadId,
         }).catch(() => {});

@@ -36,7 +36,7 @@ export async function presignDocument(input: PresignDocumentInput) {
   }
 
   const documentId = randomUUID()
-  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
   const uploadUrl = await createPresignedUploadUrl(
     key,
     input.contentType,
@@ -54,7 +54,7 @@ export async function presignDocument(input: PresignDocumentInput) {
 }
 
 export async function completeDocument(input: CompleteDocumentInput) {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
 
   let meta
   try {
@@ -100,6 +100,88 @@ export class DocumentDeleteError extends Error {
     this.statusCode = statusCode
     this.isOperational = true
   }
+}
+
+export interface ListUserDocumentsInput {
+  userId: string
+  category?: string
+}
+
+export interface DocumentSummary {
+  id: string
+  applicationId: string
+  category: string
+  originalName: string
+  contentType: string
+  size: number | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export async function listUserDocuments(input: ListUserDocumentsInput): Promise<DocumentSummary[]> {
+  const docs = await prisma.document.findMany({
+    where: {
+      userId: input.userId,
+      status: { not: 'DELETED' },
+      ...(input.category ? { category: input.category } : {}),
+    },
+    orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+  })
+
+  return docs.map((d) => ({
+    id: d.id,
+    applicationId: d.applicationId,
+    category: d.category,
+    originalName: d.originalName,
+    contentType: d.contentType,
+    size: d.size,
+    status: d.status,
+    createdAt: d.createdAt.toISOString(),
+    updatedAt: d.updatedAt.toISOString(),
+  }))
+}
+
+export interface BulkDeleteInput {
+  userId: string
+  documentIds: string[]
+}
+
+export async function bulkDeleteDocuments(input: BulkDeleteInput) {
+  const ids = [...new Set(input.documentIds)].filter(Boolean)
+  if (ids.length === 0) return { deleted: 0, results: [] as unknown[] }
+
+  const docs = await prisma.document.findMany({
+    where: { id: { in: ids }, userId: input.userId, status: { not: 'DELETED' } },
+  })
+
+  const results = await Promise.all(
+    docs.map(async (doc) => {
+      try {
+        await deleteObject(doc.s3Key).catch((err) => {
+          logAuditEvent('DOCUMENT_DELETE_OBJECT_FAILED', undefined, undefined, input.userId, {
+            documentId: doc.id,
+            key: doc.s3Key,
+            error: err instanceof Error ? err.message : String(err),
+          }).catch(() => {})
+        })
+        await prisma.document.update({ where: { id: doc.id }, data: { status: 'DELETED' } })
+        await logAuditEvent('DOCUMENT_DELETED', undefined, undefined, input.userId, {
+          documentId: doc.id,
+          key: doc.s3Key,
+        })
+        return { id: doc.id, status: 'DELETED' as const }
+      } catch (err) {
+        return {
+          id: doc.id,
+          status: 'ERROR' as const,
+          error: err instanceof Error ? err.message : 'Failed to delete',
+        }
+      }
+    }),
+  )
+
+  return { deleted: docs.length, results }
 }
 
 export async function deleteDocument(input: DeleteDocumentInput) {
