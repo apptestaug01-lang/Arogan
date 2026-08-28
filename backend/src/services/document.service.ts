@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadUrl, headObject, deleteObject } from './storage.service.js'
+import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket } from './storage.service.js'
 import { logAuditEvent } from './audit.service.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
@@ -37,6 +37,7 @@ export async function presignDocument(input: PresignDocumentInput) {
 
   const documentId = randomUUID()
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
+  await ensureBucket()
   const uploadUrl = await createPresignedUploadUrl(
     key,
     input.contentType,
@@ -56,6 +57,7 @@ export async function presignDocument(input: PresignDocumentInput) {
 export async function completeDocument(input: CompleteDocumentInput) {
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
 
+  await ensureBucket()
   let meta
   try {
     meta = await headObject(key)
