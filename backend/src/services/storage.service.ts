@@ -23,6 +23,10 @@ export function createS3Client(config: StorageConfig = getStorageConfig()): S3Cl
     endpoint,
     region: config.region,
     forcePathStyle: true,
+    // MinIO rejects the checksum query params the AWS SDK v3 adds to presigned
+    // URLs (x-amz-checksum-*, x-amz-sdk-checksum-algorithm), causing
+    // SignatureDoesNotMatch. Only calculate checksums when explicitly needed.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
     credentials: {
       accessKeyId: config.accessKey,
       secretAccessKey: config.secretKey,
