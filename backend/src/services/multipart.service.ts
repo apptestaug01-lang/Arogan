@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadPartUrl, getStorageClient, headObject } from './storage.service.js'
+import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucket } from './storage.service.js'
 import { getStorageConfig } from '../config/storage.config.js'
 import { logAuditEvent } from './audit.service.js'
 import {
@@ -80,6 +80,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 
   const documentId = randomUUID()
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
+  await ensureBucket()
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
