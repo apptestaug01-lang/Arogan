@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import logger from './logger.js';
 
 export interface ApiError extends Error {
   statusCode?: number;
@@ -27,9 +28,17 @@ export function errorHandler(
 
   const error = err as ApiError;
   const statusCode = error.statusCode || 500;
-  const message = error.isOperational
-    ? error.message
-    : 'Something went wrong';
+  const isOperational = Boolean(error.isOperational);
+
+  if (!isOperational) {
+    const detail = error instanceof Error ? error.stack || error.message : String(err);
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[UNEXPECTED_ERROR]', detail);
+    }
+    logger.error({ err: detail }, 'Non-operational error encountered');
+  }
+
+  const message = isOperational ? error.message : 'Something went wrong';
 
   res.status(statusCode).json({
     success: false,

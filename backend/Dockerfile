@@ -25,4 +25,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-CMD ["node", "dist/server.js"]
+# Sync the Prisma schema to the database on every start so newly added models
+# (e.g. Document) exist in production. Render injects DATABASE_URL at runtime,
+# which is why this runs here rather than at build time. `db push` is additive
+# and non-destructive for existing tables.
+CMD ["sh", "-c", "node_modules/.bin/prisma db push --skip-generate && node dist/server.js"]

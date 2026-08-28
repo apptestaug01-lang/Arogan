@@ -1,9 +1,9 @@
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 import { authRouter } from './routes/auth.js';
 import { storageRouter } from './routes/storage.routes.js';
 import { documentsRouter } from './routes/documents.routes.js';
@@ -13,8 +13,6 @@ import { sanitizeInput } from './middleware/sanitize.js';
 import { validateEnv } from './utils/env.validation.js';
 import { startCleanupJob, stopCleanupJob } from './services/cleanup.service.js';
 import logger, { logRequest } from './middleware/logger.js';
-
-dotenv.config();
 
 const env = validateEnv();
 
