@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js'
-import { createPresignedDownloadUrl } from './storage.service.js'
+import { createPresignedDownloadUrl, StorageError } from './storage.service.js'
 import { PRESIGNED_DOWNLOAD_TTL_SECONDS } from '../utils/constants.js'
 import { logAuditEvent } from './audit.service.js'
 
@@ -40,10 +40,17 @@ export async function getDocumentView(
     throw new DocumentViewError('Not authorized to view this document', 403)
   }
 
-  const viewUrl = await createPresignedDownloadUrl(
-    doc.s3Key,
-    PRESIGNED_DOWNLOAD_TTL_SECONDS,
-  )
+  let viewUrl: string
+  try {
+    viewUrl = await createPresignedDownloadUrl(
+      doc.s3Key,
+      PRESIGNED_DOWNLOAD_TTL_SECONDS,
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Storage service unavailable',
+    )
+  }
 
   await logAuditEvent('DOCUMENT_VIEW', undefined, undefined, input.userId, {
     documentId: doc.id,

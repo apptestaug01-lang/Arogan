@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucket } from './storage.service.js'
+import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucket, StorageError } from './storage.service.js'
 import { getStorageConfig } from '../config/storage.config.js'
 import { logAuditEvent } from './audit.service.js'
 import {
@@ -80,32 +80,52 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 
   const documentId = randomUUID()
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
-  await ensureBucket()
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
-  const createRes = await s3.send(
-    new CreateMultipartUploadCommand({
-      Bucket: config.bucket,
-      Key: key,
-      ContentType: input.contentType,
-    }),
-  )
+  try {
+    await ensureBucket()
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Storage service unavailable',
+    )
+  }
+
+  let createRes
+  try {
+    createRes = await s3.send(
+      new CreateMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        ContentType: input.contentType,
+      }),
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Failed to initiate multipart upload',
+    )
+  }
   const uploadId = createRes.UploadId as string
 
   const { partSize, totalParts, concurrency } = computeChunkPlan(input.contentLength)
   const partUrls: string[] = []
   for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-    partUrls.push(
-      await createPresignedUploadPartUrl(
-        key,
-        uploadId,
-        partNumber,
-        PRESIGNED_UPLOAD_TTL_SECONDS,
-        s3,
-        config,
-      ),
-    )
+    try {
+      partUrls.push(
+        await createPresignedUploadPartUrl(
+          key,
+          uploadId,
+          partNumber,
+          PRESIGNED_UPLOAD_TTL_SECONDS,
+          s3,
+          config,
+        ),
+      )
+    } catch (err) {
+      throw new StorageError(
+        err instanceof Error ? err.message : 'Failed to generate multipart upload URLs',
+      )
+    }
   }
 
   await logAuditEvent('DOCUMENT_MULTIPART_PRESIGN', undefined, undefined, input.userId, {
@@ -146,16 +166,22 @@ export async function completeMultipart(input: CompleteMultipartInput) {
   const config = getStorageConfig()
 
   const ordered = [...input.parts].sort((a, b) => a.partNumber - b.partNumber)
-  await s3.send(
-    new CompleteMultipartUploadCommand({
-      Bucket: config.bucket,
-      Key: key,
-      UploadId: input.uploadId,
-      MultipartUpload: {
-        Parts: ordered.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
-      },
-    }),
-  )
+  try {
+    await s3.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: input.uploadId,
+        MultipartUpload: {
+          Parts: ordered.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
+        },
+      }),
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Failed to complete multipart upload',
+    )
+  }
 
   let meta
   try {

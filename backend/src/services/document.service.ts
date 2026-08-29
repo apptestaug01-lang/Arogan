@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket } from './storage.service.js'
+import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket, StorageError } from './storage.service.js'
 import { logAuditEvent } from './audit.service.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
@@ -37,13 +37,20 @@ export async function presignDocument(input: PresignDocumentInput) {
 
   const documentId = randomUUID()
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
-  await ensureBucket()
-  const uploadUrl = await createPresignedUploadUrl(
-    key,
-    input.contentType,
-    input.contentLength,
-    PRESIGNED_UPLOAD_TTL_SECONDS,
-  )
+  let uploadUrl: string
+  try {
+    await ensureBucket()
+    uploadUrl = await createPresignedUploadUrl(
+      key,
+      input.contentType,
+      input.contentLength,
+      PRESIGNED_UPLOAD_TTL_SECONDS,
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Storage service unavailable',
+    )
+  }
 
   await logAuditEvent('DOCUMENT_PRESIGN', undefined, undefined, input.userId, {
     applicationId: input.applicationId,

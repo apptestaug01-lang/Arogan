@@ -1,5 +1,5 @@
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { getStorageClient } from './storage.service.js'
+import { getStorageClient, StorageError } from './storage.service.js'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
 import { prisma } from '../lib/prisma.js'
 
@@ -59,14 +59,21 @@ export async function listExplorer(
     base = normalized.endsWith('/') ? normalized : `${normalized}/`
   }
 
-  const result = await s3.send(
-    new ListObjectsV2Command({
-      Bucket: config.bucket,
-      Prefix: base,
-      Delimiter: EXPLORER_DELIMITER,
-      ContinuationToken: input.continuationToken,
-    }),
-  )
+  let result
+  try {
+    result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: config.bucket,
+        Prefix: base,
+        Delimiter: EXPLORER_DELIMITER,
+        ContinuationToken: input.continuationToken,
+      }),
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Storage service unavailable',
+    )
+  }
 
   const folders: ExplorerEntry[] = (result.CommonPrefixes ?? []).map((cp) => {
     const key = cp.Prefix ?? ''
