@@ -89,7 +89,7 @@ function getUploadErrorMessage(error: unknown, fileName: string): string {
     if (data?.message) {
       return data.message
     }
-    if (status >= 500) {
+    if (typeof status === 'number' && status >= 500) {
       return 'Server error. Please try again later.'
     }
     return axiosError.message || 'Upload failed'
