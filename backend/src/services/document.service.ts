@@ -73,6 +73,19 @@ export async function completeDocument(input: CompleteDocumentInput) {
     throw new StorageError('Uploaded file not found in storage. The upload may have expired or failed.')
   }
 
+  const existing = await prisma.document.findFirst({
+    where: {
+      userId: input.userId,
+      applicationId: input.applicationId,
+      originalName: input.fileName,
+      status: { not: 'DELETED' },
+    },
+  })
+
+  if (existing) {
+    throw new ConflictError('A document with this name already exists. Please rename the file and try again.')
+  }
+
   try {
     const document = await prisma.document.create({
       data: {

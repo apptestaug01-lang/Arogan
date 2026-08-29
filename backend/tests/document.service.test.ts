@@ -30,6 +30,7 @@ jest.mock('../src/lib/prisma.js', () => ({
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
     },
@@ -167,6 +168,31 @@ describe('completeDocument', () => {
         contentType: 'application/pdf',
       }),
     ).rejects.toThrow('Uploaded file not found in storage. The upload may have expired or failed.');
+  });
+
+  it('rejects duplicate filenames for the same user and application', async () => {
+    (prisma.document.findFirst as jest.Mock).mockResolvedValue({
+      id: 'doc-existing',
+      originalName: 'aadhar.pdf',
+    });
+
+    const client = new S3Client();
+    client.send.mockImplementation((cmd: unknown) => {
+      if (cmd instanceof HeadObjectCommand) {
+        return Promise.resolve({ ContentLength: 2048, ETag: '"abc123"' });
+      }
+      return Promise.resolve({});
+    });
+
+    await expect(
+      completeDocument({
+        userId: 'user-1',
+        documentId: 'doc-new',
+        applicationId: 'app-1',
+        fileName: 'aadhar.pdf',
+        contentType: 'application/pdf',
+      }),
+    ).rejects.toThrow('A document with this name already exists. Please rename the file and try again.');
   });
 });
 

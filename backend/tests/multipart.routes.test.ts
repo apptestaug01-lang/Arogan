@@ -56,6 +56,7 @@ jest.mock('../src/lib/prisma.js', () => ({
   prisma: {
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+      findFirst: jest.fn(),
     },
   },
 }))

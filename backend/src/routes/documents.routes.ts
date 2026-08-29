@@ -18,6 +18,7 @@ import {
   completeMultipartSchema,
   abortMultipartSchema,
   linkDocumentSchema,
+  explorerQuerySchema,
 } from '../utils/validation.js'
 
 const router = Router()
@@ -48,6 +49,7 @@ router.get(
   '/explorer',
   authMiddleware,
   requireAuth,
+  validate(explorerQuerySchema, 'query'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { prefix, continuation } = req.query as {

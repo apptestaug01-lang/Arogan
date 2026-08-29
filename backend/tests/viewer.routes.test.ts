@@ -44,6 +44,9 @@ jest.mock('../src/lib/prisma.js', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    application: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 
@@ -81,6 +84,7 @@ beforeEach(() => {
   authed = true;
   (prisma.document.findUnique as jest.Mock).mockResolvedValue(DOC);
   (prisma.document.update as jest.Mock).mockResolvedValue({ ...DOC, applicationId: 'app-2' });
+  (prisma.application.findUnique as jest.Mock).mockResolvedValue({ id: 'app-2', userId: 'user-1', applicationId: 'app-2' });
   (getSignedUrl as jest.Mock).mockResolvedValue('https://signed.view.url');
 });
 

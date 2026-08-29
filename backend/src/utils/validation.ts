@@ -67,6 +67,11 @@ export const linkDocumentSchema = z.object({
   field: z.string().max(80).optional(),
 });
 
+export const explorerQuerySchema = z.object({
+  prefix: z.string().max(500).optional(),
+  continuation: z.string().max(500).optional(),
+});
+
 export const loginPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or mobile number is required'),
   password: z.string().min(1, 'Password is required'),

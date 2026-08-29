@@ -8,6 +8,9 @@ jest.mock('../src/lib/prisma.js', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    application: {
+      findUnique: jest.fn(),
+    },
   },
 }))
 
@@ -36,6 +39,7 @@ beforeEach(() => {
   ;(getSignedUrl as jest.Mock).mockResolvedValue('https://signed.view.url')
   ;(prisma.document.findUnique as jest.Mock).mockResolvedValue(DOC)
   ;(prisma.document.update as jest.Mock).mockResolvedValue({ ...DOC, applicationId: 'app-2' })
+  ;(prisma.application.findUnique as jest.Mock).mockResolvedValue({ id: 'app-2', userId: 'user-1', applicationId: 'app-2' })
   ;(logAuditEvent as jest.Mock).mockResolvedValue(undefined)
 })
 
@@ -104,6 +108,18 @@ describe('linkDocument', () => {
     )
   })
 
+  it('returns the document unchanged when linking to the same application', async () => {
+    ;(prisma.document.findUnique as jest.Mock).mockResolvedValue(DOC)
+    const res = await linkDocument({
+      userId: 'user-1',
+      documentId: 'doc-1',
+      applicationId: 'app-1',
+    })
+
+    expect(res.applicationId).toBe('app-1')
+    expect(prisma.document.update).not.toHaveBeenCalled()
+  })
+
   it('throws 404 when the document does not exist', async () => {
     ;(prisma.document.findUnique as jest.Mock).mockResolvedValue(null)
     await expect(
@@ -115,6 +131,20 @@ describe('linkDocument', () => {
     ;(prisma.document.findUnique as jest.Mock).mockResolvedValue({ ...DOC, userId: 'user-2' })
     await expect(
       linkDocument({ userId: 'user-1', documentId: 'doc-1', applicationId: 'app-2' }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('denies linking to an application owned by another user (403)', async () => {
+    ;(prisma.application.findUnique as jest.Mock).mockResolvedValue({ id: 'app-2', userId: 'user-2', applicationId: 'app-2' })
+    await expect(
+      linkDocument({ userId: 'user-1', documentId: 'doc-1', applicationId: 'app-2' }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('denies linking to a non-existent application (403)', async () => {
+    ;(prisma.application.findUnique as jest.Mock).mockResolvedValue(null)
+    await expect(
+      linkDocument({ userId: 'user-1', documentId: 'doc-1', applicationId: 'missing' }),
     ).rejects.toMatchObject({ statusCode: 403 })
   })
 })

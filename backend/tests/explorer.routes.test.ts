@@ -113,4 +113,14 @@ describe('GET /api/documents/explorer', () => {
     )
     expect(sendCall[0].input.ContinuationToken).toBe('next-1')
   })
+
+  it('rejects an overly long prefix', async () => {
+    const res = await request(makeApp()).get(`/api/documents/explorer?prefix=${'a'.repeat(501)}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects an overly long continuation token', async () => {
+    const res = await request(makeApp()).get(`/api/documents/explorer?continuation=${'a'.repeat(501)}`)
+    expect(res.status).toBe(400)
+  })
 })
