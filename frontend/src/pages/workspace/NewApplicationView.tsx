@@ -11,25 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SectionRow } from '@/components/workspace/SectionRow';
+import { ApplicationAutoFill } from '@/components/workspace/ApplicationAutoFill';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { cn } from '@/lib/utils';
+import type { ApplicationDraft } from '@/lib/extraction';
 
-interface FormState {
-  companyName: string;
-  cin: string;
-  industry: string;
-  groupCompany: string;
-  signatory: string;
-  designation: string;
-  loanAmount: string;
-  productType: string;
-  tenor: string;
-  purpose: string;
-  collateral: string;
-  turnover: string;
-  debt: string;
-  netWorth: string;
-}
+type FormState = ApplicationDraft;
 
 const initial: FormState = {
   companyName: '',
@@ -137,6 +124,8 @@ export default function NewApplicationView() {
           Application saved as a draft.
         </div>
       )}
+
+      <ApplicationAutoFill onApply={(values) => setForm((f) => ({ ...f, ...values }))} />
 
       <Section
         id="borrower"
