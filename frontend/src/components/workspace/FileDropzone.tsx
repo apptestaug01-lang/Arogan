@@ -1,6 +1,6 @@
 import * as React from 'react';
 import axios, { AxiosProgressEvent } from 'axios';
-import { UploadCloud, X, Trash2, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, X, Trash2, CheckCircle2, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/workspace/ToastProvider';
@@ -15,12 +15,16 @@ import {
   PresignMultipartResult,
 } from '@/services/documents';
 import {
-  isAllowedFileType,
   formatFileSizeDisplay,
-  MAX_DOCUMENT_SIZE_BYTES,
   MULTIPART_THRESHOLD_BYTES,
   MULTIPART_CONCURRENCY,
 } from '@/constants/documents';
+import {
+  processUploadInput,
+  validateProcessedFile,
+  deduplicateFiles,
+  ProcessedFile,
+} from '@/lib/upload/fileProcessor';
 
 export interface FileDropzoneProps {
   applicationId?: string;
@@ -56,9 +60,10 @@ interface UploadItem {
   totalParts: number;
   uploadedParts: number;
   abortController: AbortController | null;
+  relativePath?: string;
 }
 
-const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx';
+const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.zip';
 
 export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzoneProps>(
   function FileDropzone(
@@ -67,7 +72,8 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   ) {
   const [dragging, setDragging] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadItem[]>([]);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const folderInputRef = React.useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const existingDocsRef = React.useRef(existingDocs);
@@ -85,15 +91,37 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
     setUploads((prev) => prev.filter((u) => u.id !== id));
   }, []);
 
-  const validateFile = React.useCallback((file: File): string | null => {
-    if (!isAllowedFileType(file)) {
-      return 'File type not allowed. Supported: PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX';
-    }
-    if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
-      return 'File exceeds the 5 GB maximum size';
-    }
-    return null;
-  }, []);
+  const addUploadItems = React.useCallback((files: ProcessedFile[]) => {
+    const validFiles = deduplicateFiles(files);
+    const now = Date.now();
+    const items: UploadItem[] = validFiles.map((pf, index) => {
+      const isMultipart = pf.file.size > MULTIPART_THRESHOLD_BYTES;
+      return {
+        id: `${pf.file.name}-${now}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        file: pf.file,
+        status: 'idle',
+        progress: 0,
+        isMultipart,
+        totalParts: 1,
+        uploadedParts: 0,
+        abortController: null,
+        relativePath: pf.relativePath,
+      };
+    });
+
+    setUploads((prev) => [...prev, ...items]);
+
+    items.forEach((item) => {
+      const err = validateProcessedFile({ file: item.file, originalName: item.file.name, size: item.file.size });
+      if (err) {
+        toast(`${item.file.name}: ${err}`, 'error');
+        removeItem(item.id);
+        return;
+      }
+    });
+
+    return items;
+  }, [toast, removeItem]);
 
   const uploadSingle = React.useCallback(
     async (item: UploadItem) => {
@@ -283,7 +311,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
               documentId: presignResult?.documentId || item.documentId || '',
               applicationId,
               category,
-              fileName: file.name,
+              fileName: item.file.name,
               uploadId,
             });
           } catch {
@@ -292,56 +320,39 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         }
         const msg = e instanceof Error ? e.message : 'Upload failed';
         updateItem(id, { status: 'error', error: msg, message: undefined });
-        toast(`${file.name}: ${msg}`, 'error');
+        toast(`${item.file.name}: ${msg}`, 'error');
       }
     },
     [applicationId, category, updateItem, toast],
   );
 
   const startUpload = React.useCallback(
-    (file: File) => {
-      const err = validateFile(file);
-      if (err) {
-        toast(`${file.name}: ${err}`, 'error');
-        return;
-      }
-
+    (item: UploadItem) => {
       const isDuplicate = existingDocsRef.current?.some(
-        (d) => d.originalName === file.name && d.size != null && d.size === file.size,
+        (d) => d.originalName === item.file.name && d.size != null && d.size === item.file.size,
       );
       if (isDuplicate) {
-        toast(`${file.name} already exists in ${category}`, 'info');
+        toast(`${item.file.name} already exists in ${category}`, 'info');
+        removeItem(item.id);
         return;
       }
 
-      const isMultipart = file.size > MULTIPART_THRESHOLD_BYTES;
-      const id = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const item: UploadItem = {
-        id,
-        file,
-        status: 'idle',
-        progress: 0,
-        isMultipart,
-        totalParts: 1,
-        uploadedParts: 0,
-        abortController: null,
-      };
-      setUploads((prev) => [...prev, item]);
-
       setTimeout(() => {
-        const fn = isMultipart ? uploadMultipart : uploadSingle;
+        const fn = item.isMultipart ? uploadMultipart : uploadSingle;
         fn(item);
       }, 0);
     },
-    [validateFile, toast, uploadSingle, uploadMultipart],
+    [category, toast, uploadSingle, uploadMultipart, removeItem],
   );
 
   const handleFiles = React.useCallback(
-    (list: FileList | null) => {
+    async (list: FileList | null, folderPath?: string) => {
       if (!list || list.length === 0) return;
-      Array.from(list).forEach(startUpload);
+      const processed = await processUploadInput(list, folderPath);
+      const items = addUploadItems(processed);
+      items.forEach(startUpload);
     },
-    [startUpload],
+    [addUploadItems, startUpload],
   );
 
   const cancelUpload = React.useCallback(
@@ -364,7 +375,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   const restartUpload = React.useCallback(
     (item: UploadItem) => {
       removeItem(item.id);
-      startUpload(item.file);
+      startUpload(item);
     },
     [removeItem, startUpload],
   );
@@ -393,7 +404,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
     });
   }, [applicationId, category]);
 
-  React.useImperativeHandle(ref, () => ({ openPicker: () => inputRef.current?.click(), cancelAll }), [cancelAll]);
+  React.useImperativeHandle(ref, () => ({ openPicker: () => fileInputRef.current?.click(), cancelAll }), [cancelAll]);
 
   React.useEffect(() => {
     if (uploads.length === 0) return;
@@ -409,19 +420,28 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
     }
   }, [uploads, onUploadComplete]);
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragging(false);
+    handleFiles(e.dataTransfer.files);
+  };
+
   return (
     <div className={cn('space-y-4', className)}>
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          handleFiles(e.dataTransfer.files);
-        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={cn(
           'flex min-h-40 flex-col items-center justify-center rounded-xl border-2 border-dashed text-center',
           dragging ? 'border-primary-600 bg-primary-50' : 'border-border bg-muted/50',
@@ -430,24 +450,43 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         <UploadCloud className="h-8 w-8 text-primary-600" />
         <p className="mt-3 font-semibold text-foreground">Drop files here, or browse</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tagged as{' '}
-          <span className="font-semibold text-primary-600">{category}</span> · PDF, PNG, JPG,
-          WEBP, DOC, DOCX, XLS, XLSX · Up to 5 GB per file
+          PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX · Up to 5 GB per file · ZIP and folders supported
         </p>
-        <button
-          type="button"
-          className="mt-4 rounded-md border border-input px-3 py-2 text-sm text-primary-600 hover:bg-accent"
-          onClick={() => inputRef.current?.click()}
-        >
-          Choose files
-        </button>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-input px-3 py-2 text-sm text-primary-600 hover:bg-accent"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Choose files
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-input px-3 py-2 text-sm text-primary-600 hover:bg-accent"
+            onClick={() => folderInputRef.current?.click()}
+          >
+            <span className="flex items-center gap-1.5">
+              <FolderOpen className="h-4 w-4" />
+              Choose folder
+            </span>
+          </button>
+        </div>
         <input
-          ref={inputRef}
+          ref={fileInputRef}
           type="file"
           multiple
           accept={ACCEPTED_EXT}
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          accept={ACCEPTED_EXT}
+          className="hidden"
+          {...{ webkitdirectory: '' }}
+          onChange={(e) => handleFiles(e.target.files, e.target.files?.[0]?.webkitRelativePath)}
         />
       </div>
 
@@ -483,15 +522,14 @@ interface UploadRowProps {
 }
 
 function UploadRow({ item, onCancel, onRestart, onRemove }: UploadRowProps) {
-  const { file, status, progress, message, error, isMultipart, uploadedParts, totalParts } = item;
+  const { file, status, progress, message, error, isMultipart, uploadedParts, totalParts, relativePath } = item;
 
   const statusLabel = status === 'complete' ? 'Complete' : message || formatFileSizeDisplay(file);
-
   const showProgress = status === 'presigning' || status === 'uploading' || status === 'completing';
 
   return (
     <SectionRow
-      title={file.name}
+      title={relativePath ? `${relativePath} → ${file.name}` : file.name}
       description={
         <div className="flex items-center gap-2">
           {isMultipart && uploadedParts > 0 && (

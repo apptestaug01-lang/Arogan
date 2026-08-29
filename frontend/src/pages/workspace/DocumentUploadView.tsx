@@ -207,10 +207,7 @@ export default function DocumentUploadView() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  New files will be tagged as{' '}
-                  <span className="font-medium text-primary-600">{category}</span>
-                </p>
+
               </div>
 
               <FileDropzone
