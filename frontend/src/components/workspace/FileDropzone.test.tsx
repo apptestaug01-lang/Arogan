@@ -48,7 +48,6 @@ describe('FileDropzone', () => {
     mockedComplete.mockResolvedValue({
       id: 'doc-uploaded',
       applicationId: 'app-1',
-      category: 'Documents',
       originalName: 'report.pdf',
       contentType: 'application/pdf',
       size: 1024,
@@ -115,7 +114,6 @@ describe('FileDropzone', () => {
     render(
       <FileDropzone
         applicationId="app-1"
-        category="Financials"
         onUploadComplete={onUploadComplete}
       />,
     );
@@ -126,7 +124,6 @@ describe('FileDropzone', () => {
     await waitFor(() => {
       expect(mockedPresign).toHaveBeenCalledWith({
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
         contentLength: 1024,
@@ -145,7 +142,6 @@ describe('FileDropzone', () => {
       expect(mockedComplete).toHaveBeenCalledWith({
         documentId: 'doc-uploaded',
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
       });
@@ -165,7 +161,6 @@ describe('FileDropzone', () => {
     render(
       <FileDropzone
         applicationId="app-1"
-        category="Financials"
         onUploadComplete={onUploadComplete}
       />,
     );
@@ -188,7 +183,6 @@ describe('FileDropzone', () => {
     mockedCompleteMulti.mockResolvedValue({
       id: 'doc-mpu',
       applicationId: 'app-1',
-      category: 'Financials',
       originalName: 'large.pdf',
       contentType: 'application/pdf',
       size: hundredMbPlus,
@@ -200,7 +194,6 @@ describe('FileDropzone', () => {
     await waitFor(() => {
       expect(mockedPresignMulti).toHaveBeenCalledWith({
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'large.pdf',
         contentType: 'application/pdf',
         contentLength: hundredMbPlus,

@@ -50,7 +50,6 @@ import { buildDocumentKey } from '../src/utils/documentKey.js';
 const PRESIGN_INPUT = {
   userId: 'user-1',
   applicationId: 'app-1',
-  category: 'KYC',
   fileName: 'aadhar.pdf',
   contentType: 'application/pdf',
   contentLength: 1024,
@@ -71,7 +70,7 @@ describe('presignDocument', () => {
     expect(result.expiresIn).toBe(900);
     expect(result.documentId).toEqual(expect.any(String));
 
-    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', result.documentId, 'aadhar.pdf');
+    const expectedKey = buildDocumentKey('user-1', 'app-1', result.documentId, 'aadhar.pdf');
     expect(result.key).toBe(expectedKey);
 
     const [client, command, options] = (getSignedUrl as jest.Mock).mock.calls[0];
@@ -121,19 +120,18 @@ describe('completeDocument', () => {
       userId: 'user-1',
       documentId: 'doc-1',
       applicationId: 'app-1',
-      category: 'KYC',
       fileName: 'aadhar.pdf',
       contentType: 'application/pdf',
     });
 
-    const expectedKey = buildDocumentKey('user-1', 'app-1', 'KYC', 'doc-1', 'aadhar.pdf');
+    const expectedKey = buildDocumentKey('user-1', 'app-1', 'doc-1', 'aadhar.pdf');
     expect(result.id).toBe('doc-1');
     expect(prisma.document.create).toHaveBeenCalledWith({
       data: {
         id: 'doc-1',
         userId: 'user-1',
         applicationId: 'app-1',
-        category: 'KYC',
+        category: 'Documents',
         s3Key: expectedKey,
         originalName: 'aadhar.pdf',
         contentType: 'application/pdf',
@@ -165,7 +163,6 @@ describe('completeDocument', () => {
         userId: 'user-1',
         documentId: 'doc-1',
         applicationId: 'app-1',
-        category: 'KYC',
         fileName: 'aadhar.pdf',
         contentType: 'application/pdf',
       }),
@@ -176,17 +173,16 @@ describe('completeDocument', () => {
 describe('listUserDocuments', () => {
   it('returns active documents for the caller, excluding deleted ones', async () => {
     (prisma.document.findMany as jest.Mock).mockResolvedValue([
-      { id: 'doc-1', applicationId: 'app-1', category: 'KYC', originalName: 'a.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: new Date(), updatedAt: new Date() },
+      { id: 'doc-1', applicationId: 'app-1', originalName: 'a.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: new Date(), updatedAt: new Date() },
     ]);
 
     const result = await listUserDocuments({ userId: 'user-1' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].category).toBe('KYC');
     expect(prisma.document.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: 'user-1', status: { not: 'DELETED' } },
-        orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+        orderBy: [{ createdAt: 'desc' }],
       }),
     );
   });

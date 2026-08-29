@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { SectionRow } from '@/components/workspace/SectionRow';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { listDocuments, bulkDeleteDocuments, DocumentSummary } from '@/services/documents';
-import { DOCUMENT_CATEGORIES } from '@/constants/documents';
 import { Trash2, AlertTriangle, FolderOpen } from 'lucide-react';
 
 function formatBytes(bytes: number | null): string {
@@ -17,27 +16,6 @@ function formatBytes(bytes: number | null): string {
     i++;
   }
   return `${val.toFixed(1)} ${units[i]}`;
-}
-
-function groupByCategory(docs: DocumentSummary[]): { category: string; items: DocumentSummary[] }[] {
-  const order = [...DOCUMENT_CATEGORIES];
-  const map = new Map<string, DocumentSummary[]>();
-  for (const d of docs) {
-    if (!map.has(d.category)) map.set(d.category, []);
-    map.get(d.category)!.push(d);
-  }
-  const groups: { category: string; items: DocumentSummary[] }[] = [];
-  for (const c of order) {
-    const items = map.get(c);
-    if (items) {
-      groups.push({ category: c, items });
-      map.delete(c);
-    }
-  }
-  for (const [category, items] of map) {
-    groups.push({ category, items });
-  }
-  return groups;
 }
 
 export default function DocumentManageView() {
@@ -73,8 +51,6 @@ export default function DocumentManageView() {
     };
   }, [fetchDocuments]);
 
-  const groups = React.useMemo(() => groupByCategory(documents), [documents]);
-
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -84,21 +60,18 @@ export default function DocumentManageView() {
     });
   };
 
-  const toggleCategory = (ids: string[], checked: boolean) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const id of ids) {
-        if (checked) next.add(id);
-        else next.delete(id);
+  const toggleAll = (checked: boolean) => {
+    setSelected(() => {
+      const next = new Set<string>();
+      if (checked) {
+        documents.forEach((d) => next.add(d.id));
       }
       return next;
     });
   };
 
-  const allSelectedForCategory = (ids: string[]) =>
-    ids.length > 0 && ids.every((id) => selected.has(id));
-
   const selectedCount = selected.size;
+  const allSelected = documents.length > 0 && selectedCount === documents.length;
 
   const handleBulkDelete = async () => {
     if (selectedCount === 0) return;
@@ -125,7 +98,7 @@ export default function DocumentManageView() {
         <p className="page-eyebrow">Loan workspace / Manage documents</p>
         <h1 className="page-title">Manage &amp; delete</h1>
         <p className="page-sub">
-          Select documents by category and remove them from storage. Deletions are permanent.
+          Select documents and remove them from storage. Deletions are permanent.
         </p>
       </div>
 
@@ -155,59 +128,52 @@ export default function DocumentManageView() {
         </Card>
       )}
 
-      <div className="space-y-4">
-        {groups.map(({ category, items }) => {
-          const ids = items.map((i) => i.id);
-          const allChecked = allSelectedForCategory(ids);
-          const someChecked = ids.some((id) => selected.has(id));
-          return (
-            <Card key={category}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>{category}</CardTitle>
-                    <CardDescription>{items.length} document{items.length !== 1 ? 's' : ''}</CardDescription>
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      {!isEmpty && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>All documents</CardTitle>
+                <CardDescription>{documents.length} document{documents.length !== 1 ? 's' : ''}</CardDescription>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allSelected && selectedCount > 0;
+                  }}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                  aria-label="Select all"
+                />
+                Select all
+              </label>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {documents.map((doc) => (
+                <SectionRow
+                  key={doc.id}
+                  title={doc.originalName}
+                  description={`${doc.applicationId} · ${formatBytes(doc.size)}${doc.status ? ` · ${doc.status}` : ''}`}
+                >
+                  <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-input"
-                      checked={allChecked}
-                      ref={(el) => {
-                        if (el) el.indeterminate = !allChecked && someChecked;
-                      }}
-                      onChange={(e) => toggleCategory(ids, e.target.checked)}
-                      aria-label={`Select all in ${category}`}
+                      checked={selected.has(doc.id)}
+                      onChange={() => toggle(doc.id)}
+                      aria-label={`Select ${doc.originalName}`}
                     />
-                    Select all
                   </label>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {items.map((doc) => (
-                    <SectionRow
-                      key={doc.id}
-                      title={doc.originalName}
-                      description={`${doc.applicationId} · ${formatBytes(doc.size)}${doc.status ? ` · ${doc.status}` : ''}`}
-                    >
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-input"
-                          checked={selected.has(doc.id)}
-                          onChange={() => toggle(doc.id)}
-                          aria-label={`Select ${doc.originalName}`}
-                        />
-                      </label>
-                    </SectionRow>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </SectionRow>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!isEmpty && documents.length > 0 && (
         <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">

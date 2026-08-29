@@ -28,7 +28,6 @@ import {
 
 export interface FileDropzoneProps {
   applicationId?: string;
-  category?: string;
   onUploadComplete?: () => void;
   className?: string;
   existingDocs?: { originalName: string; size: number | null }[];
@@ -65,7 +64,7 @@ interface UploadItem {
 
 const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.zip';
 
-function getUploadErrorMessage(error: unknown, fileName: string): string {
+function getUploadErrorMessage(error: unknown, _fileName: string): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError
     const data = axiosError.response?.data as any
@@ -102,7 +101,7 @@ function getUploadErrorMessage(error: unknown, fileName: string): string {
 
 export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzoneProps>(
   function FileDropzone(
-    { applicationId = 'LAP-2026-0184', category = 'Documents', onUploadComplete, className, existingDocs }: FileDropzoneProps,
+    { applicationId = 'LAP-2026-0184', onUploadComplete, className, existingDocs }: FileDropzoneProps,
     ref: React.ForwardedRef<FileDropzoneHandle>,
   ) {
   const [dragging, setDragging] = React.useState(false);
@@ -167,7 +166,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
 
         const presign = await presignDocument({
           applicationId,
-          category,
           fileName: file.name,
           contentType,
           contentLength: file.size,
@@ -198,7 +196,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         await completeDocument({
           documentId: presign.documentId,
           applicationId,
-          category,
           fileName: file.name,
           contentType,
         });
@@ -220,7 +217,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         toast(`${file.name}: ${msg}`, 'error');
       }
     },
-    [applicationId, category, updateItem, toast],
+    [applicationId, updateItem, toast],
   );
 
   const uploadMultipart = React.useCallback(
@@ -235,7 +232,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
 
         presignResult = await presignMultipart({
           applicationId,
-          category,
           fileName: file.name,
           contentType,
           contentLength: file.size,
@@ -321,7 +317,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         await completeMultipart({
           documentId: presignResult.documentId,
           applicationId,
-          category,
           fileName: file.name,
           contentType,
           uploadId: presignResult.uploadId,
@@ -345,7 +340,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
             await abortMultipart({
               documentId: presignResult?.documentId || item.documentId || '',
               applicationId,
-              category,
               fileName: item.file.name,
               uploadId,
             });
@@ -358,7 +352,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         toast(`${item.file.name}: ${msg}`, 'error');
       }
     },
-    [applicationId, category, updateItem, toast],
+    [applicationId, updateItem, toast],
   );
 
   const startUpload = React.useCallback(
@@ -367,7 +361,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         (d) => d.originalName === item.file.name && d.size != null && d.size === item.file.size,
       );
       if (isDuplicate) {
-        toast(`${item.file.name} already exists in ${category}`, 'info');
+        toast(`${item.file.name} already exists`, 'info');
         removeItem(item.id);
         return;
       }
@@ -377,7 +371,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         fn(item);
       }, 0);
     },
-    [category, toast, uploadSingle, uploadMultipart, removeItem],
+    [toast, uploadSingle, uploadMultipart, removeItem],
   );
 
   const handleFiles = React.useCallback(
@@ -403,7 +397,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         abortMultipart({
           documentId: item.documentId || '',
           applicationId,
-          category,
           fileName: item.file.name,
           uploadId: item.uploadId,
         }).catch(() => {});
@@ -430,7 +423,6 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
             abortMultipart({
               documentId: u.documentId,
               applicationId,
-              category,
               fileName: u.file.name,
               uploadId: u.uploadId,
             }).catch(() => {});
@@ -443,7 +435,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           : u,
       );
     });
-  }, [applicationId, category]);
+  }, [applicationId]);
 
   React.useEffect(() => {
     if (folderInputRef.current) {

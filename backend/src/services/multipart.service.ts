@@ -50,7 +50,6 @@ export function computeChunkPlan(size: number): ChunkPlan {
 export interface PresignMultipartInput {
   userId: string
   applicationId: string
-  category: string
   fileName: string
   contentType: string
   contentLength: number
@@ -83,7 +82,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
   }
 
   const documentId = randomUUID()
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
@@ -127,7 +126,6 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 
   await logAuditEvent('DOCUMENT_MULTIPART_PRESIGN', undefined, undefined, input.userId, {
     applicationId: input.applicationId,
-    category: input.category,
     key,
     uploadId,
     totalParts,
@@ -150,7 +148,6 @@ export interface CompleteMultipartInput {
   userId: string
   documentId: string
   applicationId: string
-  category: string
   fileName: string
   contentType: string
   uploadId: string
@@ -158,7 +155,7 @@ export interface CompleteMultipartInput {
 }
 
 export async function completeMultipart(input: CompleteMultipartInput) {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
@@ -193,7 +190,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
         id: input.documentId,
         userId: input.userId,
         applicationId: input.applicationId,
-        category: input.category,
+        category: 'Documents',
         s3Key: key,
         originalName: input.fileName,
         contentType: input.contentType,
@@ -219,13 +216,12 @@ export async function completeMultipart(input: CompleteMultipartInput) {
 export interface MultipartKeyInput {
   userId: string
   applicationId: string
-  category: string
   documentId: string
   fileName: string
 }
 
 export async function abortMultipart(input: MultipartKeyInput & { uploadId: string }): Promise<void> {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
@@ -246,7 +242,7 @@ export async function abortMultipart(input: MultipartKeyInput & { uploadId: stri
 export async function listUploadedParts(
   input: MultipartKeyInput & { uploadId: string },
 ): Promise<number[]> {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 

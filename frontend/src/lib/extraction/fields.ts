@@ -12,9 +12,6 @@ export interface FieldStrategy {
 export interface FieldDefinition {
   key: ApplicationDraftKey;
   label: string;
-  // Vault categories most likely to contain this field, highest priority first.
-  affinity: string[];
-  // Tried in order; the first strategy that yields a value wins (per document).
   strategies: FieldStrategy[];
 }
 
@@ -29,7 +26,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'companyName',
     label: 'Company name',
-    affinity: ['KYC', 'Other Documents'],
     strategies: [
       {
         contextKeywords: ['company name', 'name of the company', 'borrower', 'm/s', 'applicant'],
@@ -44,7 +40,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'cin',
     label: 'CIN',
-    affinity: ['KYC'],
     strategies: [
       {
         contextKeywords: ['cin', 'corporate identity number', 'registration number'],
@@ -55,7 +50,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'industry',
     label: 'Industry',
-    affinity: ['KYC', 'Financials'],
     strategies: [
       {
         contextKeywords: ['industry', 'sector', 'line of business'],
@@ -79,7 +73,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'groupCompany',
     label: 'Group company',
-    affinity: ['KYC', 'Other Documents'],
     strategies: [
       {
         contextKeywords: ['group', 'holding', 'parent company', 'promoter group'],
@@ -94,7 +87,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'signatory',
     label: 'Authorised signatory',
-    affinity: ['KYC'],
     strategies: [
       {
         contextKeywords: ['authorised signatory', 'authorized signatory', 'signatory', 'name of director'],
@@ -109,7 +101,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'designation',
     label: 'Designation',
-    affinity: ['KYC'],
     strategies: [
       {
         contextKeywords: ['designation', 'capacity', 'title'],
@@ -124,7 +115,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'loanAmount',
     label: 'Loan amount (₹ Cr)',
-    affinity: ['Existing Sanction Letters', 'Financials'],
     strategies: [
       {
         contextKeywords: ['loan amount', 'sanction', 'facility', 'proposed', ' rupee', '₹'],
@@ -139,7 +129,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'productType',
     label: 'Product type',
-    affinity: ['Existing Sanction Letters'],
     strategies: [
       {
         contextKeywords: ['product', 'facility', 'type of loan'],
@@ -165,7 +154,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'tenor',
     label: 'Tenor (years)',
-    affinity: ['Existing Sanction Letters'],
     strategies: [
       {
         contextKeywords: ['tenor', 'tenure', 'period', 'repayment'],
@@ -177,7 +165,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'purpose',
     label: 'Purpose of loan',
-    affinity: ['Existing Sanction Letters', 'Other Documents'],
     strategies: [
       {
         contextKeywords: ['purpose', 'for the purpose', 'utilised', 'proposed to be'],
@@ -192,7 +179,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'collateral',
     label: 'Collateral / security',
-    affinity: ['Existing Sanction Letters', 'Property'],
     strategies: [
       {
         contextKeywords: ['collateral', 'security', 'mortgage', 'charge'],
@@ -207,7 +193,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'turnover',
     label: 'Annual turnover (₹ Cr)',
-    affinity: ['Financials'],
     strategies: [
       {
         contextKeywords: ['turnover', 'revenue', 'sales', 'topline'],
@@ -222,7 +207,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'debt',
     label: 'Existing debt (₹ Cr)',
-    affinity: ['Financials', 'Existing Sanction Letters'],
     strategies: [
       {
         contextKeywords: ['existing debt', 'outstanding', 'borrowings', 'liabilities', 'term loan'],
@@ -237,7 +221,6 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   {
     key: 'netWorth',
     label: 'Net worth (₹ Cr)',
-    affinity: ['Financials'],
     strategies: [
       {
         contextKeywords: ['net worth', 'networth'],

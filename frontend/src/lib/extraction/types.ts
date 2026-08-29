@@ -23,14 +23,12 @@ export type ApplicationDraftKey = keyof ApplicationDraft;
 export interface DocumentTextSource {
   docId: string;
   docName: string;
-  category: string;
   text: string;
 }
 
 export interface FieldSource {
   docId: string;
   docName: string;
-  category: string;
   snippet: string;
 }
 
@@ -55,6 +53,5 @@ export interface ExtractionResult {
 export interface VaultDocumentInput {
   id: string;
   originalName: string;
-  category: string;
   contentType: string;
 }

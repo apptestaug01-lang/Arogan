@@ -42,7 +42,6 @@ describe('documents service', () => {
 
       const result = await presignDocument({
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
         contentLength: 1024,
@@ -50,7 +49,6 @@ describe('documents service', () => {
 
       expect(mockedApi.post).toHaveBeenCalledWith('/documents/presign', {
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
         contentLength: 1024,
@@ -63,20 +61,18 @@ describe('documents service', () => {
   describe('completeDocument', () => {
     it('posts to /documents/{id}/complete and returns the document', async () => {
       mockedApi.post.mockResolvedValue({
-        data: { data: { document: { id: 'doc-1', applicationId: 'app-1', category: 'Financials', originalName: 'report.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: 'now', updatedAt: 'now' } } },
+        data: { data: { document: { id: 'doc-1', applicationId: 'app-1', originalName: 'report.pdf', contentType: 'application/pdf', size: 1024, status: 'UPLOADED', createdAt: 'now', updatedAt: 'now' } } },
       });
 
       const result = await completeDocument({
         documentId: 'doc-1',
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
       });
 
       expect(mockedApi.post).toHaveBeenCalledWith('/documents/doc-1/complete', {
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
       });
@@ -112,7 +108,6 @@ describe('documents service', () => {
 
       const result = await presignMultipart({
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'large.pdf',
         contentType: 'application/pdf',
         contentLength: 16777216,
@@ -120,7 +115,6 @@ describe('documents service', () => {
 
       expect(mockedApi.post).toHaveBeenCalledWith('/documents/presign-multipart', {
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'large.pdf',
         contentType: 'application/pdf',
         contentLength: 16777216,
@@ -139,7 +133,6 @@ describe('documents service', () => {
             document: {
               id: 'doc-1',
               applicationId: 'app-1',
-              category: 'Financials',
               originalName: 'large.pdf',
               contentType: 'application/pdf',
               size: 16777216,
@@ -154,7 +147,6 @@ describe('documents service', () => {
       const result = await completeMultipart({
         documentId: 'doc-1',
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'large.pdf',
         contentType: 'application/pdf',
         uploadId: 'upload-123',
@@ -168,7 +160,6 @@ describe('documents service', () => {
         '/documents/doc-1/complete-multipart',
         {
           applicationId: 'app-1',
-          category: 'Financials',
           fileName: 'large.pdf',
           contentType: 'application/pdf',
           uploadId: 'upload-123',
@@ -189,7 +180,6 @@ describe('documents service', () => {
       await abortMultipart({
         documentId: 'doc-1',
         applicationId: 'app-1',
-        category: 'Financials',
         fileName: 'large.pdf',
         uploadId: 'upload-123',
       });
@@ -198,7 +188,6 @@ describe('documents service', () => {
         '/documents/multipart/upload-123/abort',
         {
           applicationId: 'app-1',
-          category: 'Financials',
           documentId: 'doc-1',
           fileName: 'large.pdf',
           uploadId: 'upload-123',
@@ -213,11 +202,11 @@ describe('documents service', () => {
         data: { data: { partNumbers: [1, 3] } },
       });
 
-      const result = await listUploadedParts('upload-123', 'app-1', 'Financials', 'doc-1', 'large.pdf');
+      const result = await listUploadedParts('upload-123', 'app-1', 'doc-1', 'large.pdf');
 
       expect(mockedApi.get).toHaveBeenCalledWith(
         '/documents/multipart/upload-123/parts',
-        { params: { applicationId: 'app-1', category: 'Financials', documentId: 'doc-1', fileName: 'large.pdf' } },
+        { params: { applicationId: 'app-1', documentId: 'doc-1', fileName: 'large.pdf' } },
       );
       expect(result).toEqual([1, 3]);
     });

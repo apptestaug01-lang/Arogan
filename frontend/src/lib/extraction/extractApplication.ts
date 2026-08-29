@@ -24,7 +24,7 @@ async function loadDocumentTextSources(docs: VaultDocumentInput[]): Promise<Docu
       try {
         const view = await getDocumentView(doc.id);
         const text = await extractTextFromUrl(view.viewUrl, doc.contentType);
-        return { docId: doc.id, docName: doc.originalName, category: doc.category, text };
+        return { docId: doc.id, docName: doc.originalName, text };
       } catch {
         return null;
       }

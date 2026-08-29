@@ -33,7 +33,6 @@ router.post(
       const result = await presignDocument({
         userId: req.user!.id,
         applicationId: body.applicationId,
-        category: body.category,
         fileName: body.fileName,
         contentType: body.contentType,
         contentLength: body.contentLength,
@@ -73,10 +72,8 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { category } = req.query as { category?: string }
       const documents = await listUserDocuments({
         userId: req.user!.id,
-        category,
       })
       sendSuccess(res, 'Documents listed', { documents })
     } catch (err) {
@@ -97,7 +94,6 @@ router.post(
         userId: req.user!.id,
         documentId: req.params.documentId,
         applicationId: body.applicationId,
-        category: body.category,
         fileName: body.fileName,
         contentType: body.contentType,
       })
@@ -119,7 +115,6 @@ router.post(
       const result = await presignMultipart({
         userId: req.user!.id,
         applicationId: body.applicationId,
-        category: body.category,
         fileName: body.fileName,
         contentType: body.contentType,
         contentLength: body.contentLength,
@@ -143,7 +138,6 @@ router.post(
         userId: req.user!.id,
         documentId: req.params.documentId,
         applicationId: body.applicationId,
-        category: body.category,
         fileName: body.fileName,
         contentType: body.contentType,
         uploadId: body.uploadId,
@@ -245,7 +239,6 @@ router.post(
         userId: req.user!.id,
         documentId: body.documentId,
         applicationId: body.applicationId,
-        category: body.category,
         fileName: body.fileName,
         uploadId: body.uploadId,
       })
@@ -262,20 +255,18 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { applicationId, category, documentId, fileName } = req.query as {
+      const { applicationId, documentId, fileName } = req.query as {
         applicationId?: string
-        category?: string
         documentId?: string
         fileName?: string
       }
-      if (!applicationId || !category || !documentId || !fileName) {
-        sendError(res, 'applicationId, category, documentId and fileName are required', 400)
+      if (!applicationId || !documentId || !fileName) {
+        sendError(res, 'applicationId, documentId and fileName are required', 400)
         return
       }
       const partNumbers = await listUploadedParts({
         userId: req.user!.id,
         applicationId,
-        category,
         documentId,
         fileName,
         uploadId: req.params.uploadId,

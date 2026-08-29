@@ -65,7 +65,6 @@ export async function linkDocument(
 
 export interface PresignDocumentInput {
   applicationId: string;
-  category: string;
   fileName: string;
   contentType: string;
   contentLength: number;
@@ -90,7 +89,6 @@ export async function presignDocument(
 export interface CompleteDocumentInput {
   documentId: string;
   applicationId: string;
-  category: string;
   fileName: string;
   contentType: string;
 }
@@ -98,7 +96,6 @@ export interface CompleteDocumentInput {
 export interface CompleteDocumentResult {
   id: string;
   applicationId: string;
-  category: string;
   originalName: string;
   contentType: string;
   size: number;
@@ -114,7 +111,6 @@ export async function completeDocument(
     `/documents/${input.documentId}/complete`,
     {
       applicationId: input.applicationId,
-      category: input.category,
       fileName: input.fileName,
       contentType: input.contentType,
     },
@@ -158,7 +154,6 @@ export async function presignMultipart(
 export interface CompleteMultipartInput {
   documentId: string;
   applicationId: string;
-  category: string;
   fileName: string;
   contentType: string;
   uploadId: string;
@@ -172,7 +167,6 @@ export async function completeMultipart(
     `/documents/${input.documentId}/complete-multipart`,
     {
       applicationId: input.applicationId,
-      category: input.category,
       fileName: input.fileName,
       contentType: input.contentType,
       uploadId: input.uploadId,
@@ -185,7 +179,6 @@ export async function completeMultipart(
 export interface AbortMultipartInput {
   documentId: string;
   applicationId: string;
-  category: string;
   fileName: string;
   uploadId: string;
 }
@@ -193,7 +186,6 @@ export interface AbortMultipartInput {
 export async function abortMultipart(input: AbortMultipartInput): Promise<void> {
   await api.post(`/documents/multipart/${input.uploadId}/abort`, {
     applicationId: input.applicationId,
-    category: input.category,
     documentId: input.documentId,
     fileName: input.fileName,
     uploadId: input.uploadId,
@@ -203,23 +195,21 @@ export async function abortMultipart(input: AbortMultipartInput): Promise<void> 
 export async function listUploadedParts(
   uploadId: string,
   applicationId: string,
-  category: string,
   documentId: string,
   fileName: string,
 ): Promise<number[]> {
   const res = await api.get<{ data: { partNumbers: number[] } }>(
     `/documents/multipart/${uploadId}/parts`,
-    { params: { applicationId, category, documentId, fileName } },
+    { params: { applicationId, documentId, fileName } },
   );
   return res.data.data.partNumbers;
 }
 
-// ---- Document listing (per-category checklist + manage view) ----
+// ---- Document listing (flat list, no categories) ----
 
 export interface DocumentSummary {
   id: string;
   applicationId: string;
-  category: string;
   originalName: string;
   contentType: string;
   size: number | null;
@@ -228,12 +218,9 @@ export interface DocumentSummary {
   updatedAt: string;
 }
 
-export async function listDocuments(category?: string): Promise<DocumentSummary[]> {
-  const params: Record<string, string> = {};
-  if (category) params.category = category;
+export async function listDocuments(): Promise<DocumentSummary[]> {
   const res = await api.get<{ data: { documents: DocumentSummary[] } }>(
     '/documents/documents',
-    { params },
   );
   return res.data.data.documents;
 }

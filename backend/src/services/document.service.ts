@@ -13,7 +13,6 @@ import { ValidationError, StorageError, ConflictError } from '../utils/errors.js
 export interface PresignDocumentInput {
   userId: string
   applicationId: string
-  category: string
   fileName: string
   contentType: string
   contentLength: number
@@ -23,7 +22,6 @@ export interface CompleteDocumentInput {
   userId: string
   documentId: string
   applicationId: string
-  category: string
   fileName: string
   contentType: string
 }
@@ -40,7 +38,7 @@ export async function presignDocument(input: PresignDocumentInput) {
   }
 
   const documentId = randomUUID()
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName)
   let uploadUrl: string
   try {
     await ensureBucket()
@@ -58,7 +56,6 @@ export async function presignDocument(input: PresignDocumentInput) {
 
   await logAuditEvent('DOCUMENT_PRESIGN', undefined, undefined, input.userId, {
     applicationId: input.applicationId,
-    category: input.category,
     key,
   })
 
@@ -66,7 +63,7 @@ export async function presignDocument(input: PresignDocumentInput) {
 }
 
 export async function completeDocument(input: CompleteDocumentInput) {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
 
   let meta
   try {
@@ -82,7 +79,7 @@ export async function completeDocument(input: CompleteDocumentInput) {
         id: input.documentId,
         userId: input.userId,
         applicationId: input.applicationId,
-        category: input.category,
+        category: 'Documents',
         s3Key: key,
         originalName: input.fileName,
         contentType: input.contentType,
@@ -128,7 +125,7 @@ export interface ListUserDocumentsInput {
 export interface DocumentSummary {
   id: string
   applicationId: string
-  category: string
+  category: string | null
   originalName: string
   contentType: string
   size: number | null
@@ -144,7 +141,7 @@ export async function listUserDocuments(input: ListUserDocumentsInput): Promise<
       status: { not: 'DELETED' },
       ...(input.category ? { category: input.category } : {}),
     },
-    orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+    orderBy: [{ createdAt: 'desc' }],
   })
 
   return docs.map((d) => ({

@@ -5,7 +5,6 @@ import type { DocumentTextSource } from './types';
 const KYC: DocumentTextSource = {
   docId: 'd1',
   docName: 'kyc.pdf',
-  category: 'KYC',
   text: `
 CIN: L12345MH2020PLC123456
 Company Name: ABC Infra Ltd.
@@ -19,7 +18,6 @@ Group Company: ABC Holdings Ltd.
 const FINANCIALS: DocumentTextSource = {
   docId: 'd2',
   docName: 'financials.pdf',
-  category: 'Financials',
   text: `
 Annual turnover: 320 crore
 Existing debt: 90 crore
@@ -30,7 +28,6 @@ Net worth: 140 crore
 const SANCTION: DocumentTextSource = {
   docId: 'd3',
   docName: 'sanction.pdf',
-  category: 'Existing Sanction Letters',
   text: `
 Proposed facility: Term Loan of Rs. 150 crore
 Tenor: 7 years
@@ -57,15 +54,13 @@ describe('extractFromTextSources (orchestrator)', () => {
     expect(result.fields.loanAmount?.source?.docName).toBe('sanction.pdf');
   });
 
-  it('respects category affinity over later documents', () => {
-    // A conflicting company name appears in a low-affinity document.
+  it('prefers higher-confidence matches over later documents', () => {
     const other: DocumentTextSource = {
       docId: 'd4',
       docName: 'other.pdf',
-      category: 'Other Documents',
       text: 'Company Name: Wrong Corp Ltd.',
     };
-    const result = extractFromTextSources([other, KYC]);
+    const result = extractFromTextSources([KYC, other]);
     expect(result.values.companyName).toBe('ABC Infra Ltd.');
   });
 

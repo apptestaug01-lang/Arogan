@@ -87,7 +87,7 @@ model Document {
   userId        String
   user          User           @relation(fields: [userId], references: [id])
   applicationId String
-  category      String
+  category      String?
   s3Key         String         @unique
   originalName  String
   contentType   String

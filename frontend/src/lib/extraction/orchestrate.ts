@@ -17,30 +17,13 @@ function snippetFor(text: string, value: string): string {
 }
 
 // Pure orchestrator: given extracted text from each vault document, fill every
-// application field. Selection honours each field's category affinity (most
-// relevant document type first) and keeps the highest-confidence match.
+// application field. Keeps the highest-confidence match across all documents.
 export function extractFromTextSources(sources: DocumentTextSource[]): ExtractionResult {
-  const byCategory = new Map<string, DocumentTextSource[]>();
-  for (const src of sources) {
-    const list = byCategory.get(src.category) ?? [];
-    list.push(src);
-    byCategory.set(src.category, list);
-  }
-
   const fields: Partial<Record<ApplicationDraftKey, ExtractedField>> = {};
 
   for (const def of FIELD_DEFINITIONS) {
-    const ordered: DocumentTextSource[] = [];
-    for (const cat of def.affinity) {
-      const list = byCategory.get(cat);
-      if (list) ordered.push(...list);
-    }
-    for (const [cat, list] of byCategory) {
-      if (!def.affinity.includes(cat)) ordered.push(...list);
-    }
-
     let best: ExtractedField | null = null;
-    for (const src of ordered) {
+    for (const src of sources) {
       const result = extractField(def, src.text);
       if (!result) continue;
       if (!best || CONFIDENCE_RANK[result.confidence] > CONFIDENCE_RANK[best.confidence]) {
@@ -50,7 +33,6 @@ export function extractFromTextSources(sources: DocumentTextSource[]): Extractio
           source: {
             docId: src.docId,
             docName: src.docName,
-            category: src.category,
             snippet: snippetFor(src.text, result.value),
           },
         };
