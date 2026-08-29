@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma.js'
-import { createPresignedDownloadUrl, StorageError } from './storage.service.js'
+import { createPresignedDownloadUrl } from './storage.service.js'
 import { PRESIGNED_DOWNLOAD_TTL_SECONDS } from '../utils/constants.js'
 import { logAuditEvent } from './audit.service.js'
+import { StorageError } from '../utils/errors.js'
 
 export class DocumentViewError extends Error {
   statusCode: number

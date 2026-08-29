@@ -94,7 +94,7 @@ describe('presignDocument', () => {
   it('rejects unsupported content types', async () => {
     await expect(
       presignDocument({ ...PRESIGN_INPUT, contentType: 'text/plain' }),
-    ).rejects.toThrow('Unsupported content type');
+    ).rejects.toThrow('Unsupported file type. Supported formats: PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX');
   });
 
   it('rejects invalid file sizes', async () => {
@@ -103,7 +103,7 @@ describe('presignDocument', () => {
     );
     await expect(
       presignDocument({ ...PRESIGN_INPUT, contentLength: 6 * 1024 * 1024 * 1024 }),
-    ).rejects.toThrow('Invalid file size');
+    ).rejects.toThrow('File size exceeds the 5 GB limit');
   });
 });
 
@@ -169,7 +169,7 @@ describe('completeDocument', () => {
         fileName: 'aadhar.pdf',
         contentType: 'application/pdf',
       }),
-    ).rejects.toThrow('Uploaded object not found in storage');
+    ).rejects.toThrow('Uploaded file not found in storage. The upload may have expired or failed.');
   });
 });
 

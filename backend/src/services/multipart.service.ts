@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucket, StorageError } from './storage.service.js'
+import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucket } from './storage.service.js'
 import { getStorageConfig } from '../config/storage.config.js'
 import { logAuditEvent } from './audit.service.js'
 import {
@@ -20,6 +20,7 @@ import {
   MULTIPART_ABORT_DAYS,
   PRESIGNED_UPLOAD_TTL_SECONDS,
 } from '../utils/constants.js'
+import { ValidationError, StorageError, ConflictError } from '../utils/errors.js'
 
 export interface ChunkPlan {
   partSize: number
@@ -69,13 +70,16 @@ export interface PresignMultipartResult {
 
 export async function presignMultipart(input: PresignMultipartInput): Promise<PresignMultipartResult> {
   if (!ALLOWED_DOCUMENT_CONTENT_TYPES.includes(input.contentType)) {
-    throw new Error('Unsupported content type')
+    throw new ValidationError('Unsupported file type. Supported formats: PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX')
   }
-  if (input.contentLength <= 0 || input.contentLength > MAX_DOCUMENT_SIZE_BYTES) {
-    throw new Error('Invalid file size')
+  if (input.contentLength <= 0) {
+    throw new ValidationError('Invalid file size')
+  }
+  if (input.contentLength > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new ValidationError(`File size exceeds the ${MAX_DOCUMENT_SIZE_BYTES / (1024 * 1024 * 1024)} GB limit`)
   }
   if (input.contentLength < MULTIPART_THRESHOLD_BYTES) {
-    throw new Error('Use the single-part upload endpoint for files under 100 MB')
+    throw new ValidationError(`Files under ${MULTIPART_THRESHOLD_BYTES / (1024 * 1024)} MB should use the standard upload`)
   }
 
   const documentId = randomUUID()
@@ -83,16 +87,9 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
-  try {
-    await ensureBucket()
-  } catch (err) {
-    throw new StorageError(
-      err instanceof Error ? err.message : 'Storage service unavailable',
-    )
-  }
-
   let createRes
   try {
+    await ensureBucket()
     createRes = await s3.send(
       new CreateMultipartUploadCommand({
         Bucket: config.bucket,
@@ -102,7 +99,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
     )
   } catch (err) {
     throw new StorageError(
-      err instanceof Error ? err.message : 'Failed to initiate multipart upload',
+      err instanceof Error ? err.message : 'Storage service is temporarily unavailable. Please try again.',
     )
   }
   const uploadId = createRes.UploadId as string
@@ -123,7 +120,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
       )
     } catch (err) {
       throw new StorageError(
-        err instanceof Error ? err.message : 'Failed to generate multipart upload URLs',
+        err instanceof Error ? err.message : 'Failed to generate upload URLs. Please try again.',
       )
     }
   }
@@ -179,7 +176,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
     )
   } catch (err) {
     throw new StorageError(
-      err instanceof Error ? err.message : 'Failed to complete multipart upload',
+      err instanceof Error ? err.message : 'Failed to complete multipart upload. Please try again.',
     )
   }
 
@@ -187,31 +184,36 @@ export async function completeMultipart(input: CompleteMultipartInput) {
   try {
     meta = await headObject(key, s3, config)
   } catch {
-    throw new Error('Uploaded object not found in storage')
+    throw new StorageError('Uploaded file not found in storage after completion.')
   }
 
-  const document = await prisma.document.create({
-    data: {
-      id: input.documentId,
-      userId: input.userId,
-      applicationId: input.applicationId,
-      category: input.category,
-      s3Key: key,
-      originalName: input.fileName,
-      contentType: input.contentType,
-      size: meta.size,
-      checksum: meta.checksum,
-      status: 'UPLOADED',
-    },
-  })
-
-  await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
-    documentId: input.documentId,
-    key,
-    multipart: true,
-  })
-
-  return document
+  try {
+    const document = await prisma.document.create({
+      data: {
+        id: input.documentId,
+        userId: input.userId,
+        applicationId: input.applicationId,
+        category: input.category,
+        s3Key: key,
+        originalName: input.fileName,
+        contentType: input.contentType,
+        size: meta.size,
+        checksum: meta.checksum,
+        status: 'UPLOADED',
+      },
+    })
+    await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
+      documentId: input.documentId,
+      key,
+      multipart: true,
+    })
+    return document
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {
+      throw new ConflictError('A document with this name already exists. Please rename the file and try again.')
+    }
+    throw new StorageError('Failed to record document. Please try again.')
+  }
 }
 
 export interface MultipartKeyInput {
@@ -227,9 +229,13 @@ export async function abortMultipart(input: MultipartKeyInput & { uploadId: stri
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
-  await s3.send(
-    new AbortMultipartUploadCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
-  )
+  try {
+    await s3.send(
+      new AbortMultipartUploadCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
+    )
+  } catch {
+    // Best-effort abort; log but don't fail the request
+  }
 
   await logAuditEvent('DOCUMENT_MULTIPART_ABORT', undefined, undefined, input.userId, {
     key,
@@ -244,9 +250,16 @@ export async function listUploadedParts(
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
-  const res = await s3.send(
-    new ListPartsCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
-  )
+  let res
+  try {
+    res = await s3.send(
+      new ListPartsCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
+    )
+  } catch (err) {
+    throw new StorageError(
+      err instanceof Error ? err.message : 'Storage service is temporarily unavailable. Please try again.',
+    )
+  }
   return (res.Parts || []).map((p) => p.PartNumber as number)
 }
 

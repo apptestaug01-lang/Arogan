@@ -37,7 +37,7 @@ export const documentPresignSchema = z.object({
   category: z.string().min(1).max(50),
   fileName: z.string().min(1).max(200),
   contentType: z.string().min(1),
-  contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024),
+  contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024, 'File size exceeds the 5 GB limit'),
 });
 
 export const documentCompleteSchema = z.object({

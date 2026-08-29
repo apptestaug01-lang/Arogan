@@ -1,5 +1,5 @@
 import * as React from 'react';
-import axios, { AxiosProgressEvent } from 'axios';
+import axios, { AxiosError, AxiosProgressEvent } from 'axios';
 import { UploadCloud, X, Trash2, CheckCircle2, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -64,6 +64,41 @@ interface UploadItem {
 }
 
 const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.zip';
+
+function getUploadErrorMessage(error: unknown, fileName: string): string {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError
+    const data = axiosError.response?.data as any
+    const status = axiosError.response?.status
+
+    if (status === 400 && data?.message) {
+      return data.message
+    }
+    if (status === 413) {
+      return 'File is too large to upload'
+    }
+    if (status === 415) {
+      return 'Unsupported file type'
+    }
+    if (status === 503) {
+      return 'Storage is temporarily unavailable. Please try again.'
+    }
+    if (!axiosError.response) {
+      return 'Network error. Please check your connection and try again.'
+    }
+    if (data?.message) {
+      return data.message
+    }
+    if (status >= 500) {
+      return 'Server error. Please try again later.'
+    }
+    return axiosError.message || 'Upload failed'
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'Upload failed'
+}
 
 export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzoneProps>(
   function FileDropzone(
@@ -180,7 +215,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           updateItem(id, { status: 'idle', message: 'Cancelled', error: undefined });
           return;
         }
-        const msg = e instanceof Error ? e.message : 'Upload failed';
+        const msg = getUploadErrorMessage(e, file.name);
         updateItem(id, { status: 'error', error: msg, message: undefined });
         toast(`${file.name}: ${msg}`, 'error');
       }
@@ -318,7 +353,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
             // best-effort abort
           }
         }
-        const msg = e instanceof Error ? e.message : 'Upload failed';
+        const msg = getUploadErrorMessage(e, item.file.name);
         updateItem(id, { status: 'error', error: msg, message: undefined });
         toast(`${item.file.name}: ${msg}`, 'error');
       }

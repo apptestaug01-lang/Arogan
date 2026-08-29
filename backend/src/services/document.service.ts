@@ -1,13 +1,14 @@
 import { randomUUID } from 'crypto'
 import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
-import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket, StorageError } from './storage.service.js'
+import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket } from './storage.service.js'
 import { logAuditEvent } from './audit.service.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
   MAX_DOCUMENT_SIZE_BYTES,
   PRESIGNED_UPLOAD_TTL_SECONDS,
 } from '../utils/constants.js'
+import { ValidationError, StorageError, ConflictError } from '../utils/errors.js'
 
 export interface PresignDocumentInput {
   userId: string
@@ -29,10 +30,13 @@ export interface CompleteDocumentInput {
 
 export async function presignDocument(input: PresignDocumentInput) {
   if (!ALLOWED_DOCUMENT_CONTENT_TYPES.includes(input.contentType)) {
-    throw new Error('Unsupported content type')
+    throw new ValidationError('Unsupported file type. Supported formats: PDF, PNG, JPG, WEBP, DOC, DOCX, XLS, XLSX')
   }
-  if (input.contentLength <= 0 || input.contentLength > MAX_DOCUMENT_SIZE_BYTES) {
-    throw new Error('Invalid file size')
+  if (input.contentLength <= 0) {
+    throw new ValidationError('Invalid file size')
+  }
+  if (input.contentLength > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new ValidationError(`File size exceeds the ${MAX_DOCUMENT_SIZE_BYTES / (1024 * 1024 * 1024)} GB limit`)
   }
 
   const documentId = randomUUID()
@@ -48,7 +52,7 @@ export async function presignDocument(input: PresignDocumentInput) {
     )
   } catch (err) {
     throw new StorageError(
-      err instanceof Error ? err.message : 'Storage service unavailable',
+      err instanceof Error ? err.message : 'Storage service is temporarily unavailable. Please try again.',
     )
   }
 
@@ -64,35 +68,40 @@ export async function presignDocument(input: PresignDocumentInput) {
 export async function completeDocument(input: CompleteDocumentInput) {
   const key = buildDocumentKey(input.userId, input.applicationId, input.category, input.documentId, input.fileName)
 
-  await ensureBucket()
   let meta
   try {
+    await ensureBucket()
     meta = await headObject(key)
   } catch {
-    throw new Error('Uploaded object not found in storage')
+    throw new StorageError('Uploaded file not found in storage. The upload may have expired or failed.')
   }
 
-  const document = await prisma.document.create({
-    data: {
-      id: input.documentId,
-      userId: input.userId,
-      applicationId: input.applicationId,
-      category: input.category,
-      s3Key: key,
-      originalName: input.fileName,
-      contentType: input.contentType,
-      size: meta.size,
-      checksum: meta.checksum,
-      status: 'UPLOADED',
-    },
-  })
-
-  await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
-    documentId: input.documentId,
-    key,
-  })
-
-  return document
+  try {
+    const document = await prisma.document.create({
+      data: {
+        id: input.documentId,
+        userId: input.userId,
+        applicationId: input.applicationId,
+        category: input.category,
+        s3Key: key,
+        originalName: input.fileName,
+        contentType: input.contentType,
+        size: meta.size,
+        checksum: meta.checksum,
+        status: 'UPLOADED',
+      },
+    })
+    await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
+      documentId: input.documentId,
+      key,
+    })
+    return document
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {
+      throw new ConflictError('A document with this name already exists. Please rename the file and try again.')
+    }
+    throw new StorageError('Failed to record document. Please try again.')
+  }
 }
 
 export interface DeleteDocumentInput {

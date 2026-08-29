@@ -1,11 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import logger from './logger.js';
-
-export interface ApiError extends Error {
-  statusCode?: number;
-  isOperational?: boolean;
-}
+import { ApiError } from '../utils/errors.js';
 
 export function errorHandler(
   err: unknown,
@@ -24,6 +20,31 @@ export function errorHandler(
       errors: formatted,
     });
     return;
+  }
+
+  if (err instanceof Error && 'code' in err) {
+    const code = (err as any).code
+    if (code === 'P2002') {
+      res.status(409).json({
+        success: false,
+        message: 'A record with this value already exists. Please use a different value.',
+      });
+      return;
+    }
+    if (code === 'P2025') {
+      res.status(404).json({
+        success: false,
+        message: 'Record not found',
+      });
+      return;
+    }
+    if (code === 'P1001' || code === 'P1002' || code === 'P1003') {
+      res.status(503).json({
+        success: false,
+        message: 'Database is temporarily unavailable. Please try again.',
+      });
+      return;
+    }
   }
 
   const error = err as ApiError;

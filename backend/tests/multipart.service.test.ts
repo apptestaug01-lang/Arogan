@@ -148,7 +148,7 @@ describe('presignMultipart', () => {
   it('rejects files under the 100 MB threshold', async () => {
     setupSend()
     await expect(presignMultipart({ ...INPUT, contentLength: 10 * MB })).rejects.toThrow(
-      'single-part upload',
+      'standard upload',
     )
   })
 })

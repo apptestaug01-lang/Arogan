@@ -1,7 +1,8 @@
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { getStorageClient, StorageError } from './storage.service.js'
+import { getStorageClient } from './storage.service.js'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
 import { prisma } from '../lib/prisma.js'
+import { StorageError } from '../utils/errors.js'
 
 const EXPLORER_DELIMITER = '/'
 

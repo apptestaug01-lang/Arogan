@@ -15,17 +15,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
 import { PRESIGNED_UPLOAD_TTL_SECONDS, PRESIGNED_DOWNLOAD_TTL_SECONDS, MULTIPART_ABORT_DAYS } from '../utils/constants.js'
 import logger from '../middleware/logger.js'
-
-export class StorageError extends Error {
-  statusCode: number
-  isOperational: boolean
-  constructor(message: string, statusCode = 503) {
-    super(message)
-    this.name = 'StorageError'
-    this.statusCode = statusCode
-    this.isOperational = true
-  }
-}
+import { StorageError } from '../utils/errors.js'
 
 export function createS3Client(config: StorageConfig = getStorageConfig()): S3Client {
   const protocol = config.useSsl ? 'https' : 'http'
