@@ -45,4 +45,9 @@ export async function autoFillFromVault(): Promise<ExtractionResult> {
   return extractApplicationData(docs);
 }
 
+// Extract from a specific subset of documents.
+export async function autoFillFromDocuments(docs: VaultDocumentInput[]): Promise<ExtractionResult> {
+  return extractApplicationData(docs);
+}
+
 export { extractFromTextSources };

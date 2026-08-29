@@ -41,6 +41,7 @@ model User {
   sessions       Session[]
   auditLogs      AuditLog[]
   documents      Document[]
+  applications   Application[]
 }
 
 model Session {
@@ -96,6 +97,30 @@ model Document {
   status        DocumentStatus @default(PENDING)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([applicationId])
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  applicationId String           @unique
+  status        ApplicationStatus @default(DRAFT)
+  data          Json
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([userId])
   @@index([applicationId])
