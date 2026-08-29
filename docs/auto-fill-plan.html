@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanFlow — Document-to-Application Auto-Fill Plan</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: true } });
+    });
+  </script>
+  <style>
+    :root { --bg:#0f172a; --panel:#fff; --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --brand:#1763d1; --brand-soft:#eff6ff; --ok:#047857; --ok-bg:#ecfdf5; --warn:#b45309; --warn-bg:#fffbeb; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:#f1f5f9; line-height:1.6; }
+    header.cover { background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 55%,#1763d1 100%); color:#fff; padding:48px 32px; }
+    header.cover h1 { margin:0 0 8px; font-size:30px; letter-spacing:-0.02em; }
+    header.cover p { margin:0; color:#cbd5e1; max-width:780px; }
+    main { max-width:1040px; margin:0 auto; padding:32px; }
+    section { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px 28px; margin:20px 0; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    h2 { font-size:20px; margin:0 0 12px; }
+    h3 { font-size:15px; margin:18px 0 8px; color:var(--brand); }
+    p, li { color:var(--muted); }
+    code { background:#f1f5f9; padding:1px 6px; border-radius:6px; font-size:13px; color:#0f172a; }
+    table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13px; }
+    th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+    th { background:var(--brand-soft); color:#0f172a; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+    .badge.ok { background:var(--ok-bg); color:var(--ok); }
+    .badge.warn { background:var(--warn-bg); color:var(--warn); }
+    .mermaid { background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:12px; margin:12px 0; }
+    .note { border-left:4px solid var(--brand); background:var(--brand-soft); padding:12px 16px; border-radius:8px; color:#1e3a8a; }
+    footer { text-align:center; color:var(--muted); padding:24px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header class="cover">
+    <h1>Document &#8594; Application Auto-Fill</h1>
+    <p>Automatically extract the 15 LoanFlow application fields from the documents already stored in the S3 vault, so a borrower can start a <em>New Application</em> without manual data entry. Modular, client-side, and source-attributed.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>1. Goal &amp; principles</h2>
+      <ul>
+        <li><b>Zero manual entry:</b> a single &#8220;Auto-fill from documents&#8221; action reads the vault and prefills the form.</li>
+        <li><b>Exact-meaning matching:</b> each field has its own extraction strategies (context keywords + regex) and a ranked <b>category affinity</b> (which vault doc types are most likely to contain it).</li>
+        <li><b>Source-attributed:</b> every value carries the document + snippet it came from, shown in a review panel so the user verifies before applying.</li>
+        <li><b>Modular &amp; offline:</b> a self-contained utility with no backend/LLM keys required; an <code>LlmFieldExtractor</code> adapter is a clean drop-in extension point.</li>
+        <li><b>Main stays clean:</b> built in reviewable chunks, each merged via squash PR.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>2. Extraction pipeline</h2>
+      <div class="mermaid">
+flowchart TD
+  A[User clicks 'Auto-fill from documents'] --> B[List vault documents<br/>listDocuments]
+  B --> C[For each doc: getDocumentView -> presigned URL]
+  C --> D[extractTextFromUrl by contentType]
+  D --> E[PDF: pdfjs-dist getTextContent<br/>plain/text: fetch text<br/>docx/img: pluggable OCR stub]
+  E --> F[DocumentTextSource docId, name, category, text]
+  F --> G[extractFromTextSources]
+  G --> H[For each FIELD_DEFINITION<br/>try docs in affinity order]
+  H --> I[heuristics: keyword proximity + regex<br/>returns value + confidence + snippet]
+  I --> J[ExtractionResult: values, sources, missing]
+  J --> K[Review panel: field -> source document]
+  K --> L[Apply to form -> setForm]
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Module layout</h2>
+      <table>
+        <tr><th>Module</th><th>Responsibility</th><th>Chunk</th></tr>
+        <tr><td><code>lib/extraction/types.ts</code></td><td><code>ApplicationDraft</code>, <code>ExtractedField</code>, <code>DocumentTextSource</code>, <code>ExtractionResult</code></td><td>1</td></tr>
+        <tr><td><code>lib/extraction/textExtractors.ts</code></td><td>Per-content-type text extraction (PDF, text; image/docx pluggable)</td><td>1</td></tr>
+        <tr><td><code>lib/extraction/fields.ts</code></td><td><code>FIELD_DEFINITIONS</code>: affinity order + strategies per field</td><td>1</td></tr>
+        <tr><td><code>lib/extraction/heuristics.ts</code></td><td>Pure field extractor (regex + keyword proximity)</td><td>1</td></tr>
+        <tr><td><code>lib/extraction/extractApplication.ts</code></td><td>Orchestrator (fetch &#8594; extract &#8594; merge)</td><td>1</td></tr>
+        <tr><td><code>lib/extraction/index.ts</code></td><td>Public barrel export</td><td>1</td></tr>
+        <tr><td><code>components/workspace/ApplicationAutoFill.tsx</code></td><td>Button + review panel; applies values to form</td><td>2</td></tr>
+        <tr><td><code>pages/workspace/NewApplicationView.tsx</code></td><td>Wires auto-fill into the New Application page</td><td>2</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. Field &#8594; source mapping</h2>
+      <p>The 15 form fields, their most-relevant vault categories (in priority order), and the extraction hint.</p>
+      <table>
+        <tr><th>Field</th><th>Affinity (priority)</th><th>Extraction hint</th></tr>
+        <tr><td>companyName</td><td>KYC, Other Documents</td><td>Phrase before Ltd/Limited/Private Limited; after &#8220;Company Name&#8221;/&#8220;Borrower&#8221;</td></tr>
+        <tr><td>cin</td><td>KYC</td><td>CIN regex <code>[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}</code></td></tr>
+        <tr><td>industry</td><td>KYC, Financials</td><td>Map keywords &#8594; Infrastructure/Manufacturing/Renewable Energy/IT-ITES</td></tr>
+        <tr><td>groupCompany</td><td>KYC, Other Documents</td><td>&#8220;group&#8221;/&#8220;holding&#8221;/&#8220;parent company&#8221;</td></tr>
+        <tr><td>signatory</td><td>KYC</td><td>After &#8220;Authorised Signatory&#8221;/&#8220;Director&#8221;</td></tr>
+        <tr><td>designation</td><td>KYC</td><td>&#8220;Designation&#8221; or title words Director/CFO/MD</td></tr>
+        <tr><td>loanAmount</td><td>Existing Sanction Letters, Financials</td><td>Number + Cr/Crore near &#8220;loan amount&#8221;/&#8220;sanction&#8221;/&#8220;facility&#8221;</td></tr>
+        <tr><td>productType</td><td>Existing Sanction Letters</td><td>term loan / working capital / project finance / LC / BG</td></tr>
+        <tr><td>tenor</td><td>Existing Sanction Letters</td><td>Integer years near &#8220;tenor&#8221;/&#8220;tenure&#8221;</td></tr>
+        <tr><td>purpose</td><td>Existing Sanction Letters, Other Documents</td><td>Phrase after &#8220;purpose of loan&#8221;/&#8220;for the purpose&#8221;</td></tr>
+        <tr><td>collateral</td><td>Existing Sanction Letters, Property</td><td>After &#8220;collateral&#8221;/&#8220;security&#8221;/&#8220;mortgage&#8221;</td></tr>
+        <tr><td>turnover</td><td>Financials</td><td>&#8220;annual turnover&#8221;/&#8220;revenue&#8221; number + Cr</td></tr>
+        <tr><td>debt</td><td>Financials, Existing Sanction Letters</td><td>&#8220;existing debt&#8221;/&#8220;outstanding&#8221;/&#8220;borrowings&#8221;</td></tr>
+        <tr><td>netWorth</td><td>Financials</td><td>&#8220;net worth&#8221; number + Cr</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. Confidence &amp; provenance</h2>
+      <div class="note">
+        Every <code>ExtractedField</code> carries <code>value</code>, a <code>confidence</code> of <span class="badge ok">high</span> (strong pattern + context keyword) / <span class="badge warn">medium</span> (pattern only) / low, and a <code>source</code> with the originating document name + the matched snippet. The review panel renders these so the borrower confirms before &#8220;Apply&#8221;. Fields with no match are listed as <b>missing</b> and left blank for manual entry.
+      </div>
+    </section>
+
+    <section>
+      <h2>6. Extension point (optional LLM)</h2>
+      <p><code>extractApplication.ts</code> accepts an optional <code>fieldExtractor</code>. A future <code>LlmFieldExtractor</code> can call a backend structured-extraction endpoint (Azure AI / OpenAI function-calling) and return the same <code>ExtractedField</code> shape, falling back to <code>heuristics</code> when unavailable. No change to the UI or the field definitions is required.</p>
+    </section>
+
+    <section>
+      <h2>7. Verification</h2>
+      <ul>
+        <li><code>npx tsc --noEmit</code> + <code>npm run lint:check</code> on frontend.</li>
+        <li>Unit tests for <code>heuristics</code> and <code>extractFromTextSources</code> with synthetic KYC / Financials / Sanction-letter text.</li>
+        <li>Manual: upload sample docs to the vault &#8594; New Application &#8594; Auto-fill &#8594; review &#8594; apply.</li>
+      </ul>
+    </section>
+  </main>
+  <footer>LoanFlow &#183; Document-to-Application Auto-Fill Plan</footer>
+</body>
+</html>
