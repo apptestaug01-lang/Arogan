@@ -381,14 +381,20 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   );
 
   const handleFiles = React.useCallback(
-    async (list: FileList | null, folderPath?: string) => {
+    async (list: FileList | null, firstFilePath?: string) => {
       if (!list || list.length === 0) return;
-      const processed = await processUploadInput(list, folderPath);
-      const items = addUploadItems(processed);
-      items.forEach(startUpload);
+      const folderPrefix = firstFilePath
+        ? (() => {
+            const firstSlash = firstFilePath.indexOf('/')
+            return firstSlash >= 0 ? firstFilePath.substring(0, firstSlash + 1) : ''
+          })()
+        : undefined
+      const processed = await processUploadInput(list, folderPrefix)
+      const items = addUploadItems(processed)
+      items.forEach(startUpload)
     },
     [addUploadItems, startUpload],
-  );
+  )
 
   const cancelUpload = React.useCallback(
     (item: UploadItem) => {
@@ -438,6 +444,12 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
       );
     });
   }, [applicationId, category]);
+
+  React.useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+    }
+  }, []);
 
   React.useImperativeHandle(ref, () => ({ openPicker: () => fileInputRef.current?.click(), cancelAll }), [cancelAll]);
 
@@ -518,9 +530,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           ref={folderInputRef}
           type="file"
           multiple
-          accept={ACCEPTED_EXT}
           className="hidden"
-          {...{ webkitdirectory: '' }}
           onChange={(e) => handleFiles(e.target.files, e.target.files?.[0]?.webkitRelativePath)}
         />
       </div>

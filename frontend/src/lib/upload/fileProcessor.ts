@@ -43,11 +43,11 @@ export async function extractZipFiles(zipFile: File): Promise<ProcessedFile[]> {
   return processed;
 }
 
-export function getRelativePath(file: File, folderPath?: string): string | undefined {
-  if (!folderPath) return undefined;
+export function getRelativePath(file: File, folderPrefix?: string): string | undefined {
+  if (!folderPrefix) return undefined;
   const webkitPath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
-  if (webkitPath) {
-    return webkitPath.replace(folderPath, '').replace(/^\//, '');
+  if (webkitPath && webkitPath.startsWith(folderPrefix)) {
+    return webkitPath.slice(folderPrefix.length);
   }
   return undefined;
 }
@@ -79,7 +79,7 @@ export function deduplicateFiles(files: ProcessedFile[]): ProcessedFile[] {
 
 export async function processUploadInput(
   input: FileList | null,
-  folderPath?: string,
+  folderPrefix?: string,
 ): Promise<ProcessedFile[]> {
   if (!input || input.length === 0) return [];
 
@@ -102,7 +102,7 @@ export async function processUploadInput(
       file,
       originalName: file.name,
       size: file.size,
-      relativePath: getRelativePath(file, folderPath),
+      relativePath: getRelativePath(file, folderPrefix),
     });
   }
 
