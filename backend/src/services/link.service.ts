@@ -18,6 +18,17 @@ export async function linkDocument(input: LinkDocumentInput) {
     throw new DocumentViewError('Not authorized to link this document', 403)
   }
 
+  if (doc.applicationId === input.applicationId) {
+    return doc
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { applicationId: input.applicationId },
+  })
+  if (!application || application.userId !== input.userId) {
+    throw new DocumentViewError('Application not found or not authorized', 403)
+  }
+
   const updated = await prisma.document.update({
     where: { id: input.documentId },
     data: { applicationId: input.applicationId },

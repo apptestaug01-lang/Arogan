@@ -37,6 +37,7 @@ jest.mock('../src/lib/prisma.js', () => ({
   prisma: {
     document: {
       create: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+      findFirst: jest.fn(),
     },
   },
 }))
@@ -210,6 +211,26 @@ describe('completeMultipart', () => {
         parts: [{ partNumber: 1, etag: 'etag-a' }],
       }),
     ).rejects.toThrow('Uploaded file not found in storage after completion.')
+  })
+
+  it('rejects duplicate filenames for the same user and application', async () => {
+    setupSend()
+    ;(prisma.document.findFirst as jest.Mock).mockResolvedValue({
+      id: 'doc-existing',
+      originalName: 'big.pdf',
+    })
+
+    await expect(
+      completeMultipart({
+        userId: 'user-1',
+        documentId: 'doc-new',
+        applicationId: 'app-1',
+        fileName: 'big.pdf',
+        contentType: 'application/pdf',
+        uploadId: 'upload-1',
+        parts: [{ partNumber: 1, etag: 'etag-a' }],
+      }),
+    ).rejects.toThrow('A document with this name already exists. Please rename the file and try again.')
   })
 })
 
