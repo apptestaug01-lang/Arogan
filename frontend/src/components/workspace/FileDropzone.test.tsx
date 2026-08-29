@@ -8,6 +8,7 @@ import {
   presignMultipart,
   completeMultipart,
 } from '@/services/documents';
+import * as fileProcessor from '@/lib/upload/fileProcessor';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -31,6 +32,9 @@ const mockedPresign = presignDocument as jest.MockedFunction<typeof presignDocum
 const mockedComplete = completeDocument as jest.MockedFunction<typeof completeDocument>;
 const mockedPresignMulti = presignMultipart as jest.MockedFunction<typeof presignMultipart>;
 const mockedCompleteMulti = completeMultipart as jest.MockedFunction<typeof completeMultipart>;
+const mockedProcessUpload = jest.spyOn(fileProcessor, 'processUploadInput').mockResolvedValue([]);
+const mockedValidate = jest.spyOn(fileProcessor, 'validateProcessedFile').mockReturnValue(null);
+const mockedDeduplicate = jest.spyOn(fileProcessor, 'deduplicateFiles').mockImplementation((files) => files);
 
 describe('FileDropzone', () => {
   beforeEach(() => {
@@ -53,6 +57,9 @@ describe('FileDropzone', () => {
       updatedAt: new Date().toISOString(),
     });
     mockedAxios.put.mockResolvedValue({ headers: { etag: '"etag-1"' } });
+    mockedProcessUpload.mockResolvedValue([]);
+    mockedValidate.mockReturnValue(null);
+    mockedDeduplicate.mockImplementation((files) => files);
   });
 
   const getInput = () => document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -63,8 +70,18 @@ describe('FileDropzone', () => {
     return file;
   };
 
+  const makeProcessedFile = (name: string, sizeBytes: number, type: string): { file: File; originalName: string; size: number } => {
+    const file = makeFile(name, sizeBytes, type);
+    return { file, originalName: name, size: sizeBytes };
+  };
+
   it('rejects files with a disallowed extension', async () => {
     const onUploadComplete = jest.fn();
+    mockedProcessUpload.mockResolvedValue([
+      makeProcessedFile('notes.txt', 100, 'text/plain'),
+    ]);
+    mockedValidate.mockReturnValue('File type not allowed: notes.txt');
+
     render(<FileDropzone applicationId="app-1" onUploadComplete={onUploadComplete} />);
 
     const file = makeFile('notes.txt', 100, 'text/plain');
@@ -76,6 +93,8 @@ describe('FileDropzone', () => {
   });
 
   it('rejects files larger than the maximum size', async () => {
+    mockedProcessUpload.mockResolvedValue([]);
+
     render(<FileDropzone applicationId="app-1" />);
 
     const fiveGb = 5 * 1024 * 1024 * 1024 + 1;
@@ -89,6 +108,10 @@ describe('FileDropzone', () => {
 
   it('uploads a small file via presign -> PUT -> complete', async () => {
     const onUploadComplete = jest.fn();
+    mockedProcessUpload.mockResolvedValue([
+      makeProcessedFile('report.pdf', 1024, 'application/pdf'),
+    ]);
+
     render(
       <FileDropzone
         applicationId="app-1"
@@ -135,6 +158,10 @@ describe('FileDropzone', () => {
 
   it('uploads a large file via multipart when above the threshold', async () => {
     const onUploadComplete = jest.fn();
+    mockedProcessUpload.mockResolvedValue([
+      makeProcessedFile('large.pdf', 101 * 1024 * 1024, 'application/pdf'),
+    ]);
+
     render(
       <FileDropzone
         applicationId="app-1"
@@ -204,6 +231,10 @@ describe('FileDropzone', () => {
 
   it('shows a Cancel button during an active upload', async () => {
     mockedAxios.put.mockReturnValue(new Promise(() => {}));
+    mockedProcessUpload.mockResolvedValue([
+      makeProcessedFile('report.pdf', 1024, 'application/pdf'),
+    ]);
+
     render(<FileDropzone applicationId="app-1" />);
 
     const file = makeFile('report.pdf', 1024, 'application/pdf');
