@@ -60,3 +60,39 @@ export const MULTIPART_PART_SIZE_BYTES = 64 * 1024 * 1024; // 64 MB per part
 export const MULTIPART_CONCURRENCY = 4; // parallel part uploads
 export const MULTIPART_MAX_PARTS = 10000; // S3 hard ceiling
 export const MULTIPART_ABORT_DAYS = 7; // lifecycle cleanup for orphaned uploads
+
+// Wizard constants (fetched by frontend to avoid hardcoded values)
+export const WIZARD_INDUSTRIES = [
+  'Infrastructure',
+  'Manufacturing',
+  'Renewable Energy',
+  'IT/ITES',
+  'Others',
+] as const;
+
+export const WIZARD_BUSINESS_TYPES = [
+  'Private Limited',
+  'Public Limited',
+  'LLP',
+  'Proprietorship',
+  'Partnership',
+] as const;
+
+export const WIZARD_PRODUCT_TYPES = [
+  'Term Loan',
+  'Working Capital',
+  'Project Finance',
+  'LC/BG',
+] as const;
+
+export const WIZARD_STATEMENT_PERIODS = [
+  '3 months',
+  '6 months',
+  '12 months',
+] as const;
+
+export const WIZARD_ASSESSMENT_YEARS = [
+  'AY 2024-25',
+  'AY 2023-24',
+  'AY 2022-23',
+] as const;
