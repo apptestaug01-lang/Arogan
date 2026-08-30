@@ -3,17 +3,26 @@ import { extractFromTextSources } from './orchestrate';
 import type { DocumentTextSource, ExtractionResult, VaultDocumentInput } from './types';
 
 // Per-content-type text extraction. PDFs are parsed with pdfjs-dist; plain text
-// is fetched directly. Image / DOCX / XLSX are not extractable client-side
-// without extra libraries — leave them as empty strings and surface a clear
-// extension point (an OCR / parser adapter can be slotted in here).
+// is fetched directly. Images are processed with Tesseract.js OCR. DOCX / XLSX
+// are not extractable client-side without extra libraries — leave them as empty
+// strings and surface a clear extension point.
 async function extractTextFromUrl(url: string, contentType: string): Promise<string> {
   if (contentType.startsWith('application/pdf')) {
     const { loadPdfText } = await import('./pdfText');
     return loadPdfText(url);
   }
-  if (contentType.startsWith('text/') || contentType.includes('xml')) {
+  if (contentType.startsWith('text/') || contentType.includes('xml') || contentType === 'text/csv') {
     const res = await fetch(url);
     return res.text();
+  }
+  if (contentType.startsWith('image/')) {
+    try {
+      const Tesseract = await import('tesseract.js');
+      const result = await Tesseract.recognize(url, 'eng');
+      return result.data.text;
+    } catch {
+      return '';
+    }
   }
   return '';
 }
