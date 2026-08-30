@@ -28,10 +28,11 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
     label: 'Company name',
     strategies: [
       {
-        contextKeywords: ['company name', 'name of the company', 'borrower', 'm/s', 'applicant'],
+        contextKeywords: ['company name', 'name of the company', 'borrower', 'm/s', 'applicant', 'legal name'],
         patterns: [
           new RegExp(`company\\s*name\\s*[ :-]\\s*(${TXT}*(?:Ltd|Limited|Private Limited|Pvt\\s*Ltd|LLP|Inc|Industries|Enterprises|Infra)${TXT}*)`, 'i'),
           new RegExp(`(${TXT}*(?:Private Limited|Pvt\\s*Ltd|Ltd|Limited|LLP)${TXT}*)`, 'i'),
+           /legal\s*name\s*[ :-]\s*([A-Za-z0-9 &.,()'-]{3,100})/i,
         ],
         transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
       },
@@ -249,7 +250,14 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
     strategies: [
       {
         contextKeywords: ['pan', 'permanent account number'],
-        patterns: [/\b([A-Z]{5}[0-9]{4}[A-Z])\b/],
+        patterns: [
+          /\b([A-Z]{5}[0-9]{4}[A-Z])\b/,
+          /\b(PAN\s*[ :-]?\s*[A-Z]{5}[0-9]{4}[A-Z])\b/i,
+        ],
+        transform: (raw) => {
+          const match = raw.match(/[A-Z]{5}[0-9]{4}[A-Z]/);
+          return match ? match[0] : raw.replace(/\s+/g, ' ').trim();
+        },
       },
     ],
   },
@@ -258,8 +266,11 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
     label: 'Aadhaar',
     strategies: [
       {
-        contextKeywords: ['aadhaar', 'aadhar', 'uid'],
-        patterns: [/\b([0-9]{4}\s?[0-9]{4}\s?[0-9]{4})\b/],
+        contextKeywords: ['aadhaar', 'aadhar', 'uid', 'aadhaar number'],
+        patterns: [
+          /\b([0-9]{4}\s?[0-9]{4}\s?[0-9]{4})\b/,
+          /\b(Aadhaar\s*[ :-]?\s*[0-9]{4}\s?[0-9]{4}\s?[0-9]{4})\b/i,
+        ],
         transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
       },
     ],

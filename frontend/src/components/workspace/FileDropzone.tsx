@@ -16,6 +16,7 @@ import {
 } from '@/services/documents';
 import {
   formatFileSizeDisplay,
+  getContentTypeForFile,
   MULTIPART_THRESHOLD_BYTES,
   MULTIPART_CONCURRENCY,
 } from '@/constants/documents';
@@ -62,7 +63,7 @@ interface UploadItem {
   relativePath?: string;
 }
 
-const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.zip';
+const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.zip';
 
 function getUploadErrorMessage(error: unknown, _fileName: string): string {
   if (axios.isAxiosError(error)) {
@@ -160,7 +161,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   const uploadSingle = React.useCallback(
     async (item: UploadItem) => {
       const { file, id } = item;
-      const contentType = file.type || 'application/octet-stream';
+      const contentType = file.type || getContentTypeForFile(file.name) || 'application/octet-stream';
       try {
         updateItem(id, { status: 'presigning', message: 'Requesting upload URL…' });
 
@@ -223,7 +224,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   const uploadMultipart = React.useCallback(
     async (item: UploadItem) => {
       const { file, id } = item;
-      const contentType = file.type || 'application/octet-stream';
+      const contentType = file.type || getContentTypeForFile(file.name) || 'application/octet-stream';
       let uploadId: string | undefined;
       let presignResult: PresignMultipartResult | undefined;
 

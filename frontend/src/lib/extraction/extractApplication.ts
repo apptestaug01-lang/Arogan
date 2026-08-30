@@ -18,7 +18,18 @@ async function extractTextFromUrl(url: string, contentType: string): Promise<str
   if (contentType.startsWith('image/')) {
     try {
       const Tesseract = await import('tesseract.js');
-      const result = await Tesseract.recognize(url, 'eng');
+      const worker = await Tesseract.createWorker('eng');
+      let imageUrl = url;
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        imageUrl = URL.createObjectURL(blob);
+      } catch {
+        // fallback to direct URL if blob fetch fails (CORS, etc.)
+      }
+      const result = await worker.recognize(imageUrl);
+      if (imageUrl !== url) URL.revokeObjectURL(imageUrl);
+      await worker.terminate();
       return result.data.text;
     } catch {
       return '';
