@@ -29,6 +29,35 @@ export interface ApplicationSummary {
   updatedAt: string
 }
 
+export async function submitApplication(
+  userId: string,
+  applicationId: string,
+): Promise<ApplicationSummary> {
+  const application = await applicationPrisma.update({
+    where: { applicationId },
+    data: {
+      status: 'SUBMITTED',
+      submittedAt: new Date(),
+    },
+  })
+
+  await logAuditEvent('APPLICATION_SUBMITTED', undefined, undefined, userId, {
+    applicationId: application.applicationId,
+    status: application.status,
+  })
+
+  return {
+    id: application.id,
+    applicationId: application.applicationId,
+    status: application.status,
+    data: application.data as Record<string, any>,
+    submittedAt: application.submittedAt?.toISOString(),
+    reviewedAt: application.reviewedAt?.toISOString(),
+    createdAt: application.createdAt.toISOString(),
+    updatedAt: application.updatedAt.toISOString(),
+  }
+}
+
 export async function createApplication(input: CreateApplicationInput): Promise<ApplicationSummary> {
   const appId = input.applicationId || `LAP-${Date.now()}-${randomUUID().slice(0, 8)}`
   const application = await applicationPrisma.create({

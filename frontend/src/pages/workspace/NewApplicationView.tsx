@@ -1,244 +1,192 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { SectionRow } from '@/components/workspace/SectionRow';
-import { ApplicationAutoFill } from '@/components/workspace/ApplicationAutoFill';
+import { ProgressStepper } from '@/components/workspace/ProgressStepper';
+import { ReviewOverlay } from '@/components/workspace/ReviewOverlay';
+import { Step1PersonalKyc } from '@/components/workspace/application-wizard/Step1PersonalKyc';
+import { Step2BusinessDetails } from '@/components/workspace/application-wizard/Step2BusinessDetails';
+import { Step3Financials } from '@/components/workspace/application-wizard/Step3Financials';
+import { Step4LoanRequest } from '@/components/workspace/application-wizard/Step4LoanRequest';
+import { useWizardState } from '@/hooks/useWizardState';
 import { useToast } from '@/components/workspace/ToastProvider';
-import { cn } from '@/lib/utils';
-import type { ApplicationDraft } from '@/lib/extraction';
 
-type FormState = ApplicationDraft;
-
-const initial: FormState = {
-  companyName: '',
-  cin: '',
-  industry: '',
-  groupCompany: '',
-  signatory: '',
-  designation: '',
-  loanAmount: '',
-  productType: '',
-  tenor: '',
-  purpose: '',
-  collateral: '',
-  turnover: '',
-  debt: '',
-  netWorth: '',
-};
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-medium text-foreground">{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function Section({
-  title,
-  description,
-  id,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  description: string;
-  id: string;
-  open: boolean;
-  onToggle: (id: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <button
-        type="button"
-        onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between rounded-t-xl px-6 py-4 text-left"
-      >
-        <span>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </span>
-        <ChevronDown
-          className={cn('h-5 w-5 text-muted-foreground transition-transform', !open && '-rotate-90')}
-        />
-      </button>
-      {open && <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</CardContent>}
-    </Card>
-  );
-}
+const STEPS = ['Personal & KYC', 'Business Details', 'Financials', 'Loan Request'];
 
 export default function NewApplicationView() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [form, setForm] = React.useState<FormState>(initial);
-  const [saved, setSaved] = React.useState(false);
-  const [open, setOpen] = React.useState<Record<string, boolean>>({
-    borrower: true,
-    loan: true,
-    financial: true,
-    declarations: true,
-  });
+  const wizard = useWizardState();
+  const [currentStep, setCurrentStep] = React.useState(1);
+  const [reviewOpen, setReviewOpen] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
 
-  const set =
-    (key: keyof FormState) =>
-    (
-      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
-    ) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }));
+  const validateStep = (step: number): boolean => {
+    const { data } = wizard;
+    const errors: Record<string, string | string[]> = {};
 
-  const toggle = (id: string) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+    if (step === 1) {
+      if (!data.fullName.trim()) errors.fullName = 'Full name is required';
+      if (!data.pan.trim()) errors.pan = 'PAN is required';
+      if (!data.aadhaar.trim()) errors.aadhaar = 'Aadhaar is required';
+      if (!data.email.trim()) errors.email = 'Email is required';
+      if (!data.mobile.trim()) errors.mobile = 'Mobile number is required';
+      if (!data.address.trim()) errors.address = 'Address is required';
+    }
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaved(true);
-    toast('Application saved as a draft', 'success');
+    if (step === 2) {
+      if (!data.companyName.trim()) errors.companyName = 'Company name is required';
+      if (!data.cin.trim()) errors.cin = 'CIN is required';
+      if (!data.businessType) errors.businessType = 'Business type is required';
+      if (!data.industry) errors.industry = 'Industry is required';
+      if (!data.signatory.trim()) errors.signatory = 'Authorised signatory is required';
+      if (!data.designation.trim()) errors.designation = 'Designation is required';
+      if (data.gstRegistered && !data.gstin.trim()) errors.gstin = 'GSTIN is required when GST registered';
+    }
+
+    if (step === 3) {
+      const itrErrors: string[] = [];
+      if (!data.itrYears?.[0]) itrErrors.push('Assessment Year 1 is required');
+      if (!data.itrYears?.[1]) itrErrors.push('Assessment Year 2 is required');
+      if (itrErrors.length) errors.itrYears = itrErrors;
+      if (!data.turnoverY1.trim()) errors.turnoverY1 = 'Turnover Year 1 is required';
+      if (!data.turnoverY2.trim()) errors.turnoverY2 = 'Turnover Year 2 is required';
+      if (!data.profitY1.trim()) errors.profitY1 = 'Profit Year 1 is required';
+      if (!data.profitY2.trim()) errors.profitY2 = 'Profit Year 2 is required';
+      if (!data.bankStatementPeriod) errors.bankStatementPeriod = 'Statement period is required';
+      if (!data.avgMonthlyBalance.trim()) errors.avgMonthlyBalance = 'Average monthly balance is required';
+      if (!data.existingMonthlyEmi.trim()) errors.existingMonthlyEmi = 'Existing monthly EMI is required';
+      if (!data.avgMonthlyCredits.trim()) errors.avgMonthlyCredits = 'Average monthly credits is required';
+      if (!data.netWorth.trim()) errors.netWorth = 'Net worth is required';
+      if (!data.debt.trim()) errors.debt = 'Existing debt is required';
+    }
+
+    if (step === 4) {
+      if (!data.loanAmount.trim()) errors.loanAmount = 'Loan amount is required';
+      if (!data.productType) errors.productType = 'Product type is required';
+      if (!data.tenor.trim()) errors.tenor = 'Tenor is required';
+      if (!data.purpose.trim()) errors.purpose = 'Purpose is required';
+      if (data.purpose.trim().length < 20) errors.purpose = 'Purpose must be at least 20 characters';
+      if (!data.collateral.trim()) errors.collateral = 'Collateral is required';
+      if (data.collateral.trim().length < 20) errors.collateral = 'Collateral must be at least 20 characters';
+    }
+
+    wizard.setErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNext = async () => {
+    if (!validateStep(currentStep)) {
+      toast('Please fix the errors before continuing', 'error');
+      return;
+    }
+
+    if (currentStep < 4) {
+      setCurrentStep((s) => s + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep((s) => s - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      await wizard.saveDraft();
+      toast('Application saved as a draft', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed to save draft', 'error');
+    }
+  };
+
+  const handleReview = () => {
+    if (!validateStep(4)) {
+      toast('Please fix the errors before reviewing', 'error');
+      return;
+    }
+    setReviewOpen(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await wizard.submit();
+      setReviewOpen(false);
+      toast('Application submitted successfully', 'success');
+      navigate('/dashboard/applications');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Submission failed', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return <Step1PersonalKyc wizard={wizard} />;
+      case 2:
+        return <Step2BusinessDetails wizard={wizard} />;
+      case 3:
+        return <Step3Financials wizard={wizard} />;
+      case 4:
+        return <Step4LoanRequest wizard={wizard} />;
+      default:
+        return null;
+    }
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <p className="page-eyebrow">
-          Loan workspace / Applications / New application
-        </p>
+    <div className="mx-auto w-full max-w-3xl animate-fade-in">
+      <div className="mb-8 space-y-1">
+        <p className="page-eyebrow">Loan workspace / Applications / New application</p>
         <h1 className="page-title">New Loan Application</h1>
         <p className="page-sub">
-          Complete the application details, then upload supporting documents from the
-          Document upload section.
+          Complete all steps to submit your business loan application
         </p>
       </div>
 
-      {saved && (
-        <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 text-sm text-primary-700">
-          Application saved as a draft.
-        </div>
-      )}
+      <ProgressStepper currentStep={currentStep} totalSteps={4} labels={STEPS} />
 
-      <ApplicationAutoFill onApply={(values) => setForm((f) => ({ ...f, ...values }))} />
-
-      <Section
-        id="borrower"
-        title="1. Borrower details"
-        description="Company and authorised-signatory information"
-        open={open.borrower}
-        onToggle={toggle}
-      >
-        <Field label="Company name *">
-          <Input required placeholder="e.g., ABC Infra Ltd." value={form.companyName} onChange={set('companyName')} />
-        </Field>
-        <Field label="CIN *">
-          <Input required placeholder="U12345MH2020PLC123456" value={form.cin} onChange={set('cin')} />
-        </Field>
-        <Field label="Industry *">
-          <select required className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.industry} onChange={set('industry')}>
-            <option value="">Select industry</option>
-            <option>Infrastructure</option>
-            <option>Manufacturing</option>
-            <option>Renewable Energy</option>
-            <option>IT/ITES</option>
-          </select>
-        </Field>
-        <Field label="Group company">
-          <Input placeholder="Parent / group name" value={form.groupCompany} onChange={set('groupCompany')} />
-        </Field>
-        <Field label="Authorised signatory *">
-          <Input required placeholder="Full name" value={form.signatory} onChange={set('signatory')} />
-        </Field>
-        <Field label="Designation *">
-          <Input required placeholder="Director / CFO / MD" value={form.designation} onChange={set('designation')} />
-        </Field>
-      </Section>
-
-      <Section
-        id="loan"
-        title="2. Loan request details"
-        description="Requested facility, tenor, and purpose"
-        open={open.loan}
-        onToggle={toggle}
-      >
-        <Field label="Loan amount (₹ Cr) *">
-          <Input required type="number" min={50} placeholder="e.g., 150" value={form.loanAmount} onChange={set('loanAmount')} />
-        </Field>
-        <Field label="Product type *">
-          <select required className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.productType} onChange={set('productType')}>
-            <option value="">Select product</option>
-            <option>Term Loan</option>
-            <option>Working Capital</option>
-            <option>Project Finance</option>
-            <option>LC/BG</option>
-          </select>
-        </Field>
-        <Field label="Tenor (years) *">
-          <Input required type="number" min={1} max={25} placeholder="e.g., 7" value={form.tenor} onChange={set('tenor')} />
-        </Field>
-        <Field label="Purpose of loan *">
-          <Input required placeholder="e.g., Plant expansion" value={form.purpose} onChange={set('purpose')} />
-        </Field>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-sm font-medium text-foreground">Collateral / security offered *</Label>
-          <textarea
-            required
-            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            placeholder="Describe primary and collateral security"
-            value={form.collateral}
-            onChange={set('collateral')}
-          />
-        </div>
-      </Section>
-
-      <Section
-        id="financial"
-        title="3. Financial snapshot"
-        description="Key financials for credit assessment"
-        open={open.financial}
-        onToggle={toggle}
-      >
-        <Field label="Annual turnover (₹ Cr)">
-          <Input type="number" placeholder="e.g., 320" value={form.turnover} onChange={set('turnover')} />
-        </Field>
-        <Field label="Existing debt (₹ Cr)">
-          <Input type="number" placeholder="e.g., 90" value={form.debt} onChange={set('debt')} />
-        </Field>
-        <Field label="Net worth (₹ Cr)">
-          <Input type="number" placeholder="e.g., 140" value={form.netWorth} onChange={set('netWorth')} />
-        </Field>
-      </Section>
-
-      <Section
-        id="declarations"
-        title="4. Required declarations"
-        description="Authorisation, storage, and credit verification consents"
-        open={open.declarations}
-        onToggle={toggle}
-      >
-        <SectionRow title="Authorisation">
-          <span className="text-xs font-medium text-muted-foreground">Consent required</span>
-        </SectionRow>
-        <SectionRow title="Storage &amp; processing">
-          <span className="text-xs font-medium text-muted-foreground">Consent required</span>
-        </SectionRow>
-        <SectionRow title="Credit verification">
-          <span className="text-xs font-medium text-muted-foreground">Consent required</span>
-        </SectionRow>
-      </Section>
-
-      <div className="flex gap-3">
-        <Button type="submit">Save as draft</Button>
-        <Button type="button" variant="outline" onClick={() => navigate('/dashboard/applications')}>
-          Cancel
-        </Button>
+      <div className="space-y-6">
+        {renderStep()}
       </div>
-    </form>
+
+      <div className="mt-8 flex items-center justify-between gap-3">
+        <div>
+          {currentStep > 1 && (
+            <Button type="button" variant="outline" onClick={handleBack}>
+              ← Back
+            </Button>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={wizard.saving}>
+            {wizard.saving ? 'Saving…' : 'Save as draft'}
+          </Button>
+          {currentStep < 4 ? (
+            <Button type="button" onClick={handleNext}>
+              Save & Continue →
+            </Button>
+          ) : (
+            <Button type="button" onClick={handleReview}>
+              Review & Submit →
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <ReviewOverlay
+        open={reviewOpen}
+        data={wizard.data}
+        onClose={() => setReviewOpen(false)}
+        onEdit={() => setReviewOpen(false)}
+        onConfirm={handleConfirmSubmit}
+        confirming={submitting}
+      />
+    </div>
   );
 }

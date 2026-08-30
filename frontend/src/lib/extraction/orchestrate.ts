@@ -1,7 +1,7 @@
 import { FIELD_DEFINITIONS, FIELD_KEYS } from './fields';
 import { extractField, makeSnippet } from './heuristics';
 import type {
-  ApplicationDraftKey,
+  LegacyAutoFillKey,
   Confidence,
   DocumentTextSource,
   ExtractionResult,
@@ -19,7 +19,7 @@ function snippetFor(text: string, value: string): string {
 // Pure orchestrator: given extracted text from each vault document, fill every
 // application field. Keeps the highest-confidence match across all documents.
 export function extractFromTextSources(sources: DocumentTextSource[]): ExtractionResult {
-  const fields: Partial<Record<ApplicationDraftKey, ExtractedField>> = {};
+  const fields: Partial<Record<LegacyAutoFillKey, ExtractedField>> = {};
 
   for (const def of FIELD_DEFINITIONS) {
     let best: ExtractedField | null = null;
@@ -42,7 +42,7 @@ export function extractFromTextSources(sources: DocumentTextSource[]): Extractio
     if (best) fields[def.key] = best;
   }
 
-  const values: Partial<Record<ApplicationDraftKey, string>> = {};
+  const values: Partial<Record<LegacyAutoFillKey, string>> = {};
   for (const key of FIELD_KEYS) {
     if (fields[key]) values[key] = fields[key]!.value;
   }
