@@ -2,23 +2,71 @@
 // Kept framework-agnostic so the extractor is testable without the UI.
 
 export interface ApplicationDraft {
+  // Step 1 — Personal & KYC
+  fullName: string;
+  pan: string;
+  aadhaar: string;
+  email: string;
+  mobile: string;
+  address: string;
+
+  // Step 2 — Business Details
   companyName: string;
   cin: string;
   industry: string;
   groupCompany: string;
   signatory: string;
   designation: string;
+  businessType: string;
+  gstRegistered: boolean;
+  gstin: string;
+  companyPan: string;
+  dateOfIncorporation: string;
+
+  // Step 3 — Financials
+  itrYears: string[];
+  itrFiled: boolean[];
+  turnoverY1: string;
+  turnoverY2: string;
+  profitY1: string;
+  profitY2: string;
+  bankStatementPeriod: string;
+  avgMonthlyBalance: string;
+  chequeBounces: number;
+  existingMonthlyEmi: string;
+  avgMonthlyCredits: string;
+  netWorth: string;
+  debt: string;
+
+  // Step 4 — Loan Request
   loanAmount: string;
   productType: string;
   tenor: string;
+  interestRate: string;
   purpose: string;
   collateral: string;
+
+  // Legacy / auto-fill fields (kept for backward compatibility)
   turnover: string;
-  debt: string;
-  netWorth: string;
 }
 
 export type ApplicationDraftKey = keyof ApplicationDraft;
+
+export type LegacyAutoFillKey =
+  | 'companyName'
+  | 'cin'
+  | 'industry'
+  | 'groupCompany'
+  | 'signatory'
+  | 'designation'
+  | 'loanAmount'
+  | 'productType'
+  | 'tenor'
+  | 'purpose'
+  | 'collateral'
+  | 'turnover'
+  | 'netWorth'
+  | 'debt';
 
 export interface DocumentTextSource {
   docId: string;

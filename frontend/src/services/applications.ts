@@ -11,6 +11,14 @@ export interface ApplicationSummary {
   updatedAt: string;
 }
 
+export interface WizardConstants {
+  industries: string[];
+  businessTypes: string[];
+  productTypes: string[];
+  statementPeriods: string[];
+  assessmentYears: string[];
+}
+
 export interface CreateApplicationInput {
   applicationId?: string;
   data: Record<string, any>;
@@ -43,5 +51,15 @@ export async function getApplication(applicationId: string): Promise<{ applicati
 
 export async function listApplications(): Promise<{ applications: ApplicationSummary[] }> {
   const res = await api.get<{ data: { applications: ApplicationSummary[] } }>('/applications');
+  return res.data.data;
+}
+
+export async function getWizardConstants(): Promise<WizardConstants> {
+  const res = await api.get<{ data: WizardConstants }>('/applications/constants');
+  return res.data.data;
+}
+
+export async function submitApplication(applicationId: string): Promise<{ application: ApplicationSummary }> {
+  const res = await api.post<{ data: { application: ApplicationSummary } }>(`/applications/${applicationId}/submit`, {});
   return res.data.data;
 }

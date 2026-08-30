@@ -2,7 +2,6 @@ import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/workspace/ToastProvider';
-import { useAuth } from '@/services/authContext';
 import { cn } from '@/lib/utils';
 import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
 import { listDocuments, type DocumentSummary } from '@/services/documents';
@@ -38,7 +37,6 @@ export function ApplicationAutoFill({
   applicationId?: string;
 }) {
   const toast = useToast();
-  const { user } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [result, setResult] = React.useState<ExtractionResult | null>(null);

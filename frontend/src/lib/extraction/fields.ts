@@ -1,4 +1,4 @@
-import type { ApplicationDraft, ApplicationDraftKey } from './types';
+import type { ApplicationDraft, ApplicationDraftKey, LegacyAutoFillKey } from './types';
 
 export interface FieldStrategy {
   // Context keywords that, when found near a match, raise confidence to "high".
@@ -10,7 +10,7 @@ export interface FieldStrategy {
 }
 
 export interface FieldDefinition {
-  key: ApplicationDraftKey;
+  key: LegacyAutoFillKey;
   label: string;
   strategies: FieldStrategy[];
 }
@@ -231,6 +231,7 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
 ];
 
-export const FIELD_KEYS: ApplicationDraftKey[] = FIELD_DEFINITIONS.map((f) => f.key);
+export const FIELD_KEYS: LegacyAutoFillKey[] = FIELD_DEFINITIONS.map((f) => f.key);
 
 export type { ApplicationDraft, ApplicationDraftKey };
+export { extractField } from './heuristics';
