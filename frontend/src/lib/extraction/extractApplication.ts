@@ -8,12 +8,22 @@ import type { DocumentTextSource, ExtractionResult, VaultDocumentInput } from '.
 // strings and surface a clear extension point.
 async function extractTextFromUrl(url: string, contentType: string): Promise<string> {
   if (contentType.startsWith('application/pdf')) {
-    const { loadPdfText } = await import('./pdfText');
-    return loadPdfText(url);
+    try {
+      const { loadPdfText } = await import('./pdfText');
+      return await loadPdfText(url);
+    } catch (error) {
+      console.error('[AutoFill] PDF extraction failed:', url, error);
+      return '';
+    }
   }
   if (contentType.startsWith('text/') || contentType.includes('xml') || contentType === 'text/csv') {
-    const res = await fetch(url);
-    return res.text();
+    try {
+      const res = await fetch(url);
+      return await res.text();
+    } catch (error) {
+      console.error('[AutoFill] Text extraction failed:', url, error);
+      return '';
+    }
   }
   if (contentType.startsWith('image/')) {
     try {
@@ -31,10 +41,12 @@ async function extractTextFromUrl(url: string, contentType: string): Promise<str
       if (imageUrl !== url) URL.revokeObjectURL(imageUrl);
       await worker.terminate();
       return result.data.text;
-    } catch {
+    } catch (error) {
+      console.error('[AutoFill] OCR failed:', url, error);
       return '';
     }
   }
+  console.warn('[AutoFill] Unsupported content type:', contentType, url);
   return '';
 }
 
@@ -44,13 +56,19 @@ async function loadDocumentTextSources(docs: VaultDocumentInput[]): Promise<Docu
       try {
         const view = await getDocumentView(doc.id);
         const text = await extractTextFromUrl(view.viewUrl, doc.contentType);
+        if (!text) {
+          console.warn('[AutoFill] No text extracted from:', doc.originalName, doc.contentType);
+        }
         return { docId: doc.id, docName: doc.originalName, text };
-      } catch {
+      } catch (error) {
+        console.error('[AutoFill] Failed to load document:', doc.originalName, error);
         return null;
       }
     }),
   );
-  return results.filter((r): r is DocumentTextSource => r !== null);
+  const valid = results.filter((r): r is DocumentTextSource => r !== null);
+  console.log('[AutoFill] Loaded', valid.length, 'of', docs.length, 'documents');
+  return valid;
 }
 
 // End-to-end extraction over the live S3 vault for the current application.

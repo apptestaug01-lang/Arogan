@@ -15,7 +15,6 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getStorageConfig, StorageConfig } from '../config/storage.config.js'
 import { PRESIGNED_UPLOAD_TTL_SECONDS, PRESIGNED_DOWNLOAD_TTL_SECONDS, MULTIPART_ABORT_DAYS } from '../utils/constants.js'
 import logger from '../middleware/logger.js'
-import { StorageError } from '../utils/errors.js'
 
 export function createS3Client(config: StorageConfig = getStorageConfig()): S3Client {
   const protocol = config.useSsl ? 'https' : 'http'
@@ -47,7 +46,7 @@ export function getStorageClient(): S3Client {
 const CORS_RULES = [
   {
     AllowedHeaders: ['*'],
-    AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
+    AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD', 'OPTIONS'],
     AllowedOrigins: [process.env.CORS_ORIGIN || 'http://localhost:5173'],
     ExposeHeaders: ['ETag'],
     MaxAgeSeconds: 86400,
@@ -58,14 +57,13 @@ export async function ensureBucket(
   s3: S3Client = getStorageClient(),
   config: StorageConfig = getStorageConfig(),
 ): Promise<void> {
-  try {
-    await s3.send(new HeadBucketCommand({ Bucket: config.bucket }))
-    return
-  } catch {
-    // Bucket missing (or not accessible) — attempt to create below.
-  }
+  const bucketExists = await s3.send(new HeadBucketCommand({ Bucket: config.bucket }))
+    .then(() => true)
+    .catch(() => false)
 
-  await s3.send(new CreateBucketCommand({ Bucket: config.bucket }))
+  if (!bucketExists) {
+    await s3.send(new CreateBucketCommand({ Bucket: config.bucket }))
+  }
 
   // Best-effort hardening. MinIO may not implement BlockPublicAccess; treat
   // that as a warning rather than a failure so the bucket stays usable.
