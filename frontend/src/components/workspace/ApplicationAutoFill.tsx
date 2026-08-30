@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
 import { listDocuments, type DocumentSummary } from '@/services/documents';
 import { FIELD_DEFINITIONS } from '@/lib/extraction/fields';
-import type { ApplicationDraft, Confidence, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
+import type { ApplicationDraftKey, Confidence, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
 import { createApplication, updateApplication } from '@/services/applications';
 import { Sparkles, Loader2, CheckCircle2, CircleDashed, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export function ApplicationAutoFill({
   onApply,
   applicationId,
 }: {
-  onApply: (values: Partial<ApplicationDraft>) => void;
+  onApply: (values: Partial<Record<ApplicationDraftKey, string>>) => void;
   applicationId?: string;
 }) {
   const toast = useToast();
@@ -113,7 +113,7 @@ export function ApplicationAutoFill({
 
   const apply = () => {
     if (!result) return;
-    const values: Partial<ApplicationDraft> = {};
+    const values: Partial<Record<ApplicationDraftKey, string>> = {};
     for (const def of FIELD_DEFINITIONS) {
       const fieldValue = getFieldValue(def.key);
       if (fieldValue) {
@@ -126,7 +126,7 @@ export function ApplicationAutoFill({
 
   const save = async () => {
     if (!result) return;
-    const values: Partial<ApplicationDraft> = {};
+    const values: Partial<Record<ApplicationDraftKey, string>> = {};
     for (const def of FIELD_DEFINITIONS) {
       const fieldValue = getFieldValue(def.key);
       if (fieldValue) {

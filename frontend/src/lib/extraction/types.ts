@@ -52,22 +52,6 @@ export interface ApplicationDraft {
 
 export type ApplicationDraftKey = keyof ApplicationDraft;
 
-export type LegacyAutoFillKey =
-  | 'companyName'
-  | 'cin'
-  | 'industry'
-  | 'groupCompany'
-  | 'signatory'
-  | 'designation'
-  | 'loanAmount'
-  | 'productType'
-  | 'tenor'
-  | 'purpose'
-  | 'collateral'
-  | 'turnover'
-  | 'netWorth'
-  | 'debt';
-
 export interface DocumentTextSource {
   docId: string;
   docName: string;
@@ -90,7 +74,7 @@ export interface ExtractedField {
 
 export interface ExtractionResult {
   // Flat map of field key -> extracted value, ready to spread into the form.
-  values: Partial<ApplicationDraft>;
+  values: Partial<Record<ApplicationDraftKey, string>>;
   // Per-field detail including confidence and provenance.
   fields: Partial<Record<ApplicationDraftKey, ExtractedField>>;
   // Field keys that could not be found in any document.

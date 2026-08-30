@@ -1,4 +1,4 @@
-import type { ApplicationDraft, ApplicationDraftKey, LegacyAutoFillKey } from './types';
+import type { ApplicationDraft, ApplicationDraftKey } from './types';
 
 export interface FieldStrategy {
   // Context keywords that, when found near a match, raise confidence to "high".
@@ -10,7 +10,7 @@ export interface FieldStrategy {
 }
 
 export interface FieldDefinition {
-  key: LegacyAutoFillKey;
+  key: ApplicationDraftKey;
   label: string;
   strategies: FieldStrategy[];
 }
@@ -229,9 +229,177 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
       },
     ],
   },
+  {
+    key: 'fullName',
+    label: 'Full Name',
+    strategies: [
+      {
+        contextKeywords: ['full name', 'applicant name', 'borrower name', 'name of applicant'],
+        patterns: [
+          /(?:full\s*name|applicant\s*name|borrower\s*name)\s*[ :-]\s*([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,4})/i,
+          /([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,4})\s*\n\s*(?:pan|mobile|email|address)/i,
+        ],
+        transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'pan',
+    label: 'PAN',
+    strategies: [
+      {
+        contextKeywords: ['pan', 'permanent account number'],
+        patterns: [/\b([A-Z]{5}[0-9]{4}[A-Z])\b/],
+      },
+    ],
+  },
+  {
+    key: 'aadhaar',
+    label: 'Aadhaar',
+    strategies: [
+      {
+        contextKeywords: ['aadhaar', 'aadhar', 'uid'],
+        patterns: [/\b([0-9]{4}\s?[0-9]{4}\s?[0-9]{4})\b/],
+        transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'email',
+    label: 'Email',
+    strategies: [
+      {
+        contextKeywords: ['email', 'e-mail', 'mail'],
+        patterns: [/\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/],
+      },
+    ],
+  },
+  {
+    key: 'mobile',
+    label: 'Mobile',
+    strategies: [
+      {
+        contextKeywords: ['mobile', 'phone', 'contact', 'mob'],
+        patterns: [/\b(\+?91[\s-]?[0-9]{10})\b/],
+        transform: (raw) => raw.replace(/[\s-]/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'address',
+    label: 'Address',
+    strategies: [
+      {
+        contextKeywords: ['address', 'residence', 'registered office', 'correspondence address'],
+        patterns: [
+           /(?:address|residence|registered\s*office|correspondence\s*address)\s*[ :-]\s*([A-Za-z0-9 &.,()'-]{10,120})/i,
+        ],
+        transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'businessType',
+    label: 'Business Type',
+    strategies: [
+      {
+        contextKeywords: ['business type', 'type of business', 'constitution'],
+        patterns: [
+          /(?:business\s*type|type\s*of\s*business|constitution)\s*[ :-]\s*(Private Limited|Public Limited|LLP|Proprietorship|Partnership)/i,
+        ],
+        transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'gstin',
+    label: 'GSTIN',
+    strategies: [
+      {
+        contextKeywords: ['gstin', 'gst number', 'gst identification'],
+        patterns: [/\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1})\b/],
+      },
+    ],
+  },
+  {
+    key: 'companyPan',
+    label: 'Company PAN',
+    strategies: [
+      {
+        contextKeywords: ['company pan', 'corporate pan', 'pan of company'],
+        patterns: [/\b([A-Z]{5}[0-9]{4}[A-Z])\b/],
+      },
+    ],
+  },
+  {
+    key: 'dateOfIncorporation',
+    label: 'Date of Incorporation',
+    strategies: [
+      {
+        contextKeywords: ['date of incorporation', 'incorporation date', 'established on'],
+        patterns: [
+           /(?:date\s*of\s*incorporation|incorporation\s*date|established\s*on)\s*[ :-]\s*(\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4})/i,
+        ],
+        transform: (raw) => raw.trim(),
+      },
+    ],
+  },
+  {
+    key: 'bankStatementPeriod',
+    label: 'Statement Period',
+    strategies: [
+      {
+        contextKeywords: ['statement period', 'period', 'from', 'to'],
+        patterns: [
+          /(?:statement\s*period|period)\s*[ :-]\s*(3\s*months|6\s*months|12\s*months)/i,
+           /(\d{2}[-/]\d{4}\s*(?:to|[-])\s*\d{2}[-/]\d{4})/i,
+        ],
+        transform: (raw) => raw.replace(/\s+/g, ' ').trim(),
+      },
+    ],
+  },
+  {
+    key: 'avgMonthlyBalance',
+    label: 'Average Monthly Balance',
+    strategies: [
+      {
+        contextKeywords: ['average monthly balance', 'avg balance', 'amb'],
+        patterns: [
+          /(?:average\s*monthly\s*balance|avg\s*balance|amb)\s*[ :-]\s*[₹]?\s*([\d,]+(?:\.\d+)?)/i,
+        ],
+        transform: (raw) => raw.replace(/,/g, '').trim(),
+      },
+    ],
+  },
+  {
+    key: 'existingMonthlyEmi',
+    label: 'Existing Monthly EMI',
+    strategies: [
+      {
+        contextKeywords: ['existing monthly emi', 'current emi', 'monthly emi'],
+        patterns: [
+          /(?:existing\s*monthly\s*emi|current\s*emi|monthly\s*emi)\s*[ :-]\s*[₹]?\s*([\d,]+(?:\.\d+)?)/i,
+        ],
+        transform: (raw) => raw.replace(/,/g, '').trim(),
+      },
+    ],
+  },
+  {
+    key: 'avgMonthlyCredits',
+    label: 'Average Monthly Credits',
+    strategies: [
+      {
+        contextKeywords: ['average monthly credits', 'avg credits', 'monthly credits'],
+        patterns: [
+          /(?:average\s*monthly\s*credits|avg\s*credits|monthly\s*credits)\s*[ :-]\s*[₹]?\s*([\d,]+(?:\.\d+)?)/i,
+        ],
+        transform: (raw) => raw.replace(/,/g, '').trim(),
+      },
+    ],
+  },
 ];
 
-export const FIELD_KEYS: LegacyAutoFillKey[] = FIELD_DEFINITIONS.map((f) => f.key);
+export const FIELD_KEYS: ApplicationDraftKey[] = FIELD_DEFINITIONS.map((f) => f.key);
 
 export type { ApplicationDraft, ApplicationDraftKey };
 export { extractField } from './heuristics';
