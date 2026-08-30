@@ -10,10 +10,10 @@ export function Step4LoanRequest({ wizard }: Step4LoanRequestProps) {
   const { data, setField, errors } = wizard;
 
   const estEmi = React.useMemo(() => {
-    const principal = parseFloat(data.loanAmount) || 0;
-    const rate = parseFloat(data.interestRate) || 11.5;
-    const years = parseInt(data.tenor) || 7;
-    if (principal <= 0 || years <= 0) return null;
+    const principal = parseFloat(data.loanAmount);
+    const rate = parseFloat(data.interestRate);
+    const years = parseInt(data.tenor);
+    if (!principal || principal <= 0 || !rate || rate <= 0 || !years || years <= 0) return null;
     const monthlyRate = rate / 100 / 12;
     const months = years * 12;
     const emi = (principal * 1e7 * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);

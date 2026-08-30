@@ -19,6 +19,17 @@ const formatCurrency = (value: string): string => {
   return `₹ ${num.toFixed(1)} Cr`;
 };
 
+const calculateEmi = (principal: string, rate: string, tenorYears: string): string => {
+  const p = parseFloat(principal);
+  const r = parseFloat(rate);
+  const years = parseInt(tenorYears);
+  if (!p || p <= 0 || !r || r <= 0 || !years || years <= 0) return '—';
+  const monthlyRate = r / 100 / 12;
+  const months = years * 12;
+  const emi = (p * 1e7 * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  return `~₹ ${(emi / 1e7).toFixed(1)} Cr/month`;
+};
+
 export function ReviewOverlay({ open, data, onClose, onEdit, onConfirm, confirming }: ReviewOverlayProps) {
   if (!open) return null;
 
@@ -79,7 +90,7 @@ export function ReviewOverlay({ open, data, onClose, onEdit, onConfirm, confirmi
               <ReviewItem label="Loan Amount" value={formatCurrency(data.loanAmount)} />
               <ReviewItem label="Product" value={data.productType} />
               <ReviewItem label="Tenor" value={`${data.tenor} years`} />
-              <ReviewItem label="Est. EMI" value="~2.6 Cr/month" />
+              <ReviewItem label="Est. EMI" value={calculateEmi(data.loanAmount, data.interestRate, data.tenor)} />
               <ReviewItem label="Purpose" value={data.purpose} full />
               <ReviewItem label="Collateral" value={data.collateral} full />
             </div>
