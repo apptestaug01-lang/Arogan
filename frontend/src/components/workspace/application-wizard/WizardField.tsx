@@ -6,13 +6,14 @@ import { cn } from '@/lib/utils';
 interface WizardFieldProps {
   label: string;
   required?: boolean;
-  error?: string;
+  error?: string | string[];
   hint?: string;
   children: React.ReactNode;
   className?: string;
 }
 
 export function WizardField({ label, required, error, hint, children, className }: WizardFieldProps) {
+  const errorMessage = Array.isArray(error) ? error.join(', ') : error;
   return (
     <div className={cn('space-y-1.5', className)}>
       <Label className="text-sm font-medium text-foreground">
@@ -21,7 +22,7 @@ export function WizardField({ label, required, error, hint, children, className 
       </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {errorMessage && <p className="text-xs text-destructive">{errorMessage}</p>}
     </div>
   );
 }
@@ -29,7 +30,7 @@ export function WizardField({ label, required, error, hint, children, className 
 interface WizardInputProps {
   label: string;
   required?: boolean;
-  error?: string;
+  error?: string | string[];
   hint?: string;
   value: string;
   onChange: (value: string) => void;
@@ -74,7 +75,7 @@ export function WizardInput({
 interface WizardSelectProps {
   label: string;
   required?: boolean;
-  error?: string;
+  error?: string | string[];
   hint?: string;
   value: string;
   onChange: (value: string) => void;
@@ -118,7 +119,7 @@ export function WizardSelect({
 interface WizardTextareaProps {
   label: string;
   required?: boolean;
-  error?: string;
+  error?: string | string[];
   hint?: string;
   value: string;
   onChange: (value: string) => void;

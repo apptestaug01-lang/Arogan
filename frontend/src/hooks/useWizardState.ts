@@ -48,13 +48,13 @@ interface WizardState {
   constants: WizardConstants | null;
   loading: boolean;
   saving: boolean;
-  errors: Record<string, string>;
+  errors: Record<string, string | string[]>;
   applicationId?: string;
 }
 
 export interface UseWizardStateReturn extends WizardState {
   setField: <K extends keyof ApplicationDraft>(key: K, value: ApplicationDraft[K]) => void;
-  setErrors: (errors: Record<string, string>) => void;
+  setErrors: (errors: Record<string, string | string[]>) => void;
   clearErrors: () => void;
   saveDraft: () => Promise<ApplicationSummary | undefined>;
   submit: () => Promise<ApplicationSummary | undefined>;
@@ -66,7 +66,7 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
   const [constants, setConstants] = React.useState<WizardConstants | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [errors, setErrors] = React.useState<Record<string, string | string[]>>({});
   const [applicationId, setApplicationId] = React.useState<string | undefined>(initialApplicationId);
 
   React.useEffect(() => {
@@ -115,7 +115,7 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     });
   };
 
-  const setErrorsFn = (newErrors: Record<string, string>) => {
+  const setErrorsFn = (newErrors: Record<string, string | string[]>) => {
     setErrors(newErrors);
   };
 
