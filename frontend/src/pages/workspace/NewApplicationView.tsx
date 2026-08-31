@@ -9,6 +9,18 @@ import { Step3Financials } from '@/components/workspace/application-wizard/Step3
 import { Step4LoanRequest } from '@/components/workspace/application-wizard/Step4LoanRequest';
 import { useWizardState } from '@/hooks/useWizardState';
 import { useToast } from '@/components/workspace/ToastProvider';
+import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
+import { listDocuments } from '@/services/documents';
+import { FIELD_DEFINITIONS, FIELD_KEYS } from '@/lib/extraction/fields';
+import type { ApplicationDraftKey, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
+import { extractWithLlm } from '@/services/applications';
+
+const STEP_FIELDS: Record<number, ApplicationDraftKey[]> = {
+  1: ['fullName', 'pan', 'aadhaar', 'email', 'mobile', 'address'],
+  2: ['companyName', 'cin', 'businessType', 'industry', 'groupCompany', 'signatory', 'designation', 'gstRegistered', 'gstin', 'companyPan', 'dateOfIncorporation'],
+  3: ['itrYears', 'itrFiled', 'turnoverY1', 'turnoverY2', 'profitY1', 'profitY2', 'bankStatementPeriod', 'avgMonthlyBalance', 'chequeBounces', 'existingMonthlyEmi', 'avgMonthlyCredits', 'netWorth', 'debt'],
+  4: ['loanAmount', 'productType', 'tenor', 'interestRate', 'purpose', 'collateral'],
+};
 
 const STEPS = ['Personal & KYC', 'Business Details', 'Financials', 'Loan Request'];
 
@@ -19,6 +31,7 @@ export default function NewApplicationView() {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [extractionResult, setExtractionResult] = React.useState<ExtractionResult | null>(null);
 
   const validateStep = (step: number): boolean => {
     const { data } = wizard;
@@ -110,6 +123,92 @@ export default function NewApplicationView() {
     setReviewOpen(true);
   };
 
+  const handleAutoFill = async () => {
+    setExtractionResult(null);
+    try {
+      const docs = await listDocuments();
+      if (docs.length === 0) {
+        toast('No documents found in vault. Upload documents first.', 'info');
+        return;
+      }
+
+      const res = await autoFillFromDocuments(docs as VaultDocumentInput[]);
+      const found = Object.keys(res.values).length;
+
+      if (found < 5) {
+        try {
+          const allText = docs.map((d) => `Document: ${d.originalName}\nType: ${d.contentType}`).join('\n\n');
+          const fieldNames = FIELD_DEFINITIONS.map((f) => f.label);
+          const llmResults = await extractWithLlm(allText, fieldNames);
+
+          const mergedFields = { ...res.fields };
+          for (const llmField of llmResults) {
+            const def = FIELD_DEFINITIONS.find((f) => f.label === llmField.field);
+            if (def && !mergedFields[def.key]) {
+              mergedFields[def.key] = {
+                value: llmField.value,
+                confidence: 'medium',
+                source: {
+                  docId: '',
+                  docName: 'AI Extraction',
+                  snippet: llmField.value.slice(0, 120),
+                },
+              };
+            }
+          }
+
+          const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
+          for (const key of FIELD_KEYS) {
+            if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
+          }
+
+          const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
+          const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...res.missingReasons };
+          for (const key of finalMissing) {
+            if (!finalReasons[key]) {
+              finalReasons[key] = 'Not found even after AI fallback';
+            }
+          }
+
+          setExtractionResult({
+            values: mergedValues,
+            fields: mergedFields,
+            missing: finalMissing,
+            missingReasons: finalReasons,
+          });
+        } catch (llmError) {
+          console.error('LLM fallback failed:', llmError);
+          setExtractionResult(res);
+        }
+      } else {
+        setExtractionResult(res);
+      }
+
+      console.log('[AutoFill] Extraction result:', JSON.stringify({
+        found,
+        total: FIELD_DEFINITIONS.length,
+        missing: extractionResult?.missing || [],
+        missingReasons: extractionResult?.missingReasons || {},
+      }, null, 2));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not read the vault', 'error');
+    }
+  };
+
+  const applyStepAutoFill = () => {
+    if (!extractionResult) return;
+    const stepFields = STEP_FIELDS[currentStep] || [];
+    const values: Partial<Record<ApplicationDraftKey, string>> = {};
+    for (const key of stepFields) {
+      const ef = extractionResult.fields[key];
+      if (ef) {
+        values[key] = ef.value;
+        wizard.setField(key, ef.value);
+      }
+    }
+    toast(`Applied ${Object.keys(values).length} extracted values to form`, 'success');
+  };
+
   const handleConfirmSubmit = async () => {
     try {
       setSubmitting(true);
@@ -127,13 +226,13 @@ export default function NewApplicationView() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <Step1PersonalKyc wizard={wizard} />;
+        return <Step1PersonalKyc wizard={wizard} onAutoFill={handleAutoFill} />;
       case 2:
-        return <Step2BusinessDetails wizard={wizard} />;
+        return <Step2BusinessDetails wizard={wizard} onAutoFill={handleAutoFill} />;
       case 3:
-        return <Step3Financials wizard={wizard} />;
+        return <Step3Financials wizard={wizard} onAutoFill={handleAutoFill} />;
       case 4:
-        return <Step4LoanRequest wizard={wizard} />;
+        return <Step4LoanRequest wizard={wizard} onAutoFill={handleAutoFill} />;
       default:
         return null;
     }
@@ -154,6 +253,19 @@ export default function NewApplicationView() {
       <div className="space-y-6">
         {renderStep()}
       </div>
+
+      {extractionResult && (
+        <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+          <p className="text-xs font-medium text-muted-foreground">
+            Extracted {Object.keys(extractionResult.values).length} field(s). Missing reasons logged in console.
+          </p>
+          <div className="mt-2">
+            <Button size="sm" onClick={applyStepAutoFill}>
+              Apply extracted values to current step
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 flex items-center justify-between gap-3">
         <div>

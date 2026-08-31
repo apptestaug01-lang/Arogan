@@ -68,10 +68,10 @@ const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.zip
 function getUploadErrorMessage(error: unknown, _fileName: string): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError
-    const data = axiosError.response?.data as any
+    const data = axiosError.response?.data as Record<string, unknown> | undefined
     const status = axiosError.response?.status
 
-    if (status === 400 && data?.message) {
+    if (status === 400 && typeof data?.message === 'string') {
       return data.message
     }
     if (status === 413) {
@@ -86,7 +86,7 @@ function getUploadErrorMessage(error: unknown, _fileName: string): string {
     if (!axiosError.response) {
       return 'Network error. Please check your connection and try again.'
     }
-    if (data?.message) {
+    if (typeof data?.message === 'string') {
       return data.message
     }
     if (typeof status === 'number' && status >= 500) {

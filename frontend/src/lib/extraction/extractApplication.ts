@@ -16,7 +16,7 @@ async function extractTextFromUrl(url: string, contentType: string): Promise<str
       return '';
     }
   }
-  if (contentType.startsWith('text/') || contentType.includes('xml') || contentType === 'text/csv') {
+  if (contentType.startsWith('text/') || contentType.includes('xml') || contentType === 'text/csv' || contentType === 'text/plain') {
     try {
       const res = await fetch(url);
       return await res.text();
@@ -28,7 +28,12 @@ async function extractTextFromUrl(url: string, contentType: string): Promise<str
   if (contentType.startsWith('image/')) {
     try {
       const Tesseract = await import('tesseract.js');
-      const worker = await Tesseract.createWorker('eng');
+      const worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/worker.min.js',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7/tesseract-core-simd.wasm.js',
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+        gzip: true,
+      });
       let imageUrl = url;
       try {
         const res = await fetch(url);

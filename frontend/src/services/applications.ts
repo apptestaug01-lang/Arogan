@@ -4,7 +4,7 @@ export interface ApplicationSummary {
   id: string;
   applicationId: string;
   status: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   submittedAt?: string;
   reviewedAt?: string;
   createdAt: string;
@@ -21,13 +21,13 @@ export interface WizardConstants {
 
 export interface CreateApplicationInput {
   applicationId?: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   status?: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
 }
 
 export interface UpdateApplicationInput {
   applicationId: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   status?: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
 }
 

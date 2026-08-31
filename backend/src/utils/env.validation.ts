@@ -24,7 +24,7 @@ export interface ValidatedEnv {
   HF_API_KEY: string;
   OLLAMA_URL: string;
   OLLAMA_MODEL: string;
-  CLOUDFLARE_API_TOKEN: string;
+   CLOUDFLARE_API_TOKEN: string;
   CLOUDFLARE_ACCOUNT_ID: string;
   CLOUDFLARE_AI_MODEL: string;
 }

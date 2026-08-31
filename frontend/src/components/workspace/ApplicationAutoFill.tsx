@@ -19,8 +19,10 @@ const LLM_FALLBACK_THRESHOLD = 5;
 
 export function ApplicationAutoFill({
   onApply,
+  stepFields,
 }: {
   onApply: (values: Partial<Record<ApplicationDraftKey, string>>) => void;
+  stepFields?: ApplicationDraftKey[];
 }) {
   const toast = useToast();
   const [loading, setLoading] = React.useState(false);
@@ -72,10 +74,19 @@ export function ApplicationAutoFill({
           }
 
           const hasLlmResults = Object.keys(mergedValues).length > found;
+          const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
+          const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...res.missingReasons };
+          for (const key of finalMissing) {
+            if (!finalReasons[key]) {
+              finalReasons[key] = 'Not found even after AI fallback';
+            }
+          }
+
           setResult({
             values: mergedValues,
             fields: mergedFields,
-            missing: FIELD_KEYS.filter((k) => !mergedFields[k]),
+            missing: finalMissing,
+            missingReasons: finalReasons,
           });
           setLlmUsed(hasLlmResults);
           toast(hasLlmResults ? `AI extraction completed` : `AI extraction returned no additional fields`, 'success');
@@ -88,6 +99,14 @@ export function ApplicationAutoFill({
         setResult(res);
         toast(`Found ${found} of ${FIELD_DEFINITIONS.length} fields from ${docs.length} document(s)`, 'info');
       }
+
+      console.log('[AutoFill] Extraction result:', JSON.stringify({
+        found,
+        total: FIELD_DEFINITIONS.length,
+        llmUsed,
+        missing: result?.missing || [],
+        missingReasons: result?.missingReasons || {},
+      }, null, 2));
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not read the vault', 'error');
     } finally {
@@ -107,6 +126,8 @@ export function ApplicationAutoFill({
     onApply(values);
     toast(`Applied ${Object.keys(values).length} extracted values to form`, 'success');
   };
+
+  const displayFields = stepFields || FIELD_KEYS;
 
   return (
     <div className="rounded-xl border border-border bg-muted/30 p-4">
@@ -139,8 +160,9 @@ export function ApplicationAutoFill({
             Fields not found below will need to be filled manually.
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {FIELD_DEFINITIONS.map((def) => {
+            {FIELD_DEFINITIONS.filter((def) => displayFields.includes(def.key)).map((def) => {
               const ef = result.fields[def.key];
+              const reason = result.missingReasons[def.key];
               return (
                 <div
                   key={def.key}
@@ -165,7 +187,12 @@ export function ApplicationAutoFill({
                         {ef.value}
                       </p>
                     ) : (
-                      <p className="mt-0.5 text-xs text-muted-foreground">Not found — fill manually</p>
+                      <div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Not found — fill manually</p>
+                        {reason && (
+                          <p className="mt-0.5 text-[11px] text-slate-500 italic">Reason: {reason}</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

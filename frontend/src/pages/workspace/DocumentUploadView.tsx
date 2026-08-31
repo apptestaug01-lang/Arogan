@@ -7,7 +7,6 @@ import {
   listDocuments,
   deleteDocument,
   bulkDeleteDocuments,
-  getDocumentView,
   DocumentSummary,
 } from '@/services/documents';
 import { formatBytes } from '@/constants/documents';

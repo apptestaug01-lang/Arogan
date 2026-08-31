@@ -38,6 +38,7 @@ function boostConfidence(confidence: Confidence, docType: string): Confidence {
 export function extractFromTextSources(sources: DocumentTextSource[]): ExtractionResult {
   const classified = classifyDocuments(sources);
   const fields: Partial<Record<ApplicationDraftKey, ExtractedField>> = {};
+  const reasons: Partial<Record<ApplicationDraftKey, string>> = {};
 
   for (const doc of classified) {
     const typeFields = extractByDocumentType(doc.type, doc.text);
@@ -64,6 +65,7 @@ export function extractFromTextSources(sources: DocumentTextSource[]): Extractio
   for (const def of FIELD_DEFINITIONS) {
     if (fields[def.key]) continue;
 
+    let matched = false;
     for (const doc of classified) {
       const result = extractField(def, doc.text);
       if (!result) continue;
@@ -80,6 +82,11 @@ export function extractFromTextSources(sources: DocumentTextSource[]): Extractio
           },
         };
       }
+      matched = true;
+    }
+
+    if (!matched && !reasons[def.key]) {
+      reasons[def.key] = 'Pattern not found in any document';
     }
   }
 
@@ -90,7 +97,13 @@ export function extractFromTextSources(sources: DocumentTextSource[]): Extractio
 
   const missing = FIELD_KEYS.filter((k) => !fields[k]);
 
-  return { values: values as ExtractionResult['values'], fields, missing };
+  for (const key of missing) {
+    if (!reasons[key]) {
+      reasons[key] = 'No document contained this field';
+    }
+  }
+
+  return { values: values as ExtractionResult['values'], fields, missing, missingReasons: reasons };
 }
 
 export async function extractFromTextSourcesWithLlm(
@@ -132,9 +145,15 @@ export async function extractFromTextSourcesWithLlm(
       values: mergedValues,
       fields: mergedFields,
       missing: FIELD_KEYS.filter((k) => !mergedFields[k]),
+      missingReasons: {
+        ...regexResult.missingReasons,
+        ...Object.fromEntries(
+          FIELD_KEYS.filter((k) => !mergedFields[k]).map((k) => [k, regexResult.missingReasons[k] || 'Not found even after AI fallback']),
+        ),
+      },
     };
   } catch (error) {
     console.error('LLM fallback failed:', error);
-    return regexResult;
+    return { ...regexResult, missingReasons: { ...regexResult.missingReasons } };
   }
 }

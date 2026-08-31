@@ -73,12 +73,10 @@ export interface ExtractedField {
 }
 
 export interface ExtractionResult {
-  // Flat map of field key -> extracted value, ready to spread into the form.
   values: Partial<Record<ApplicationDraftKey, string>>;
-  // Per-field detail including confidence and provenance.
   fields: Partial<Record<ApplicationDraftKey, ExtractedField>>;
-  // Field keys that could not be found in any document.
   missing: ApplicationDraftKey[];
+  missingReasons: Partial<Record<ApplicationDraftKey, string>>;
 }
 
 // Minimal shape of a vault document accepted by the orchestrator.

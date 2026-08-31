@@ -1,16 +1,24 @@
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
 import { WizardInput, WizardSelect, WizardToggle } from './WizardField';
 import type { UseWizardStateReturn } from '@/hooks/useWizardState';
 
 interface Step2BusinessDetailsProps {
   wizard: Pick<UseWizardStateReturn, 'data' | 'setField' | 'constants' | 'errors'>;
+  onAutoFill?: () => void;
 }
 
-export function Step2BusinessDetails({ wizard }: Step2BusinessDetailsProps) {
+export function Step2BusinessDetails({ wizard, onAutoFill }: Step2BusinessDetailsProps) {
   const { data, setField, constants, errors } = wizard;
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Business Details</h3>
+        <Button size="sm" variant="outline" onClick={onAutoFill}>
+          Auto-fill this step
+        </Button>
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <WizardInput
           label="Legal Company Name"

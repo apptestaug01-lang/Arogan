@@ -127,10 +127,10 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     setSaving(true);
     try {
       if (applicationId) {
-        const res = await updateApplication({ applicationId, data });
+        const res = await updateApplication({ applicationId, data: data as unknown as Record<string, unknown> });
         return res.application;
       } else {
-        const res = await createApplication({ data });
+        const res = await createApplication({ data: data as unknown as Record<string, unknown> });
         setApplicationId(res.application.applicationId);
         return res.application;
       }

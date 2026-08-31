@@ -131,7 +131,7 @@ function ViewerBody({ data }: { data: DocumentViewResult }) {
       />
     );
   }
-  if (data.contentType === 'text/csv' || data.contentType.startsWith('text/')) {
+  if (data.contentType === 'text/csv' || data.contentType.startsWith('text/') || data.contentType === 'text/plain') {
     return <TextView url={data.viewUrl} fileName={data.fileName} />;
   }
   return (

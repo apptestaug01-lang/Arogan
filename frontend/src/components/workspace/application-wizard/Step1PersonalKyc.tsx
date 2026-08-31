@@ -1,25 +1,24 @@
 import * as React from 'react';
-import { ApplicationAutoFill } from '@/components/workspace/ApplicationAutoFill';
+import { Button } from '@/components/ui/button';
 import { WizardInput, WizardTextarea } from './WizardField';
 import type { UseWizardStateReturn } from '@/hooks/useWizardState';
-import type { ApplicationDraft } from '@/lib/extraction';
 
 interface Step1PersonalKycProps {
   wizard: Pick<UseWizardStateReturn, 'data' | 'setField' | 'errors'>;
+  onAutoFill?: () => void;
 }
 
-export function Step1PersonalKyc({ wizard }: Step1PersonalKycProps) {
+export function Step1PersonalKyc({ wizard, onAutoFill }: Step1PersonalKycProps) {
   const { data, setField, errors } = wizard;
 
   return (
     <div className="space-y-6">
-      <ApplicationAutoFill
-        onApply={(values) => {
-          Object.entries(values).forEach(([key, value]) => {
-            if (key in data) setField(key as keyof ApplicationDraft, value as ApplicationDraft[keyof ApplicationDraft]);
-          });
-        }}
-      />
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Personal & KYC</h3>
+        <Button size="sm" variant="outline" onClick={onAutoFill}>
+          Auto-fill this step
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <WizardInput

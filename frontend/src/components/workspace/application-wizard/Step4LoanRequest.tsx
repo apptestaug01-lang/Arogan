@@ -1,12 +1,14 @@
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
 import { WizardInput, WizardSelect, WizardTextarea } from './WizardField';
 import type { UseWizardStateReturn } from '@/hooks/useWizardState';
 
 interface Step4LoanRequestProps {
   wizard: Pick<UseWizardStateReturn, 'data' | 'setField' | 'constants' | 'errors'>;
+  onAutoFill?: () => void;
 }
 
-export function Step4LoanRequest({ wizard }: Step4LoanRequestProps) {
+export function Step4LoanRequest({ wizard, onAutoFill }: Step4LoanRequestProps) {
   const { data, setField, errors } = wizard;
 
   const estEmi = React.useMemo(() => {
@@ -22,6 +24,12 @@ export function Step4LoanRequest({ wizard }: Step4LoanRequestProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Loan Request</h3>
+        <Button size="sm" variant="outline" onClick={onAutoFill}>
+          Auto-fill this step
+        </Button>
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <WizardInput
           label="Loan Amount (₹ Cr)"
