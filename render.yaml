@@ -61,6 +61,12 @@ services:
         value: loanflow-documents
       - key: MINIO_REGION
         value: us-east-1
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_AI_MODEL
+        value: "@cf/meta/llama3-8b-instruct"
 
   - type: web
     name: loanflow-minio

@@ -71,13 +71,14 @@ export function ApplicationAutoFill({
             if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
           }
 
+          const hasLlmResults = Object.keys(mergedValues).length > found;
           setResult({
             values: mergedValues,
             fields: mergedFields,
             missing: FIELD_KEYS.filter((k) => !mergedFields[k]),
           });
-          setLlmUsed(true);
-          toast(`AI extraction completed`, 'success');
+          setLlmUsed(hasLlmResults);
+          toast(hasLlmResults ? `AI extraction completed` : `AI extraction returned no additional fields`, 'success');
         } catch (llmError) {
           console.error('LLM fallback failed:', llmError);
           setResult(res);

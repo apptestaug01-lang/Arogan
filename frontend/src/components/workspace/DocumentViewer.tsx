@@ -131,6 +131,9 @@ function ViewerBody({ data }: { data: DocumentViewResult }) {
       />
     );
   }
+  if (data.contentType === 'text/csv' || data.contentType.startsWith('text/')) {
+    return <TextView url={data.viewUrl} fileName={data.fileName} />;
+  }
   return (
     <a
       href={data.viewUrl}
@@ -141,6 +144,41 @@ function ViewerBody({ data }: { data: DocumentViewResult }) {
       <Download className="h-4 w-4" />
       Download {data.fileName}
     </a>
+  );
+}
+
+function TextView({ url, fileName }: { url: string; fileName: string }) {
+  const [text, setText] = React.useState<string>('');
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(url)
+      .then((res) => res.text())
+      .then((t) => {
+        if (!cancelled) setText(t);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load text');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (error) {
+    return <p className="text-sm text-danger-500">{error}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{fileName}</p>
+      <pre className="max-h-[60vh] overflow-auto rounded-md border border-border bg-muted/50 p-3 text-xs">
+        {text || 'Loading…'}
+      </pre>
+    </div>
   );
 }
 

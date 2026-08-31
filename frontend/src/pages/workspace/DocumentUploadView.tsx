@@ -22,6 +22,7 @@ import {
   Inbox,
   Loader2,
 } from 'lucide-react';
+import { DocumentViewer } from '@/components/workspace/DocumentViewer';
 
 const KNOWN_STATUSES = ['Reviewing', 'Draft', 'Verified', 'Uploaded'] as const;
 
@@ -52,6 +53,7 @@ export default function DocumentUploadView() {
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = React.useState(false);
+  const [viewingDocumentId, setViewingDocumentId] = React.useState<string | null>(null);
 
   const fetchDocuments = React.useCallback(async () => {
     try {
@@ -129,13 +131,17 @@ export default function DocumentUploadView() {
     }
   };
 
-  const viewDocument = async (doc: DocumentSummary) => {
-    try {
-      const res = await getDocumentView(doc.id);
-      window.open(res.viewUrl, '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Could not open file', 'error');
-    }
+  const viewDocument = (doc: DocumentSummary) => {
+    setViewingDocumentId(doc.id);
+  };
+
+  const handleViewerClose = () => {
+    setViewingDocumentId(null);
+  };
+
+  const handleDocumentDeleted = () => {
+    setViewingDocumentId(null);
+    fetchDocuments();
   };
 
   return (
@@ -268,6 +274,14 @@ export default function DocumentUploadView() {
               )}
             </CardContent>
           </Card>
+
+          {viewingDocumentId && (
+            <DocumentViewer
+              documentId={viewingDocumentId}
+              onClose={handleViewerClose}
+              onDocumentDeleted={handleDocumentDeleted}
+            />
+          )}
         </div>
 
         <aside className="space-y-4">

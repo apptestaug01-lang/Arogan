@@ -24,6 +24,9 @@ export interface ValidatedEnv {
   HF_API_KEY: string;
   OLLAMA_URL: string;
   OLLAMA_MODEL: string;
+  CLOUDFLARE_API_TOKEN: string;
+  CLOUDFLARE_ACCOUNT_ID: string;
+  CLOUDFLARE_AI_MODEL: string;
 }
 
 const requiredEnvVars = [
@@ -87,5 +90,8 @@ export function validateEnv(): ValidatedEnv {
     HF_API_KEY: process.env.HF_API_KEY || '',
     OLLAMA_URL: process.env.OLLAMA_URL || '',
     OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.2:1b',
+    CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || '',
+    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID || '',
+    CLOUDFLARE_AI_MODEL: process.env.CLOUDFLARE_AI_MODEL || '@cf/meta/llama3-8b-instruct',
   };
 }

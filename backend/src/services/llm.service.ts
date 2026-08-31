@@ -13,8 +13,12 @@ export interface LlmExtractionResult {
   source: string;
 }
 
-export async function extractWithLlm(text: string, fields: string[]): Promise<LlmExtractionResult[]> {
-  const prompt = buildPrompt(text, fields);
+export async function extractWithLlm(text: string, _fields: string[]): Promise<LlmExtractionResult[]> {
+  const prompt = buildPrompt(text, _fields);
+
+  if (env.CLOUDFLARE_API_TOKEN && env.CLOUDFLARE_ACCOUNT_ID) {
+    return extractWithCloudflare(prompt);
+  }
 
   if (env.OLLAMA_URL) {
     return extractWithOllama(prompt);
@@ -24,7 +28,43 @@ export async function extractWithLlm(text: string, fields: string[]): Promise<Ll
     return extractWithHuggingFace(prompt);
   }
 
-  throw new Error('No LLM provider configured. Set OLLAMA_URL or HF_API_KEY.');
+  return [];
+}
+
+async function extractWithCloudflare(prompt: string): Promise<LlmExtractionResult[]> {
+  try {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+    const model = env.CLOUDFLARE_AI_MODEL || '@cf/meta/llama3-8b-instruct';
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+
+    const response = await axios.post(
+      url,
+      {
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 256,
+        temperature: 0.1,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60_000,
+      },
+    );
+
+    const generatedText = response.data?.result?.response || response.data?.result?.choices?.[0]?.message?.content;
+    if (!generatedText) {
+      return [];
+    }
+
+    return parseLlmResponse(generatedText);
+  } catch (error) {
+    console.error('Cloudflare Workers AI extraction failed:', error);
+    throw new Error(`Cloudflare AI extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 async function extractWithOllama(prompt: string): Promise<LlmExtractionResult[]> {
