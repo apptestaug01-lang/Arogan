@@ -134,48 +134,61 @@ export default function NewApplicationView() {
 
       const res = await autoFillFromDocuments(docs as VaultDocumentInput[]);
       const found = Object.keys(res.values).length;
+      const missingCount = res.missing.length;
 
-      if (found < 5) {
+      // Always call LLM for missing fields (not just when found < 5)
+      if (missingCount > 0) {
         try {
-          const allText = docs.map((d) => `Document: ${d.originalName}\nType: ${d.contentType}`).join('\n\n');
-          const fieldNames = FIELD_DEFINITIONS.map((f) => f.label);
-          const llmResults = await extractWithLlm(allText, fieldNames);
+          // Get the actual extracted text from documents for LLM
+          const { loadDocumentTextSources } = await import('@/lib/extraction/extractApplication');
+          const sources = await loadDocumentTextSources(docs as VaultDocumentInput[]);
+          const allText = sources.map((s) => `Document: ${s.docName}\n${s.text}`).join('\n\n---\n\n');
 
-          const mergedFields = { ...res.fields };
-          for (const llmField of llmResults) {
-            const def = FIELD_DEFINITIONS.find((f) => f.label === llmField.field);
-            if (def && !mergedFields[def.key]) {
-              mergedFields[def.key] = {
-                value: llmField.value,
-                confidence: 'medium',
-                source: {
-                  docId: '',
-                  docName: 'AI Extraction',
-                  snippet: llmField.value.slice(0, 120),
-                },
-              };
+          if (allText.trim().length > 50) {
+            const missingFieldNames = res.missing
+              .map((k) => FIELD_DEFINITIONS.find((f) => f.key === k)?.label || k)
+              .filter(Boolean);
+
+            const llmResults = await extractWithLlm(allText, missingFieldNames);
+
+            const mergedFields = { ...res.fields };
+            for (const llmField of llmResults) {
+              const def = FIELD_DEFINITIONS.find((f) => f.label.toLowerCase() === llmField.field.toLowerCase());
+              if (def && !mergedFields[def.key] && llmField.value && llmField.value !== 'NOT_FOUND') {
+                mergedFields[def.key] = {
+                  value: llmField.value,
+                  confidence: 'medium',
+                  source: {
+                    docId: '',
+                    docName: 'AI Extraction',
+                    snippet: llmField.value.slice(0, 120),
+                  },
+                };
+              }
             }
-          }
 
-          const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
-          for (const key of FIELD_KEYS) {
-            if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
-          }
-
-          const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
-          const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...res.missingReasons };
-          for (const key of finalMissing) {
-            if (!finalReasons[key]) {
-              finalReasons[key] = 'Not found even after AI fallback';
+            const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
+            for (const key of FIELD_KEYS) {
+              if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
             }
-          }
 
-          setExtractionResult({
-            values: mergedValues,
-            fields: mergedFields,
-            missing: finalMissing,
-            missingReasons: finalReasons,
-          });
+            const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
+            const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...res.missingReasons };
+            for (const key of finalMissing) {
+              if (!finalReasons[key]) {
+                finalReasons[key] = 'Not found even after AI fallback';
+              }
+            }
+
+            setExtractionResult({
+              values: mergedValues,
+              fields: mergedFields,
+              missing: finalMissing,
+              missingReasons: finalReasons,
+            });
+          } else {
+            setExtractionResult(res);
+          }
         } catch (llmError) {
           console.error('LLM fallback failed:', llmError);
           setExtractionResult(res);

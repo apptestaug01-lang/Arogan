@@ -93,4 +93,7 @@ export async function autoFillFromDocuments(docs: VaultDocumentInput[]): Promise
   return extractApplicationData(docs);
 }
 
+// Export for LLM fallback to get actual document text
+export { loadDocumentTextSources };
+
 export { extractFromTextSources };
