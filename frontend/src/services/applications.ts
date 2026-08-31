@@ -63,3 +63,18 @@ export async function submitApplication(applicationId: string): Promise<{ applic
   const res = await api.post<{ data: { application: ApplicationSummary } }>(`/applications/${applicationId}/submit`, {});
   return res.data.data;
 }
+
+export interface LlmExtractionResult {
+  field: string;
+  value: string;
+  confidence: number;
+  source: string;
+}
+
+export async function extractWithLlm(text: string, fields: string[]): Promise<LlmExtractionResult[]> {
+  const res = await api.post<{ data: { results: LlmExtractionResult[] } }>('/applications/llm-extract', {
+    text,
+    fields,
+  });
+  return res.data.data.results;
+}

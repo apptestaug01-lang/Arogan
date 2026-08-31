@@ -4,8 +4,9 @@ import { useToast } from '@/components/workspace/ToastProvider';
 import { cn } from '@/lib/utils';
 import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
 import { listDocuments, type DocumentSummary } from '@/services/documents';
-import { FIELD_DEFINITIONS } from '@/lib/extraction/fields';
+import { FIELD_DEFINITIONS, FIELD_KEYS } from '@/lib/extraction/fields';
 import type { ApplicationDraftKey, Confidence, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
+import { extractWithLlm } from '@/services/applications';
 import { Sparkles, Loader2, CheckCircle2, CircleDashed } from 'lucide-react';
 
 const CONFIDENCE_STYLE: Record<Confidence, string> = {
@@ -13,6 +14,8 @@ const CONFIDENCE_STYLE: Record<Confidence, string> = {
   medium: 'bg-amber-50 text-amber-700',
   low: 'bg-slate-100 text-slate-600',
 };
+
+const LLM_FALLBACK_THRESHOLD = 5;
 
 export function ApplicationAutoFill({
   onApply,
@@ -23,10 +26,12 @@ export function ApplicationAutoFill({
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<ExtractionResult | null>(null);
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
+  const [llmUsed, setLlmUsed] = React.useState(false);
 
   const run = async () => {
     setLoading(true);
     setResult(null);
+    setLlmUsed(false);
     try {
       const docs = await listDocuments();
       setDocuments(docs);
@@ -34,10 +39,54 @@ export function ApplicationAutoFill({
         toast('No documents found in vault. Upload documents first.', 'info');
         return;
       }
+
       const res = await autoFillFromDocuments(docs as VaultDocumentInput[]);
-      setResult(res);
       const found = Object.keys(res.values).length;
-      toast(`Found ${found} of ${FIELD_DEFINITIONS.length} fields from ${docs.length} document(s)`, 'info');
+
+      if (found < LLM_FALLBACK_THRESHOLD) {
+        toast(`Regex found ${found} fields. Trying AI extraction...`, 'info');
+        try {
+          const allText = docs.map((d) => `Document: ${d.originalName}\nType: ${d.contentType}`).join('\n\n');
+          const fieldNames = FIELD_DEFINITIONS.map((f) => f.label);
+          const llmResults = await extractWithLlm(allText, fieldNames);
+
+          const mergedFields = { ...res.fields };
+          for (const llmField of llmResults) {
+            const def = FIELD_DEFINITIONS.find((f) => f.label === llmField.field);
+            if (def && !mergedFields[def.key]) {
+              mergedFields[def.key] = {
+                value: llmField.value,
+                confidence: 'medium',
+                source: {
+                  docId: '',
+                  docName: 'AI Extraction',
+                  snippet: llmField.value.slice(0, 120),
+                },
+              };
+            }
+          }
+
+          const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
+          for (const key of FIELD_KEYS) {
+            if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
+          }
+
+          setResult({
+            values: mergedValues,
+            fields: mergedFields,
+            missing: FIELD_KEYS.filter((k) => !mergedFields[k]),
+          });
+          setLlmUsed(true);
+          toast(`AI extraction completed`, 'success');
+        } catch (llmError) {
+          console.error('LLM fallback failed:', llmError);
+          setResult(res);
+          toast('AI extraction failed, showing regex results', 'error');
+        }
+      } else {
+        setResult(res);
+        toast(`Found ${found} of ${FIELD_DEFINITIONS.length} fields from ${docs.length} document(s)`, 'info');
+      }
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not read the vault', 'error');
     } finally {
@@ -65,6 +114,7 @@ export function ApplicationAutoFill({
           <p className="text-sm font-semibold text-foreground">Auto-fill from documents</p>
           <p className="text-xs text-muted-foreground">
             Extract details from uploaded documents and prefill the form.
+            {llmUsed && ' (AI enhanced)'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -126,3 +176,4 @@ export function ApplicationAutoFill({
     </div>
   );
 }
+

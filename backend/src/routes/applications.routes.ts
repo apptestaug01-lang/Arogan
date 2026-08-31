@@ -21,6 +21,7 @@ import {
   WIZARD_STATEMENT_PERIODS,
   WIZARD_ASSESSMENT_YEARS,
 } from '../utils/constants.js'
+import { extractWithLlm } from '../services/llm.service.js'
 
 const router = Router()
 
@@ -129,6 +130,25 @@ router.post(
       sendSuccess(res, 'Application submitted', { application })
     } catch (err) {
       next(err)
+    }
+  },
+)
+
+router.post(
+  '/applications/llm-extract',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { text, fields } = req.body as { text: string; fields: string[] };
+      if (!text || !fields?.length) {
+        sendError(res, 'text and fields are required', 400);
+        return;
+      }
+      const results = await extractWithLlm(text, fields);
+      sendSuccess(res, 'LLM extraction complete', { results });
+    } catch (err) {
+      next(err);
     }
   },
 )
