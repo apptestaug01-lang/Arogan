@@ -22,6 +22,7 @@ import {
   WIZARD_ASSESSMENT_YEARS,
 } from '../utils/constants.js'
 import { extractWithLlm } from '../services/llm.service.js'
+import { extractWithAzureMultiModel } from '../services/azureDocument.service.js'
 
 const router = Router()
 
@@ -147,6 +148,25 @@ router.post(
       }
       const results = await extractWithLlm(text, fields);
       sendSuccess(res, 'LLM extraction complete', { results });
+    } catch (err) {
+      next(err);
+    }
+  },
+)
+
+router.post(
+  '/applications/azure-extract',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { documents } = req.body as { documents: Array<{ url: string; contentType: string; fileName: string }> };
+      if (!documents?.length) {
+        sendError(res, 'documents array is required', 400);
+        return;
+      }
+      const results = await extractWithAzureMultiModel(documents);
+      sendSuccess(res, 'Azure extraction complete', { results });
     } catch (err) {
       next(err);
     }

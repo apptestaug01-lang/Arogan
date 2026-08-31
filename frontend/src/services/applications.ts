@@ -78,3 +78,23 @@ export async function extractWithLlm(text: string, fields: string[]): Promise<Ll
   });
   return res.data.data.results;
 }
+
+export interface AzureDocumentInput {
+  url: string;
+  contentType: string;
+  fileName: string;
+}
+
+export interface AzureExtractionResult {
+  field: string;
+  value: string;
+  confidence: number;
+  source: string;
+}
+
+export async function extractWithAzure(documents: AzureDocumentInput[]): Promise<AzureExtractionResult[]> {
+  const res = await api.post<{ data: { results: AzureExtractionResult[] } }>('/applications/azure-extract', {
+    documents,
+  });
+  return res.data.data.results;
+}

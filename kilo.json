@@ -19,5 +19,6 @@
     "kilo_memory_recall": "allow",
     "lsp": "allow",
     "list": "allow"
-  }
+  },
+  "snapshot": false
 }

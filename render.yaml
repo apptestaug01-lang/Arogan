@@ -67,6 +67,10 @@ services:
         sync: false
       - key: CLOUDFLARE_AI_MODEL
         value: "@cf/meta/llama3-8b-instruct"
+      - key: AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+        sync: false
+      - key: AZURE_DOCUMENT_INTELLIGENCE_KEY
+        sync: false
 
   - type: web
     name: loanflow-minio

@@ -10,10 +10,10 @@ import { Step4LoanRequest } from '@/components/workspace/application-wizard/Step
 import { useWizardState } from '@/hooks/useWizardState';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
-import { listDocuments } from '@/services/documents';
+import { listDocuments, getDocumentView } from '@/services/documents';
+import { extractWithLlm, extractWithAzure, AzureDocumentInput } from '@/services/applications';
 import { FIELD_DEFINITIONS, FIELD_KEYS } from '@/lib/extraction/fields';
 import type { ApplicationDraftKey, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
-import { extractWithLlm } from '@/services/applications';
 
 const STEP_FIELDS: Record<number, ApplicationDraftKey[]> = {
   1: ['fullName', 'pan', 'aadhaar', 'email', 'mobile', 'address'],
@@ -132,26 +132,73 @@ export default function NewApplicationView() {
         return;
       }
 
-      const res = await autoFillFromDocuments(docs as VaultDocumentInput[]);
-      const found = Object.keys(res.values).length;
-      const missingCount = res.missing.length;
+      // Step 1: Try regex extraction first
+      const regexRes = await autoFillFromDocuments(docs as VaultDocumentInput[]);
+      const mergedFields = { ...regexRes.fields };
+      const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
+      for (const key of FIELD_KEYS) {
+        if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
+      }
 
-      // Always call LLM for missing fields (not just when found < 5)
-      if (missingCount > 0) {
+      // Step 2: Try Azure Document Intelligence for missing fields
+      const missingAfterRegex = FIELD_KEYS.filter((k) => !mergedFields[k]);
+      if (missingAfterRegex.length > 0) {
         try {
-          // Get the actual extracted text from documents for LLM
+          const azureDocs: AzureDocumentInput[] = [];
+          for (const doc of docs) {
+            try {
+              const view = await getDocumentView(doc.id);
+              azureDocs.push({
+                url: view.viewUrl,
+                contentType: doc.contentType,
+                fileName: doc.originalName,
+              });
+            } catch (e) {
+              console.warn('Failed to get view URL for:', doc.originalName, e);
+            }
+          }
+
+          if (azureDocs.length > 0) {
+            const azureResults = await extractWithAzure(azureDocs);
+
+            for (const azureField of azureResults) {
+              const def = FIELD_DEFINITIONS.find(
+                (f) => f.label.toLowerCase() === azureField.field.toLowerCase() || f.key === azureField.field
+              );
+              if (def && !mergedFields[def.key] && azureField.value) {
+                mergedFields[def.key] = {
+                  value: azureField.value,
+                  confidence: azureField.confidence > 0.8 ? 'high' : azureField.confidence > 0.5 ? 'medium' : 'low',
+                  source: {
+                    docId: '',
+                    docName: 'Azure AI',
+                    snippet: azureField.value.slice(0, 120),
+                  },
+                };
+                mergedValues[def.key] = azureField.value;
+              }
+            }
+          }
+        } catch (azureError) {
+          console.warn('Azure extraction failed, falling back to LLM:', azureError);
+        }
+      }
+
+      // Step 3: LLM fallback for still-missing fields
+      const missingAfterAzure = FIELD_KEYS.filter((k) => !mergedFields[k]);
+      if (missingAfterAzure.length > 0) {
+        try {
           const { loadDocumentTextSources } = await import('@/lib/extraction/extractApplication');
           const sources = await loadDocumentTextSources(docs as VaultDocumentInput[]);
           const allText = sources.map((s) => `Document: ${s.docName}\n${s.text}`).join('\n\n---\n\n');
 
           if (allText.trim().length > 50) {
-            const missingFieldNames = res.missing
+            const missingFieldNames = missingAfterAzure
               .map((k) => FIELD_DEFINITIONS.find((f) => f.key === k)?.label || k)
               .filter(Boolean);
 
             const llmResults = await extractWithLlm(allText, missingFieldNames);
 
-            const mergedFields = { ...res.fields };
             for (const llmField of llmResults) {
               const def = FIELD_DEFINITIONS.find((f) => f.label.toLowerCase() === llmField.field.toLowerCase());
               if (def && !mergedFields[def.key] && llmField.value && llmField.value !== 'NOT_FOUND') {
@@ -164,45 +211,34 @@ export default function NewApplicationView() {
                     snippet: llmField.value.slice(0, 120),
                   },
                 };
+                mergedValues[def.key] = llmField.value;
               }
             }
-
-            const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
-            for (const key of FIELD_KEYS) {
-              if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
-            }
-
-            const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
-            const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...res.missingReasons };
-            for (const key of finalMissing) {
-              if (!finalReasons[key]) {
-                finalReasons[key] = 'Not found even after AI fallback';
-              }
-            }
-
-            setExtractionResult({
-              values: mergedValues,
-              fields: mergedFields,
-              missing: finalMissing,
-              missingReasons: finalReasons,
-            });
-          } else {
-            setExtractionResult(res);
           }
         } catch (llmError) {
-          console.error('LLM fallback failed:', llmError);
-          setExtractionResult(res);
+          console.warn('LLM fallback failed:', llmError);
         }
-      } else {
-        setExtractionResult(res);
       }
 
-      console.log('[AutoFill] Extraction result:', JSON.stringify({
-        found,
-        total: FIELD_DEFINITIONS.length,
-        missing: extractionResult?.missing || [],
-        missingReasons: extractionResult?.missingReasons || {},
-      }, null, 2));
+      // Build final result
+      const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
+      const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...regexRes.missingReasons };
+      for (const key of finalMissing) {
+        if (!finalReasons[key]) {
+          finalReasons[key] = 'Not found in any extraction method';
+        }
+      }
+
+      setExtractionResult({
+        values: mergedValues,
+        fields: mergedFields,
+        missing: finalMissing,
+        missingReasons: finalReasons,
+      });
+
+      const found = Object.keys(mergedValues).length;
+      const total = FIELD_KEYS.length;
+      toast(`Extracted ${found}/${total} fields`, found > 0 ? 'success' : 'info');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not read the vault', 'error');
     }
