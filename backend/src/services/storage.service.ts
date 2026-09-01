@@ -57,12 +57,24 @@ export async function ensureBucket(
   s3: S3Client = getStorageClient(),
   config: StorageConfig = getStorageConfig(),
 ): Promise<void> {
+  logger.info('[Storage] Ensuring bucket exists: ' + config.bucket + ' at endpoint: ' + config.endpoint)
+  
   const bucketExists = await s3.send(new HeadBucketCommand({ Bucket: config.bucket }))
     .then(() => true)
-    .catch(() => false)
+    .catch((err) => {
+      logger.warn('[Storage] HeadBucket failed:', err.message || err)
+      return false
+    })
 
   if (!bucketExists) {
-    await s3.send(new CreateBucketCommand({ Bucket: config.bucket }))
+    logger.info('[Storage] Bucket not found, creating: ' + config.bucket)
+    try {
+      await s3.send(new CreateBucketCommand({ Bucket: config.bucket }))
+      logger.info('[Storage] Bucket created successfully')
+    } catch (createErr) {
+      logger.error('[Storage] Failed to create bucket:', createErr)
+      throw createErr
+    }
   }
 
   // Best-effort hardening. MinIO may not implement BlockPublicAccess; treat
@@ -145,13 +157,23 @@ export async function createPresignedUploadUrl(
   s3: S3Client = getStorageClient(),
   config: StorageConfig = getStorageConfig(),
 ): Promise<string> {
-  const command = new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: key,
-    ContentType: contentType,
-    ContentLength: contentLength,
-  })
-  return getSignedUrl(s3, command, { expiresIn })
+  logger.info('[Storage] Creating presigned upload URL for key: ' + key)
+  logger.info('[Storage] Using bucket: ' + config.bucket + ', endpoint: ' + config.endpoint + ', region: ' + config.region)
+  
+  try {
+    const command = new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+      ContentType: contentType,
+      ContentLength: contentLength,
+    })
+    const url = await getSignedUrl(s3, command, { expiresIn })
+    logger.info('[Storage] Presigned URL created successfully')
+    return url
+  } catch (err) {
+    logger.error('[Storage] Failed to create presigned URL:', err)
+    throw err
+  }
 }
 
 export async function createPresignedDownloadUrl(
