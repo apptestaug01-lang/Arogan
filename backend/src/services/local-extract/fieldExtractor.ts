@@ -136,24 +136,35 @@ function extractDob(lines: string[], fullTextLower: string): string {
 }
 
 function extractGender(lines: string[], fullTextLower: string): string {
+  // Look for explicit gender markers
   for (const line of lines) {
-    const lineLower = line.toLowerCase();
+    const lineLower = line.toLowerCase().trim();
 
-    for (const maleKeyword of GENDER_MALE) {
-      if (lineLower.includes(maleKeyword) && !lineLower.includes('female')) {
-        // Verify it's a gender indicator, not part of another word
-        if (lineLower === maleKeyword || lineLower.includes(' ' + maleKeyword + ' ') ||
-            lineLower.startsWith(maleKeyword + ' ') || lineLower.endsWith(' ' + maleKeyword)) {
-          return 'MALE';
-        }
+    // Check for explicit gender labels
+    if (lineLower.includes('gender') || lineLower.includes('sex')) {
+      if (lineLower.includes('male') && !lineLower.includes('female')) {
+        return 'MALE';
       }
-    }
-
-    for (const femaleKeyword of GENDER_FEMALE) {
-      if (lineLower.includes(femaleKeyword)) {
+      if (lineLower.includes('female')) {
         return 'FEMALE';
       }
     }
+
+    // Check for standalone gender words
+    if (lineLower === 'male' || lineLower === 'm') {
+      return 'MALE';
+    }
+    if (lineLower === 'female' || lineLower === 'f') {
+      return 'FEMALE';
+    }
+  }
+
+  // Check for gender in full text with word boundaries
+  if (fullTextLower.includes(' male') || fullTextLower.includes('male ') || fullTextLower.includes('/m/')) {
+    return 'MALE';
+  }
+  if (fullTextLower.includes(' female') || fullTextLower.includes('female ') || fullTextLower.includes('/f/')) {
+    return 'FEMALE';
   }
 
   return '';

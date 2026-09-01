@@ -45,9 +45,10 @@ const AZURE_FIELD_MAPPINGS: Record<string, string> = {
 /**
  * Extract document fields using Azure Document Intelligence
  * Uses pre-trained models for Indian documents (ID, GST, etc.)
+ * Supports both URL and base64 content
  */
 export async function extractWithAzureDocumentIntelligence(
-  documentUrl: string,
+  documentSource: { url?: string; base64?: string; contentType?: string },
   modelId: string = 'prebuilt-idDocument',
 ): Promise<AzureExtractionResult[]> {
   const endpoint = env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT;
@@ -59,10 +60,20 @@ export async function extractWithAzureDocumentIntelligence(
 
   // Step 1: Submit document for analysis
   const submitUrl = `${endpoint}/documentintelligence/documentModels/${modelId}:analyze?api-version=2024-07-31-preview`;
-  
+
+  // Build request body based on source type
+  let requestBody: any;
+  if (documentSource.base64) {
+    requestBody = { base64Source: documentSource.base64 };
+  } else if (documentSource.url) {
+    requestBody = { urlSource: documentSource.url };
+  } else {
+    throw new Error('Either url or base64 must be provided');
+  }
+
   const submitResponse = await axios.post(
     submitUrl,
-    { urlSource: documentUrl },
+    requestBody,
     {
       headers: {
         'Ocp-Apim-Subscription-Key': key,
@@ -142,9 +153,10 @@ export async function extractWithAzureDocumentIntelligence(
 
 /**
  * Extract from multiple document types using appropriate Azure models
+ * Supports both URL and base64 content
  */
 export async function extractWithAzureMultiModel(
-  documents: Array<{ url: string; contentType: string; fileName: string }>,
+  documents: Array<{ url?: string; base64?: string; contentType?: string; fileName: string }>,
 ): Promise<AzureExtractionResult[]> {
   const results: AzureExtractionResult[] = [];
 
@@ -159,12 +171,13 @@ export async function extractWithAzureMultiModel(
       } else if (fileNameLower.includes('gst') || fileNameLower.includes('invoice')) {
         modelId = 'prebuilt-invoice';
       } else if (fileNameLower.includes('bank') || fileNameLower.includes('statement')) {
-        modelId = 'prebuilt-layout'; // Layout works for bank statements
+        modelId = 'prebuilt-layout';
       } else if (doc.contentType === 'application/pdf') {
         modelId = 'prebuilt-layout';
       }
 
-      const docResults = await extractWithAzureDocumentIntelligence(doc.url, modelId);
+      const source = doc.base64 ? { base64: doc.base64 } : { url: doc.url };
+      const docResults = await extractWithAzureDocumentIntelligence(source, modelId);
       results.push(...docResults);
     } catch (error) {
       console.error(`Azure extraction failed for ${doc.fileName}:`, error);

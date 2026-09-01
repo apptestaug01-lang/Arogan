@@ -50,28 +50,50 @@ export async function parseDocument(
 
 async function parsePdf(filePath: string): Promise<{ text: string; pages: string[] }> {
   try {
-    const pdfjsLib = await import('pdfjs-dist');
-    // Use bundled worker
-    const workerUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl.href;
+    // Use pdf-parse for Node.js compatibility (no worker needed)
+    const pdfParse = (await import('pdf-parse')).default;
+    const data = fs.readFileSync(filePath);
+    const result = await pdfParse(data);
 
-    const data = new Uint8Array(fs.readFileSync(filePath));
-    const loadingTask = pdfjsLib.getDocument({ data });
-    const pdf = await loadingTask.promise;
-
-    const pages: string[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => ('str' in item ? item.str : ''))
-        .join(' ');
-      pages.push(pageText);
+    // If no text extracted, try OCR fallback for image-based PDFs
+    if (!result.text || result.text.trim().length < 10) {
+      console.warn(`[LocalExtract] PDF has no extractable text, trying OCR: ${path.basename(filePath)}`);
+      return await parsePdfWithOcr(filePath);
     }
 
-    return { text: pages.join('\n\n'), pages };
+    return { text: result.text, pages: [result.text] };
   } catch (error) {
     console.error('[LocalExtract] PDF parse error:', error);
+    return { text: '', pages: [] };
+  }
+}
+
+async function parsePdfWithOcr(filePath: string): Promise<{ text: string; pages: string[] }> {
+  try {
+    // Convert PDF to images using pdf2pic
+    const { fromPath } = await import('pdf2pic');
+    const convert = fromPath(filePath, {
+      density: 300,
+      format: 'png',
+      width: 2480,
+      height: 3508,
+    });
+
+    const result = await convert(1); // Convert first page only for speed
+
+    if (result.path) {
+      // Run OCR on the converted image
+      const ocrResult = await parseImage(result.path, 'eng');
+
+      // Cleanup temp file
+      try { fs.unlinkSync(result.path); } catch { /* ignore */ }
+
+      return ocrResult;
+    }
+
+    return { text: '', pages: [] };
+  } catch (error) {
+    console.error('[LocalExtract] PDF OCR fallback error:', error);
     return { text: '', pages: [] };
   }
 }

@@ -71,6 +71,12 @@ services:
         sync: false
       - key: AZURE_DOCUMENT_INTELLIGENCE_KEY
         sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: loanflow-documents
 
   - type: web
     name: loanflow-minio
