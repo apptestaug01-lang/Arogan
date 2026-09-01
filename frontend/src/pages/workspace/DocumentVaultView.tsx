@@ -1,10 +1,7 @@
 import * as React from 'react';
 import { DocumentExplorer } from '@/components/workspace/DocumentExplorer';
-import DocumentViewer from '@/components/workspace/DocumentViewer';
 
 export default function DocumentVaultView() {
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
-
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -16,10 +13,7 @@ export default function DocumentVaultView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <DocumentExplorer
-          onFileOpen={(id) => setSelectedId(id)}
-          onDocumentDeleted={() => setSelectedId(null)}
-        />
+        <DocumentExplorer />
 
         <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">🛡 Protected storage</b>
@@ -29,14 +23,6 @@ export default function DocumentVaultView() {
           names, object keys, or AWS credentials to users.
         </aside>
       </div>
-
-      {selectedId && (
-        <DocumentViewer
-          documentId={selectedId}
-          onClose={() => setSelectedId(null)}
-          onDocumentDeleted={() => setSelectedId(null)}
-        />
-      )}
     </div>
   );
 }

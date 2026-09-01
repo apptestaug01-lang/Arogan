@@ -17,11 +17,10 @@ import {
   FileText,
   FileImage,
   FileSpreadsheet,
-  Eye,
   Inbox,
   Loader2,
+  Eye,
 } from 'lucide-react';
-import { DocumentViewer } from '@/components/workspace/DocumentViewer';
 
 const KNOWN_STATUSES = ['Reviewing', 'Draft', 'Verified', 'Uploaded'] as const;
 
@@ -51,8 +50,8 @@ export default function DocumentUploadView() {
   const [applicationId] = React.useState('LAP-2026-0184');
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [viewingDocumentId, setViewingDocumentId] = React.useState<string | null>(null);
 
   const fetchDocuments = React.useCallback(async () => {
     try {
@@ -130,16 +129,7 @@ export default function DocumentUploadView() {
     }
   };
 
-  const viewDocument = (doc: DocumentSummary) => {
-    setViewingDocumentId(doc.id);
-  };
-
-  const handleViewerClose = () => {
-    setViewingDocumentId(null);
-  };
-
   const handleDocumentDeleted = () => {
-    setViewingDocumentId(null);
     fetchDocuments();
   };
 
@@ -227,14 +217,6 @@ export default function DocumentUploadView() {
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => viewDocument(d)}
-                              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                              aria-label="View document"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => handleDeleteOne(d.id)}
                               className="rounded p-1.5 text-muted-foreground hover:bg-danger-500/10 hover:text-danger-500"
                               aria-label="Delete document"
@@ -274,13 +256,6 @@ export default function DocumentUploadView() {
             </CardContent>
           </Card>
 
-          {viewingDocumentId && (
-            <DocumentViewer
-              documentId={viewingDocumentId}
-              onClose={handleViewerClose}
-              onDocumentDeleted={handleDocumentDeleted}
-            />
-          )}
         </div>
 
         <aside className="space-y-4">

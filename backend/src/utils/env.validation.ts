@@ -21,14 +21,6 @@ export interface ValidatedEnv {
   BREVO_FROM_NAME: string;
   BREVO_REPLY_TO: string;
   SESSION_CLEANUP_INTERVAL_MS: number;
-  HF_API_KEY: string;
-  OLLAMA_URL: string;
-  OLLAMA_MODEL: string;
-   CLOUDFLARE_API_TOKEN: string;
-  CLOUDFLARE_ACCOUNT_ID: string;
-  CLOUDFLARE_AI_MODEL: string;
-  AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: string;
-  AZURE_DOCUMENT_INTELLIGENCE_KEY: string;
 }
 
 const requiredEnvVars = [
@@ -89,13 +81,5 @@ export function validateEnv(): ValidatedEnv {
     BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'LoanFlow',
     BREVO_REPLY_TO: process.env.BREVO_REPLY_TO || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
     SESSION_CLEANUP_INTERVAL_MS: Number(process.env.SESSION_CLEANUP_INTERVAL_MS) || 3_600_000,
-    HF_API_KEY: process.env.HF_API_KEY || '',
-    OLLAMA_URL: process.env.OLLAMA_URL || '',
-    OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.2:1b',
-    CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || '',
-    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID || '',
-    CLOUDFLARE_AI_MODEL: process.env.CLOUDFLARE_AI_MODEL || '@cf/meta/llama3-8b-instruct',
-    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: process.env.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT || '',
-    AZURE_DOCUMENT_INTELLIGENCE_KEY: process.env.AZURE_DOCUMENT_INTELLIGENCE_KEY || '',
   };
 }

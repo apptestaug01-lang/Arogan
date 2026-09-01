@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ApplicationDraft } from '@/lib/extraction';
+import type { ApplicationDraft } from '@/types/application';
 
 export interface ReviewOverlayProps {
   open: boolean;

@@ -1,0 +1,1 @@
+export { DocumentAnalyzer } from './DocumentAnalyzer';

@@ -63,38 +63,3 @@ export async function submitApplication(applicationId: string): Promise<{ applic
   const res = await api.post<{ data: { application: ApplicationSummary } }>(`/applications/${applicationId}/submit`, {});
   return res.data.data;
 }
-
-export interface LlmExtractionResult {
-  field: string;
-  value: string;
-  confidence: number;
-  source: string;
-}
-
-export async function extractWithLlm(text: string, fields: string[]): Promise<LlmExtractionResult[]> {
-  const res = await api.post<{ data: { results: LlmExtractionResult[] } }>('/applications/llm-extract', {
-    text,
-    fields,
-  });
-  return res.data.data.results;
-}
-
-export interface AzureDocumentInput {
-  url: string;
-  contentType: string;
-  fileName: string;
-}
-
-export interface AzureExtractionResult {
-  field: string;
-  value: string;
-  confidence: number;
-  source: string;
-}
-
-export async function extractWithAzure(documents: AzureDocumentInput[]): Promise<AzureExtractionResult[]> {
-  const res = await api.post<{ data: { results: AzureExtractionResult[] } }>('/applications/azure-extract', {
-    documents,
-  });
-  return res.data.data.results;
-}

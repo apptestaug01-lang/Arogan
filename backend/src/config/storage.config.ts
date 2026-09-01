@@ -13,7 +13,7 @@ export function getStorageConfig(): StorageConfig {
   // Use Backblaze B2 if B2 credentials are set
   if (process.env.B2_KEY_ID && process.env.B2_APPLICATION_KEY) {
     return {
-      endpoint: `s3.${process.env.B2_REGION || 'us-east-005'}.backblazeb2.com`,
+      endpoint: `https://s3.${process.env.B2_REGION || 'us-east-005'}.backblazeb2.com`,
       port: 443,
       useSsl: true,
       accessKey: process.env.B2_KEY_ID,
@@ -40,7 +40,7 @@ export function getStorageConfig(): StorageConfig {
 
   // Default to Backblaze B2 (no MinIO fallback)
   return {
-    endpoint: `s3.${process.env.B2_REGION || 'us-east-005'}.backblazeb2.com`,
+    endpoint: `https://s3.${process.env.B2_REGION || 'us-east-005'}.backblazeb2.com`,
     port: 443,
     useSsl: true,
     accessKey: process.env.B2_KEY_ID || '',

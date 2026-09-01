@@ -15,8 +15,10 @@
     "lint": "eslint src/**/*.ts --fix",
     "lint:check": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test:extraction": "tsx src/scripts/testExtraction.ts",
+    "test:extraction:list": "tsx src/scripts/testExtraction.ts list",
+    "test:extraction:db": "tsx src/scripts/testExtraction.ts db",
+    "test:extraction:extract": "tsx src/scripts/testExtraction.ts extract"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1119.0",

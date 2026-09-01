@@ -1,7 +1,8 @@
 import * as React from 'react';
-import type { ApplicationDraft } from '@/lib/extraction';
+import type { ApplicationDraft } from '@/types/application';
 import { getWizardConstants, submitApplication, createApplication, updateApplication, getApplication } from '@/services/applications';
 import type { WizardConstants, ApplicationSummary } from '@/services/applications';
+import type { ExtractedField } from '@/services/autoFill';
 
 const emptyDraft = (): ApplicationDraft => ({
   fullName: '',
@@ -59,6 +60,9 @@ export interface UseWizardStateReturn extends WizardState {
   saveDraft: () => Promise<ApplicationSummary | undefined>;
   submit: () => Promise<ApplicationSummary | undefined>;
   reset: () => void;
+  applyExtractedField: (fieldName: string, value: string | number | boolean | string[]) => void;
+  applyExtractedFields: (fields: Record<string, ExtractedField>) => void;
+  extractedFields: Record<string, ExtractedField>;
 }
 
 export function useWizardState(initialApplicationId?: string): UseWizardStateReturn {
@@ -68,6 +72,7 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string | string[]>>({});
   const [applicationId, setApplicationId] = React.useState<string | undefined>(initialApplicationId);
+  const [extractedFields, setExtractedFields] = React.useState<Record<string, ExtractedField>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -156,6 +161,27 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     setData(emptyDraft());
     setErrors({});
     setApplicationId(undefined);
+    setExtractedFields({});
+  };
+
+  const applyExtractedField = (fieldName: string, value: string | number | boolean | string[]) => {
+    setData((prev) => {
+      const next = { ...prev };
+      (next as Record<string, unknown>)[fieldName] = value;
+      return next;
+    });
+    setExtractedFields((prev) => ({ ...prev, [fieldName]: { value, confidence: 1, source: 'manual' } }));
+  };
+
+  const applyExtractedFields = (fields: Record<string, ExtractedField>) => {
+    setData((prev) => {
+      const next = { ...prev } as Record<string, unknown>;
+      for (const [fieldName, field] of Object.entries(fields)) {
+        next[fieldName] = field.value;
+      }
+      return next as unknown as ApplicationDraft;
+    });
+    setExtractedFields((prev) => ({ ...prev, ...fields }));
   };
 
   return {
@@ -171,5 +197,8 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     saveDraft,
     submit,
     reset,
+    applyExtractedField,
+    applyExtractedFields,
+    extractedFields,
   };
 }

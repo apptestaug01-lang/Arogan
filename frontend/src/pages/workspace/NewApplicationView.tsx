@@ -3,26 +3,384 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ProgressStepper } from '@/components/workspace/ProgressStepper';
 import { ReviewOverlay } from '@/components/workspace/ReviewOverlay';
-import { Step1PersonalKyc } from '@/components/workspace/application-wizard/Step1PersonalKyc';
-import { Step2BusinessDetails } from '@/components/workspace/application-wizard/Step2BusinessDetails';
-import { Step3Financials } from '@/components/workspace/application-wizard/Step3Financials';
-import { Step4LoanRequest } from '@/components/workspace/application-wizard/Step4LoanRequest';
+import { DocumentAnalyzer } from '@/components/workspace/auto-fill';
 import { useWizardState } from '@/hooks/useWizardState';
+import { useAutoFill } from '@/hooks/useAutoFill';
 import { useToast } from '@/components/workspace/ToastProvider';
-import { autoFillFromDocuments } from '@/lib/extraction/extractApplication';
-import { listDocuments, getDocumentView } from '@/services/documents';
-import { extractWithLlm, extractWithAzure, AzureDocumentInput } from '@/services/applications';
-import { FIELD_DEFINITIONS, FIELD_KEYS } from '@/lib/extraction/fields';
-import type { ApplicationDraftKey, ExtractionResult, VaultDocumentInput } from '@/lib/extraction';
-
-const STEP_FIELDS: Record<number, ApplicationDraftKey[]> = {
-  1: ['fullName', 'pan', 'aadhaar', 'email', 'mobile', 'address'],
-  2: ['companyName', 'cin', 'businessType', 'industry', 'groupCompany', 'signatory', 'designation', 'gstRegistered', 'gstin', 'companyPan', 'dateOfIncorporation'],
-  3: ['itrYears', 'itrFiled', 'turnoverY1', 'turnoverY2', 'profitY1', 'profitY2', 'bankStatementPeriod', 'avgMonthlyBalance', 'chequeBounces', 'existingMonthlyEmi', 'avgMonthlyCredits', 'netWorth', 'debt'],
-  4: ['loanAmount', 'productType', 'tenor', 'interestRate', 'purpose', 'collateral'],
-};
+import type { ApplicationDraft } from '@/types/application';
 
 const STEPS = ['Personal & KYC', 'Business Details', 'Financials', 'Loan Request'];
+const STEP_KEYS = ['kyc', 'business', 'financials', 'loan'] as const;
+
+function FieldInput({
+  label,
+  value,
+  onChange,
+  error,
+  type = 'text',
+  autoFilled,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string | string[];
+  type?: string;
+  autoFilled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-medium">
+        {label}
+        {autoFilled && (
+          <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            ✓ Auto-filled
+          </span>
+        )}
+      </label>
+      <input
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''}`}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function FieldTextarea({
+  label,
+  value,
+  onChange,
+  error,
+  rows = 3,
+  autoFilled,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string | string[];
+  rows?: number;
+  autoFilled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-medium">
+        {label}
+        {autoFilled && (
+          <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            ✓ Auto-filled
+          </span>
+        )}
+      </label>
+      <textarea
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''}`}
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function FieldSelect({
+  label,
+  value,
+  onChange,
+  error,
+  options,
+  autoFilled,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string | string[];
+  options: string[];
+  autoFilled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-sm font-medium">
+        {label}
+        {autoFilled && (
+          <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            ✓ Auto-filled
+          </span>
+        )}
+      </label>
+      <select
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Select...</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function Step1PersonalKyc({
+  wizard,
+  extractedFields,
+  onApplyField,
+}: {
+  wizard: Pick<ReturnType<typeof useWizardState>, 'data' | 'setField' | 'constants' | 'errors'>;
+  extractedFields: Record<string, { value: string | number | boolean | string[]; confidence: number; source: string }>;
+  onApplyField: (fieldName: string, value: string | number | boolean | string[]) => void;
+}) {
+  const { data, setField, errors } = wizard;
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Personal & KYC</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FieldInput
+          label="Full Name"
+          value={data.fullName}
+          onChange={(val) => setField('fullName', val)}
+          error={errors.fullName}
+          autoFilled={!!extractedFields.fullName}
+        />
+        <FieldInput
+          label="PAN"
+          value={data.pan}
+          onChange={(val) => setField('pan', val)}
+          error={errors.pan}
+          autoFilled={!!extractedFields.pan}
+        />
+        <FieldInput
+          label="Aadhaar"
+          value={data.aadhaar}
+          onChange={(val) => setField('aadhaar', val)}
+          error={errors.aadhaar}
+          autoFilled={!!extractedFields.aadhaar}
+        />
+        <FieldInput
+          label="Email"
+          value={data.email}
+          onChange={(val) => setField('email', val)}
+          error={errors.email}
+          type="email"
+          autoFilled={!!extractedFields.email}
+        />
+        <FieldInput
+          label="Mobile"
+          value={data.mobile}
+          onChange={(val) => setField('mobile', val)}
+          error={errors.mobile}
+          autoFilled={!!extractedFields.mobile}
+        />
+        <div className="md:col-span-2">
+          <FieldTextarea
+            label="Address"
+            value={data.address}
+            onChange={(val) => setField('address', val)}
+            error={errors.address}
+            autoFilled={!!extractedFields.address}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Step2BusinessDetails({
+  wizard,
+  extractedFields,
+}: {
+  wizard: Pick<ReturnType<typeof useWizardState>, 'data' | 'setField' | 'constants' | 'errors'>;
+  extractedFields: Record<string, { value: string | number | boolean | string[]; confidence: number; source: string }>;
+}) {
+  const { data, setField, constants, errors } = wizard;
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Business Details</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FieldInput
+          label="Company Name"
+          value={data.companyName}
+          onChange={(val) => setField('companyName', val)}
+          error={errors.companyName}
+          autoFilled={!!extractedFields.companyName}
+        />
+        <FieldInput
+          label="CIN"
+          value={data.cin}
+          onChange={(val) => setField('cin', val)}
+          error={errors.cin}
+          autoFilled={!!extractedFields.cin}
+        />
+        <FieldSelect
+          label="Business Type"
+          value={data.businessType}
+          onChange={(val) => setField('businessType', val)}
+          error={errors.businessType}
+          options={constants?.businessTypes || []}
+          autoFilled={!!extractedFields.businessType}
+        />
+        <FieldSelect
+          label="Industry"
+          value={data.industry}
+          onChange={(val) => setField('industry', val)}
+          error={errors.industry}
+          options={constants?.industries || []}
+          autoFilled={!!extractedFields.industry}
+        />
+        <FieldInput
+          label="GSTIN"
+          value={data.gstin}
+          onChange={(val) => setField('gstin', val)}
+          error={errors.gstin}
+          autoFilled={!!extractedFields.gstin}
+        />
+        <FieldInput
+          label="Date of Incorporation"
+          value={data.dateOfIncorporation}
+          onChange={(val) => setField('dateOfIncorporation', val)}
+          type="date"
+          autoFilled={!!extractedFields.dateOfIncorporation}
+        />
+        <FieldInput
+          label="Authorised Signatory"
+          value={data.signatory}
+          onChange={(val) => setField('signatory', val)}
+          error={errors.signatory}
+        />
+        <FieldInput
+          label="Designation"
+          value={data.designation}
+          onChange={(val) => setField('designation', val)}
+          error={errors.designation}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Step3Financials({
+  wizard,
+  extractedFields,
+}: {
+  wizard: Pick<ReturnType<typeof useWizardState>, 'data' | 'setField' | 'constants' | 'errors'>;
+  extractedFields: Record<string, { value: string | number | boolean | string[]; confidence: number; source: string }>;
+}) {
+  const { data, setField, errors } = wizard;
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Financials</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FieldInput
+          label="Turnover Year 1 (₹ Cr)"
+          value={data.turnoverY1}
+          onChange={(val) => setField('turnoverY1', val)}
+          error={errors.turnoverY1}
+          autoFilled={!!extractedFields.turnoverY1}
+        />
+        <FieldInput
+          label="Turnover Year 2 (₹ Cr)"
+          value={data.turnoverY2}
+          onChange={(val) => setField('turnoverY2', val)}
+          error={errors.turnoverY2}
+          autoFilled={!!extractedFields.turnoverY2}
+        />
+        <FieldInput
+          label="Profit Year 1 (₹ Cr)"
+          value={data.profitY1}
+          onChange={(val) => setField('profitY1', val)}
+          error={errors.profitY1}
+          autoFilled={!!extractedFields.profitY1}
+        />
+        <FieldInput
+          label="Profit Year 2 (₹ Cr)"
+          value={data.profitY2}
+          onChange={(val) => setField('profitY2', val)}
+          error={errors.profitY2}
+          autoFilled={!!extractedFields.profitY2}
+        />
+        <FieldInput
+          label="Average Monthly Balance"
+          value={data.avgMonthlyBalance}
+          onChange={(val) => setField('avgMonthlyBalance', val)}
+          error={errors.avgMonthlyBalance}
+          autoFilled={!!extractedFields.avgMonthlyBalance}
+        />
+        <FieldInput
+          label="Existing Monthly EMI"
+          value={data.existingMonthlyEmi}
+          onChange={(val) => setField('existingMonthlyEmi', val)}
+          error={errors.existingMonthlyEmi}
+          autoFilled={!!extractedFields.existingMonthlyEmi}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Step4LoanRequest({
+  wizard,
+  extractedFields,
+}: {
+  wizard: Pick<ReturnType<typeof useWizardState>, 'data' | 'setField' | 'constants' | 'errors'>;
+  extractedFields: Record<string, { value: string | number | boolean | string[]; confidence: number; source: string }>;
+}) {
+  const { data, setField, errors } = wizard;
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold">Loan Request</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <FieldInput
+          label="Loan Amount (₹ Cr)"
+          value={data.loanAmount}
+          onChange={(val) => setField('loanAmount', val)}
+          error={errors.loanAmount}
+          autoFilled={!!extractedFields.loanAmount}
+        />
+        <FieldInput
+          label="Product Type"
+          value={data.productType}
+          onChange={(val) => setField('productType', val)}
+          error={errors.productType}
+          autoFilled={!!extractedFields.productType}
+        />
+        <FieldInput
+          label="Tenor (years)"
+          value={data.tenor}
+          onChange={(val) => setField('tenor', val)}
+          error={errors.tenor}
+          autoFilled={!!extractedFields.tenor}
+        />
+        <FieldInput
+          label="Interest Rate (%)"
+          value={data.interestRate}
+          onChange={(val) => setField('interestRate', val)}
+          autoFilled={!!extractedFields.interestRate}
+        />
+        <div className="md:col-span-2">
+          <FieldTextarea
+            label="Purpose"
+            value={data.purpose}
+            onChange={(val) => setField('purpose', val)}
+            error={errors.purpose}
+            autoFilled={!!extractedFields.purpose}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <FieldTextarea
+            label="Collateral"
+            value={data.collateral}
+            onChange={(val) => setField('collateral', val)}
+            error={errors.collateral}
+            autoFilled={!!extractedFields.collateral}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function NewApplicationView() {
   const navigate = useNavigate();
@@ -31,7 +389,23 @@ export default function NewApplicationView() {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
-  const [extractionResult, setExtractionResult] = React.useState<ExtractionResult | null>(null);
+
+  const currentStepKey = STEP_KEYS[currentStep - 1];
+
+  const { autoFill, extracting, lastResult } = useAutoFill({
+    applicationId: wizard.applicationId || '',
+    onFieldsExtracted: (fields) => {
+      wizard.applyExtractedFields(fields);
+    },
+  });
+
+  const handleAutoFill = async () => {
+    if (!wizard.applicationId) {
+      toast('Please save the application as draft first', 'info');
+      return;
+    }
+    await autoFill(currentStepKey);
+  };
 
   const validateStep = (step: number): boolean => {
     const { data } = wizard;
@@ -57,20 +431,12 @@ export default function NewApplicationView() {
     }
 
     if (step === 3) {
-      const itrErrors: string[] = [];
-      if (!data.itrYears?.[0]) itrErrors.push('Assessment Year 1 is required');
-      if (!data.itrYears?.[1]) itrErrors.push('Assessment Year 2 is required');
-      if (itrErrors.length) errors.itrYears = itrErrors;
       if (!data.turnoverY1.trim()) errors.turnoverY1 = 'Turnover Year 1 is required';
       if (!data.turnoverY2.trim()) errors.turnoverY2 = 'Turnover Year 2 is required';
       if (!data.profitY1.trim()) errors.profitY1 = 'Profit Year 1 is required';
       if (!data.profitY2.trim()) errors.profitY2 = 'Profit Year 2 is required';
-      if (!data.bankStatementPeriod) errors.bankStatementPeriod = 'Statement period is required';
       if (!data.avgMonthlyBalance.trim()) errors.avgMonthlyBalance = 'Average monthly balance is required';
       if (!data.existingMonthlyEmi.trim()) errors.existingMonthlyEmi = 'Existing monthly EMI is required';
-      if (!data.avgMonthlyCredits.trim()) errors.avgMonthlyCredits = 'Average monthly credits is required';
-      if (!data.netWorth.trim()) errors.netWorth = 'Net worth is required';
-      if (!data.debt.trim()) errors.debt = 'Existing debt is required';
     }
 
     if (step === 4) {
@@ -92,7 +458,6 @@ export default function NewApplicationView() {
       toast('Please fix the errors before continuing', 'error');
       return;
     }
-
     if (currentStep < 4) {
       setCurrentStep((s) => s + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -123,141 +488,6 @@ export default function NewApplicationView() {
     setReviewOpen(true);
   };
 
-  const handleAutoFill = async () => {
-    setExtractionResult(null);
-    try {
-      const docs = await listDocuments();
-      if (docs.length === 0) {
-        toast('No documents found in vault. Upload documents first.', 'info');
-        return;
-      }
-
-      // Step 1: Try regex extraction first
-      const regexRes = await autoFillFromDocuments(docs as VaultDocumentInput[]);
-      const mergedFields = { ...regexRes.fields };
-      const mergedValues: Partial<Record<ApplicationDraftKey, string>> = {};
-      for (const key of FIELD_KEYS) {
-        if (mergedFields[key]) mergedValues[key] = mergedFields[key]!.value;
-      }
-
-      // Step 2: Try Azure Document Intelligence for missing fields
-      const missingAfterRegex = FIELD_KEYS.filter((k) => !mergedFields[k]);
-      if (missingAfterRegex.length > 0) {
-        try {
-          const azureDocs: AzureDocumentInput[] = [];
-          for (const doc of docs) {
-            try {
-              const view = await getDocumentView(doc.id);
-              azureDocs.push({
-                url: view.viewUrl,
-                contentType: doc.contentType,
-                fileName: doc.originalName,
-              });
-            } catch (e) {
-              console.warn('Failed to get view URL for:', doc.originalName, e);
-            }
-          }
-
-          if (azureDocs.length > 0) {
-            const azureResults = await extractWithAzure(azureDocs);
-
-            for (const azureField of azureResults) {
-              const def = FIELD_DEFINITIONS.find(
-                (f) => f.label.toLowerCase() === azureField.field.toLowerCase() || f.key === azureField.field
-              );
-              if (def && !mergedFields[def.key] && azureField.value) {
-                mergedFields[def.key] = {
-                  value: azureField.value,
-                  confidence: azureField.confidence > 0.8 ? 'high' : azureField.confidence > 0.5 ? 'medium' : 'low',
-                  source: {
-                    docId: '',
-                    docName: 'Azure AI',
-                    snippet: azureField.value.slice(0, 120),
-                  },
-                };
-                mergedValues[def.key] = azureField.value;
-              }
-            }
-          }
-        } catch (azureError) {
-          console.warn('Azure extraction failed, falling back to LLM:', azureError);
-        }
-      }
-
-      // Step 3: LLM fallback for still-missing fields
-      const missingAfterAzure = FIELD_KEYS.filter((k) => !mergedFields[k]);
-      if (missingAfterAzure.length > 0) {
-        try {
-          const { loadDocumentTextSources } = await import('@/lib/extraction/extractApplication');
-          const sources = await loadDocumentTextSources(docs as VaultDocumentInput[]);
-          const allText = sources.map((s) => `Document: ${s.docName}\n${s.text}`).join('\n\n---\n\n');
-
-          if (allText.trim().length > 50) {
-            const missingFieldNames = missingAfterAzure
-              .map((k) => FIELD_DEFINITIONS.find((f) => f.key === k)?.label || k)
-              .filter(Boolean);
-
-            const llmResults = await extractWithLlm(allText, missingFieldNames);
-
-            for (const llmField of llmResults) {
-              const def = FIELD_DEFINITIONS.find((f) => f.label.toLowerCase() === llmField.field.toLowerCase());
-              if (def && !mergedFields[def.key] && llmField.value && llmField.value !== 'NOT_FOUND') {
-                mergedFields[def.key] = {
-                  value: llmField.value,
-                  confidence: 'medium',
-                  source: {
-                    docId: '',
-                    docName: 'AI Extraction',
-                    snippet: llmField.value.slice(0, 120),
-                  },
-                };
-                mergedValues[def.key] = llmField.value;
-              }
-            }
-          }
-        } catch (llmError) {
-          console.warn('LLM fallback failed:', llmError);
-        }
-      }
-
-      // Build final result
-      const finalMissing = FIELD_KEYS.filter((k) => !mergedFields[k]);
-      const finalReasons: Partial<Record<ApplicationDraftKey, string>> = { ...regexRes.missingReasons };
-      for (const key of finalMissing) {
-        if (!finalReasons[key]) {
-          finalReasons[key] = 'Not found in any extraction method';
-        }
-      }
-
-      setExtractionResult({
-        values: mergedValues,
-        fields: mergedFields,
-        missing: finalMissing,
-        missingReasons: finalReasons,
-      });
-
-      const found = Object.keys(mergedValues).length;
-      const total = FIELD_KEYS.length;
-      toast(`Extracted ${found}/${total} fields`, found > 0 ? 'success' : 'info');
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Could not read the vault', 'error');
-    }
-  };
-
-  const applyStepAutoFill = () => {
-    if (!extractionResult) return;
-    const stepFields = STEP_FIELDS[currentStep] || [];
-    const values: Partial<Record<ApplicationDraftKey, string>> = {};
-    for (const key of stepFields) {
-      const ef = extractionResult.fields[key];
-      if (ef) {
-        values[key] = ef.value;
-        wizard.setField(key, ef.value);
-      }
-    }
-    toast(`Applied ${Object.keys(values).length} extracted values to form`, 'success');
-  };
-
   const handleConfirmSubmit = async () => {
     try {
       setSubmitting(true);
@@ -273,15 +503,20 @@ export default function NewApplicationView() {
   };
 
   const renderStep = () => {
+    const props = {
+      wizard,
+      extractedFields: wizard.extractedFields,
+    };
+
     switch (currentStep) {
       case 1:
-        return <Step1PersonalKyc wizard={wizard} onAutoFill={handleAutoFill} />;
+        return <Step1PersonalKyc {...props} onApplyField={wizard.applyExtractedField} />;
       case 2:
-        return <Step2BusinessDetails wizard={wizard} onAutoFill={handleAutoFill} />;
+        return <Step2BusinessDetails {...props} />;
       case 3:
-        return <Step3Financials wizard={wizard} onAutoFill={handleAutoFill} />;
+        return <Step3Financials {...props} />;
       case 4:
-        return <Step4LoanRequest wizard={wizard} onAutoFill={handleAutoFill} />;
+        return <Step4LoanRequest {...props} />;
       default:
         return null;
     }
@@ -300,21 +535,18 @@ export default function NewApplicationView() {
       <ProgressStepper currentStep={currentStep} totalSteps={4} labels={STEPS} />
 
       <div className="space-y-6">
+        <DocumentAnalyzer
+          extracting={extracting}
+          extractedFields={lastResult?.extractedFields || {}}
+          unmatchedDocuments={lastResult?.unmatchedDocuments || []}
+          missingFields={lastResult?.missingFields || []}
+          onAutoFill={handleAutoFill}
+          onApplyField={wizard.applyExtractedField}
+          stepLabel={STEPS[currentStep - 1]}
+        />
+
         {renderStep()}
       </div>
-
-      {extractionResult && (
-        <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-          <p className="text-xs font-medium text-muted-foreground">
-            Extracted {Object.keys(extractionResult.values).length} field(s). Missing reasons logged in console.
-          </p>
-          <div className="mt-2">
-            <Button size="sm" onClick={applyStepAutoFill}>
-              Apply extracted values to current step
-            </Button>
-          </div>
-        </div>
-      )}
 
       <div className="mt-8 flex items-center justify-between gap-3">
         <div>
