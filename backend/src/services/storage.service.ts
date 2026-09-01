@@ -42,7 +42,7 @@ export function getStorageClient(): S3Client {
 const CORS_RULES = [
   {
     AllowedHeaders: ['*'],
-    AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD', 'OPTIONS'],
+    AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
     AllowedOrigins: [process.env.CORS_ORIGIN || 'http://localhost:5173'],
     ExposeHeaders: ['ETag'],
     MaxAgeSeconds: 86400,
