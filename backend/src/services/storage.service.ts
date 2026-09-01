@@ -72,7 +72,7 @@ export async function ensureBucket(
       await s3.send(new CreateBucketCommand({ Bucket: config.bucket }))
       logger.info('[Storage] Bucket created successfully')
     } catch (createErr) {
-      logger.error('[Storage] Failed to create bucket:', createErr)
+      logger.error({ err: createErr instanceof Error ? createErr.message : String(createErr) }, '[Storage] Failed to create bucket')
       throw createErr
     }
   }
@@ -171,7 +171,7 @@ export async function createPresignedUploadUrl(
     logger.info('[Storage] Presigned URL created successfully')
     return url
   } catch (err) {
-    logger.error('[Storage] Failed to create presigned URL:', err)
+    logger.error({ err: err instanceof Error ? err.message : String(err) }, '[Storage] Failed to create presigned URL')
     throw err
   }
 }
