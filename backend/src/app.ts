@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.js';
 import { storageRouter } from './routes/storage.routes.js';
 import { documentsRouter } from './routes/documents.routes.js';
 import { applicationsRouter } from './routes/applications.routes.js';
+import { localExtractRouter } from './routes/localExtract.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { notFound } from './middleware/notFound.js';
 import { sanitizeInput } from './middleware/sanitize.js';
@@ -104,6 +105,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/local-extract', localExtractRouter);
 
 app.use(notFound);
 app.use(errorHandler);
