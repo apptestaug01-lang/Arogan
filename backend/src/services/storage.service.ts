@@ -34,13 +34,9 @@ export function createS3Client(config: StorageConfig = getStorageConfig()): S3Cl
   })
 }
 
-let cachedClient: S3Client | null = null
-
 export function getStorageClient(): S3Client {
-  if (!cachedClient) {
-    cachedClient = createS3Client()
-  }
-  return cachedClient
+  // Always create fresh client to pick up env var changes
+  return createS3Client()
 }
 
 const CORS_RULES = [
