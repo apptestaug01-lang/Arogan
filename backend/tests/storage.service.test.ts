@@ -49,37 +49,31 @@ describe('storage.config', () => {
     process.env = { ...original };
   });
 
-  it('returns sensible defaults when MinIO env is unset', () => {
-    delete process.env.MINIO_ENDPOINT;
-    delete process.env.MINIO_PORT;
-    delete process.env.MINIO_USE_SSL;
-    delete process.env.MINIO_ACCESS_KEY;
-    delete process.env.MINIO_SECRET_KEY;
-    delete process.env.MINIO_BUCKET;
-    delete process.env.MINIO_REGION;
+  it('returns B2 config when B2 env is set', () => {
+    process.env.B2_KEY_ID = 'test-key-id';
+    process.env.B2_APPLICATION_KEY = 'test-app-key';
+    process.env.B2_BUCKET = 'test-bucket';
+    process.env.B2_REGION = 'us-east-005';
 
     const config = getStorageConfig();
 
-    expect(config.endpoint).toBe('localhost');
-    expect(config.port).toBe(9000);
-    expect(config.useSsl).toBe(false);
-    expect(config.accessKey).toBe('minioadmin');
-    expect(config.bucket).toBe('loanflow-documents');
-    expect(config.region).toBe('us-east-1');
+    expect(config.endpoint).toContain('backblazeb2.com');
+    expect(config.bucket).toBe('test-bucket');
+    expect(config.region).toBe('us-east-005');
+    expect(config.provider).toBe('b2');
   });
 
-  it('honours explicit MinIO env overrides', () => {
-    process.env.MINIO_ENDPOINT = 'storage.example.com';
-    process.env.MINIO_PORT = '443';
-    process.env.MINIO_USE_SSL = 'true';
-    process.env.MINIO_BUCKET = 'custom-bucket';
+  it('honours explicit B2 env overrides', () => {
+    process.env.B2_KEY_ID = '002xxxxxxxxxxxx';
+    process.env.B2_APPLICATION_KEY = 'test-secret';
+    process.env.B2_BUCKET = 'custom-bucket';
+    process.env.B2_REGION = 'us-west-002';
 
     const config = getStorageConfig();
 
-    expect(config.endpoint).toBe('storage.example.com');
-    expect(config.port).toBe(443);
-    expect(config.useSsl).toBe(true);
+    expect(config.endpoint).toContain('backblazeb2.com');
     expect(config.bucket).toBe('custom-bucket');
+    expect(config.region).toBe('us-west-002');
   });
 });
 
