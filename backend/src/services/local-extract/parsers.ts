@@ -55,45 +55,9 @@ async function parsePdf(filePath: string): Promise<{ text: string; pages: string
     const data = fs.readFileSync(filePath);
     const result = await pdfParse(data);
 
-    // If no text extracted, try OCR fallback for image-based PDFs
-    if (!result.text || result.text.trim().length < 10) {
-      console.warn(`[LocalExtract] PDF has no extractable text, trying OCR: ${path.basename(filePath)}`);
-      return await parsePdfWithOcr(filePath);
-    }
-
     return { text: result.text, pages: [result.text] };
   } catch (error) {
     console.error('[LocalExtract] PDF parse error:', error);
-    return { text: '', pages: [] };
-  }
-}
-
-async function parsePdfWithOcr(filePath: string): Promise<{ text: string; pages: string[] }> {
-  try {
-    // Convert PDF to images using pdf2pic
-    const { fromPath } = await import('pdf2pic');
-    const convert = fromPath(filePath, {
-      density: 300,
-      format: 'png',
-      width: 2480,
-      height: 3508,
-    });
-
-    const result = await convert(1); // Convert first page only for speed
-
-    if (result.path) {
-      // Run OCR on the converted image
-      const ocrResult = await parseImage(result.path, 'eng');
-
-      // Cleanup temp file
-      try { fs.unlinkSync(result.path); } catch { /* ignore */ }
-
-      return ocrResult;
-    }
-
-    return { text: '', pages: [] };
-  } catch (error) {
-    console.error('[LocalExtract] PDF OCR fallback error:', error);
     return { text: '', pages: [] };
   }
 }
