@@ -71,6 +71,14 @@ services:
         sync: false
       - key: AZURE_DOCUMENT_INTELLIGENCE_KEY
         sync: false
+      - key: B2_KEY_ID
+        sync: false
+      - key: B2_APPLICATION_KEY
+        sync: false
+      - key: B2_BUCKET
+        value: loanflow-documents
+      - key: B2_REGION
+        value: us-west-002
       - key: R2_ACCESS_KEY_ID
         sync: false
       - key: R2_SECRET_ACCESS_KEY
