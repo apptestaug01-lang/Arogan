@@ -6,7 +6,7 @@ export interface StorageConfig {
   secretKey: string
   bucket: string
   region: string
-  provider: 'minio' | 'r2' | 'b2' | 's3'
+  provider: 'b2' | 'r2' | 's3'
 }
 
 export function getStorageConfig(): StorageConfig {

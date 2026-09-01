@@ -23,7 +23,7 @@ export function createS3Client(config: StorageConfig = getStorageConfig()): S3Cl
     endpoint,
     region: config.region,
     forcePathStyle: true,
-    // MinIO rejects the checksum query params the AWS SDK v3 adds to presigned
+    // Backblaze B2 rejects the checksum query params the AWS SDK v3 adds to presigned
     // URLs (x-amz-checksum-*, x-amz-sdk-checksum-algorithm), causing
     // SignatureDoesNotMatch. Only calculate checksums when explicitly needed.
     requestChecksumCalculation: 'WHEN_REQUIRED',
@@ -77,7 +77,7 @@ export async function ensureBucket(
     }
   }
 
-  // Best-effort hardening. MinIO may not implement BlockPublicAccess; treat
+  // Best-effort hardening. Some S3-compatible backends may not implement BlockPublicAccess; treat
   // that as a warning rather than a failure so the bucket stays usable.
   try {
     await s3.send(
@@ -106,7 +106,7 @@ export async function ensureBucket(
   )
 
   // Best-effort cleanup: abort multipart uploads abandoned mid-flight so
-  // partial parts don't accrue. MinIO may not support lifecycle config;
+  // partial parts don't accrue. Some S3-compatible backends may not support lifecycle config;
   // treat that as a warning rather than a failure.
   try {
     await s3.send(
