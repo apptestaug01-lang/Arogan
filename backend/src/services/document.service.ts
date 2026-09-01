@@ -49,8 +49,10 @@ export async function presignDocument(input: PresignDocumentInput) {
       PRESIGNED_UPLOAD_TTL_SECONDS,
     )
   } catch (err) {
+    // Log the actual error for debugging
+    console.error('[DocumentService] Presign error:', err instanceof Error ? err.message : String(err))
     throw new StorageError(
-      err instanceof Error ? err.message : 'Storage service is temporarily unavailable. Please try again.',
+      err instanceof Error ? `Storage error: ${err.message}` : 'Storage service is temporarily unavailable. Please try again.',
     )
   }
 

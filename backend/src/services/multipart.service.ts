@@ -117,11 +117,12 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
           config,
         ),
       )
-    } catch (err) {
-      throw new StorageError(
-        err instanceof Error ? err.message : 'Failed to generate upload URLs. Please try again.',
-      )
-    }
+  } catch (err) {
+    console.error('[MultipartService] Presign error:', err instanceof Error ? err.message : String(err))
+    throw new StorageError(
+      err instanceof Error ? `Storage error: ${err.message}` : 'Storage service is temporarily unavailable. Please try again.',
+    )
+  }
   }
 
   await logAuditEvent('DOCUMENT_MULTIPART_PRESIGN', undefined, undefined, input.userId, {
@@ -172,8 +173,9 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       }),
     )
   } catch (err) {
+    console.error('[MultipartService] ListParts error:', err instanceof Error ? err.message : String(err))
     throw new StorageError(
-      err instanceof Error ? err.message : 'Failed to complete multipart upload. Please try again.',
+      err instanceof Error ? `Storage error: ${err.message}` : 'Storage service is temporarily unavailable. Please try again.',
     )
   }
 
