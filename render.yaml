@@ -47,16 +47,6 @@ services:
         value: LoanFlow
       - key: BREVO_REPLY_TO
         value: cursorai981@gmail.com
-      - key: CLOUDFLARE_API_TOKEN
-        sync: false
-      - key: CLOUDFLARE_ACCOUNT_ID
-        sync: false
-      - key: CLOUDFLARE_AI_MODEL
-        value: "@cf/meta/llama3-8b-instruct"
-      - key: AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-        sync: false
-      - key: AZURE_DOCUMENT_INTELLIGENCE_KEY
-        sync: false
       - key: B2_KEY_ID
         sync: false
       - key: B2_APPLICATION_KEY
