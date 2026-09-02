@@ -1,5 +1,4 @@
-import { Extractor } from './panExtractor.js';
-import { PanCardExtractor } from './panExtractor.js';
+import { Extractor, PanCardExtractor } from './panExtractor.js';
 import { AadhaarExtractor } from './aadhaarExtractor.js';
 import { GstCertificateExtractor } from './gstExtractor.js';
 import { ItrExtractor } from './itrExtractor.js';
