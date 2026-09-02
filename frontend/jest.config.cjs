@@ -11,7 +11,17 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.spec.json',
+      useESM: false,
+      isolatedModules: true,
     }],
+  },
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        module: 'commonjs',
+        esModuleInterop: true,
+      },
+    },
   },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

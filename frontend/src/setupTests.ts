@@ -6,6 +6,19 @@ Object.assign(global, {
   TextDecoder: TextDecoder,
 });
 
+// Mock import.meta.env for Jest
+Object.defineProperty(globalThis, 'import', {
+  value: {
+    meta: {
+      env: {
+        VITE_API_URL: '/api',
+      },
+    },
+  },
+  writable: true,
+  configurable: true,
+});
+
 const originalError = console.error;
 beforeAll(() => {
   console.error = (...args: unknown[]) => {
