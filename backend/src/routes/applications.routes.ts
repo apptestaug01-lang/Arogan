@@ -25,7 +25,7 @@ import {
 const router = Router()
 
 router.get(
-  '/applications',
+  '/',
   authMiddleware,
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -39,7 +39,7 @@ router.get(
 )
 
 router.get(
-  '/applications/:applicationId',
+  '/:applicationId',
   authMiddleware,
   requireAuth,
   validate(getApplicationSchema),
@@ -58,7 +58,7 @@ router.get(
 )
 
 router.post(
-  '/applications',
+  '/',
   authMiddleware,
   requireAuth,
   validate(createApplicationSchema),
@@ -79,7 +79,7 @@ router.post(
 )
 
 router.patch(
-  '/applications/:applicationId',
+  '/:applicationId',
   authMiddleware,
   requireAuth,
   validate(updateApplicationSchema),
@@ -119,7 +119,7 @@ router.get(
 )
 
 router.post(
-  '/applications/:applicationId/submit',
+  '/:applicationId/submit',
   authMiddleware,
   requireAuth,
   validate(getApplicationSchema),
