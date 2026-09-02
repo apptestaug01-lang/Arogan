@@ -26,14 +26,16 @@ export class AutoFillService {
     this.extractorRegistry = new ExtractorRegistry();
 
     const config = getStorageConfig();
+    const protocol = config.useSsl ? 'https' : 'http';
     this.s3Client = new S3Client({
-      endpoint: config.endpoint,
+      endpoint: `${protocol}://${config.endpoint}:${config.port}`,
       region: config.region,
       credentials: {
         accessKeyId: config.accessKey,
         secretAccessKey: config.secretKey,
       },
       forcePathStyle: true,
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     });
     this.bucket = config.bucket;
   }
