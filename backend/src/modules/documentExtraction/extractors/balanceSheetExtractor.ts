@@ -1,12 +1,6 @@
 import { ExtractedField } from '../types.js';
 import { Extractor } from './panExtractor.js';
 
-const parseNumber = (value: string): number | null => {
-  const cleaned = value.replace(/[₹,\s]/g, '');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
-};
-
 const parseIndianAmount = (value: string): number | null => {
   const cleaned = value.replace(/[₹,\s]/g, '');
   const num = parseFloat(cleaned);

@@ -74,8 +74,8 @@ export class AadhaarExtractor implements Extractor {
     }
 
     const dobPatterns = [
-      /(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|जन्म\s*तिथि)\s*[:\n]?\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4}|\d{4})/i,
-      /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/,
+      /(?:DOB|Date\s*of\s*Birth|Year\s*of\s*Birth|जन्म\s*तिथि)\s*[:\n]?\s*(\d{2}[/-]\d{2}[/-]\d{4}|\d{4})/i,
+      /(\d{2}[/-]\d{2}[/-]\d{4})/,
     ];
 
     for (const pattern of dobPatterns) {

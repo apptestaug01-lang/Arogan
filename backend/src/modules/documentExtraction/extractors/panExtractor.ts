@@ -110,8 +110,8 @@ export class PanCardExtractor implements Extractor {
     }
 
     const dobPatterns = [
-      /(?:DOB|Date\s*of\s*Birth|Birth)\s*[:\n]*\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
-      /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/,
+      /(?:DOB|Date\s*of\s*Birth|Birth)\s*[:\n]*\s*(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      /(\d{2}[/-]\d{2}[/-]\d{4})/,
     ];
 
     for (const pattern of dobPatterns) {
@@ -128,8 +128,8 @@ export class PanCardExtractor implements Extractor {
     }
 
     const issuePatterns = [
-      /(?:Issue\s*Date|Generated\s*on)[:\s]*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
-      /(?:yr|on)\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
+      /(?:Issue\s*Date|Generated\s*on)[:\s]*(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      /(?:yr|on)\s*(\d{2}[/-]\d{2}[/-]\d{4})/i,
     ];
 
     for (const pattern of issuePatterns) {

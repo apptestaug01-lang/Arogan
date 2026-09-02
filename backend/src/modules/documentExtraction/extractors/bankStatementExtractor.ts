@@ -60,8 +60,8 @@ export class BankStatementExtractor implements Extractor {
     }
 
     const periodPatterns = [
-      /(?:Period|Statement\s*Period|From|Date\s*Range)\s*[:\n]?\s*([\d\/\-\s]+\s*(?:to|-)\s*[\d\/\-\s]+)/i,
-      /(?:(\d{2}[\/\-]\d{2}[\/\-]\d{4})\s*(?:to|-)\s*(\d{2}[\/\-]\d{2}[\/\-]\d{4}))/,
+      /(?:Period|Statement\s*Period|From|Date\s*Range)\s*[:\n]?\s*([\d/-\s]+\s*(?:to|-)\s*[\d/-\s]+)/i,
+      /(?:(\d{2}[/-]\d{2}[/-]\d{4})\s*(?:to|-)\s*(\d{2}[/-]\d{2}[/-]\d{4}))/,
     ];
 
     for (const pattern of periodPatterns) {
@@ -105,11 +105,11 @@ export class BankStatementExtractor implements Extractor {
   }
 
   private calculateMonths(period: string): number {
-    const dateMatch = period.match(/(\d{2}[\/\-]\d{2}[\/\-]\d{4}).*?(\d{2}[\/\-]\d{2}[\/\-]\d{4})/);
+    const dateMatch = period.match(/(\d{2}[/-]\d{2}[/-]\d{4}).*?(\d{2}[/-]\d{2}[/-]\d{4})/);
     if (!dateMatch) return 0;
 
-    const startStr = dateMatch[1].replace(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/, '$2/$1/$3');
-    const endStr = dateMatch[2].replace(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/, '$2/$1/$3');
+    const startStr = dateMatch[1].replace(/(\d{2})[/-](\d{2})[/-](\d{4})/, '$2/$1/$3');
+    const endStr = dateMatch[2].replace(/(\d{2})[/-](\d{2})[/-](\d{4})/, '$2/$1/$3');
     const start = new Date(startStr);
     const end = new Date(endStr);
 

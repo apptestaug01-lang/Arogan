@@ -96,9 +96,9 @@ export class OcrTextExtractor {
     }
 
     const dobPatterns = [
-      /(?:DOB|Date\s*of\s*Birth|जन्म\s*तिथि)[:\s]+(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
+      /(?:DOB|Date\s*of\s*Birth|जन्म\s*तिथि)[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
       /(?:Year\s*of\s*Birth|YOB)[:\s]+(\d{4})/i,
-      /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/,
+      /(\d{2}[/-]\d{2}[/-]\d{4})/,
     ];
 
     for (const pattern of dobPatterns) {
@@ -127,7 +127,7 @@ export class OcrTextExtractor {
       person.father_name = fatherMatch[1].trim();
     }
 
-    const enrolmentMatch = text.match(/Enrolment\s*No[:\s]+([\d\/]+)/i);
+    const enrolmentMatch = text.match(/Enrolment\s*No[:\s]+([\d/]+)/i);
     if (enrolmentMatch) {
       person.enrolment_number = enrolmentMatch[1];
     }
@@ -177,8 +177,8 @@ export class OcrTextExtractor {
     }
 
     const dobPatterns = [
-      /(?:Date\s*of\s*Birth|DOB|Birth)[:\s\n]+(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
-      /(\d{2}[\/\-]\d{2}[\/\-]\d{4})/,
+      /(?:Date\s*of\s*Birth|DOB|Birth)[:\s\n]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      /(\d{2}[/-]\d{2}[/-]\d{4})/,
     ];
 
     for (const pattern of dobPatterns) {
@@ -194,12 +194,12 @@ export class OcrTextExtractor {
       person.father_name = fatherMatch[1].trim();
     }
 
-    const generationMatch = text.match(/Generated\s*on[:\s]+(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+    const generationMatch = text.match(/Generated\s*on[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i);
     if (generationMatch) {
       person.generation_date = generationMatch[1];
     }
 
-    const issueMatch = text.match(/Issue\s*Date[:\s]+(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i);
+    const issueMatch = text.match(/Issue\s*Date[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i);
     if (issueMatch) {
       person.issue_date = issueMatch[1];
     }
