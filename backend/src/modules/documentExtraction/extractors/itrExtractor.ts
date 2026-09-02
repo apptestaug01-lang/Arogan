@@ -1,23 +1,10 @@
 import { ExtractedField } from '../types.js';
 import { Extractor } from './panExtractor.js';
 
-const cleanValue = (value: string): string => value.replace(/\s+/g, ' ').trim();
-
-const parseAmount = (value: string): number | null => {
+const parseNumber = (value: string): number | null => {
   const cleaned = value.replace(/[₹,\s]/g, '');
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
-};
-
-const convertToCrores = (value: string, unit: string): number | null => {
-  const num = parseAmount(value);
-  if (num === null) return null;
-
-  const lowerUnit = unit.toLowerCase();
-  if (lowerUnit.includes('crore') || lowerUnit.includes('cr')) return num;
-  if (lowerUnit.includes('lakh') || lowerUnit.includes('lac')) return num / 100;
-  if (lowerUnit.includes('thousand')) return num / 10000;
-  return num / 10000000;
 };
 
 export class ItrExtractor implements Extractor {
@@ -34,9 +21,11 @@ export class ItrExtractor implements Extractor {
 
     const assessmentYears: string[] = [];
     for (const pattern of ayPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        assessmentYears.push(match[1]);
+      const matches = text.matchAll(new RegExp(pattern.source, pattern.flags + 'g'));
+      for (const match of matches) {
+        if (match[1]) {
+          assessmentYears.push(match[1]);
+        }
       }
     }
     if (assessmentYears.length > 0) {
@@ -47,60 +36,110 @@ export class ItrExtractor implements Extractor {
       };
     }
 
-    const turnoverPatterns = [
-      /(?:Gross\s*Turnover|Total\s*Turnover| Revenue)\s*[:\n]?\s*₹?\s*([\d,.\s]+)\s*(Crore|Lakh|Cr|Lac|Thousand)?/i,
-      /(?:Income|Gross\s*Receipts)\s*[:\n]?\s*₹?\s*([\d,.\s]+)\s*(Crore|Lakh|Cr|Lac)?/i,
-    ];
+    const lines = text.split('\n');
+    let inPnLSheet = false;
+    let inBSSheet = false;
 
-    const turnoverValues: { year: string; value: number }[] = [];
-    for (const pattern of turnoverPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        const value = convertToCrores(match[1], match[2] || '');
-        if (value !== null) {
-          turnoverValues.push({ year: '', value });
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (line.includes('=== Sheet:')) {
+        const sheetName = line.replace('=== Sheet:', '').trim();
+        inPnLSheet = sheetName.includes('P&L') || sheetName.includes('PNL');
+        inBSSheet = sheetName.includes('BS') && !sheetName.includes('TBS');
+      }
+
+      if (inPnLSheet) {
+        const turnoverPatterns = [
+          /Revenue\s*from\s*Operations[:\s]*(\d[\d,.]+)/i,
+          /Total\s*Income[:\s]*(\d[\d,.]+)/i,
+          /SALES\s*ACCOUNTS[:\s]*(\d[\d,.]+)/i,
+          /Sales[:\s]*(\d[\d,.]+)/i,
+        ];
+
+        for (const pattern of turnoverPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            const value = parseNumber(match[1]);
+            if (value !== null && value > 100) {
+              fields.turnoverY1 = {
+                value: value.toString(),
+                confidence: 0.9,
+                source: fileName,
+                raw: match[0],
+              };
+            }
+          }
+        }
+
+        const profitPatterns = [
+          /Profit\s*before\s*tax[:\s]*(\d[\d,.]+)/i,
+          /Profit\s*After\s*Tax[:\s]*(\d[\d,.]+)/i,
+          /Net\s*Profit[:\s]*(\d[\d,.]+)/i,
+          /PAT[:\s]*(\d[\d,.]+)/i,
+        ];
+
+        for (const pattern of profitPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            const value = parseNumber(match[1]);
+            if (value !== null && Math.abs(value) > 1) {
+              fields.profitY1 = {
+                value: value.toString(),
+                confidence: 0.85,
+                source: fileName,
+                raw: match[0],
+              };
+            }
+          }
+        }
+      }
+
+      if (inBSSheet) {
+        const netWorthPatterns = [
+          /Shareholders?.*?Funds?[:\s]*(\d[\d,.]+)/i,
+          /Total\s*Equity[:\s]*(\d[\d,.]+)/i,
+          /Net\s*Worth[:\s]*(\d[\d,.]+)/i,
+        ];
+
+        for (const pattern of netWorthPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            const value = parseNumber(match[1]);
+            if (value !== null && value > 100) {
+              fields.netWorth = {
+                value: value.toString(),
+                confidence: 0.8,
+                source: fileName,
+                raw: match[0],
+              };
+            }
+          }
         }
       }
     }
-    if (turnoverValues.length >= 2) {
-      fields.turnoverY1 = {
-        value: turnoverValues[0].value.toString(),
-        confidence: 0.8,
-        source: fileName,
-      };
-      fields.turnoverY2 = {
-        value: turnoverValues[1].value.toString(),
-        confidence: 0.8,
-        source: fileName,
-      };
-    }
 
-    const profitPatterns = [
-      /(?:Net\s*Profit|Profit\s*After\s*Tax|PAT|Total\s*Income)\s*[:\n]?\s*₹?\s*([\d,.\s]+)\s*(Crore|Lakh|Cr|Lac|Thousand)?/i,
-      /(?:Taxable\s*Income|Total\s*Income)\s*[:\n]?\s*₹?\s*([\d,.\s]+)\s*(Crore|Lakh)?/i,
-    ];
+    if (!fields.turnoverY1) {
+      const salesPatterns = [
+        /SALES\s*ACCOUNTS\s*\d+\s+\w+\s+\d+\s+\w+\s+([\d,.]+)/i,
+        /DOMESTIC\s*SALES\s*\d+\s+\w+\s+\d+\s+\w+\s+([\d,.]+)/i,
+      ];
 
-    const profitValues: number[] = [];
-    for (const pattern of profitPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        const value = convertToCrores(match[1], match[2] || '');
-        if (value !== null) {
-          profitValues.push(value);
+      for (const pattern of salesPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const value = parseNumber(match[1]);
+          if (value !== null && value > 1000) {
+            fields.turnoverY1 = {
+              value: value.toString(),
+              confidence: 0.8,
+              source: fileName,
+              raw: match[0],
+            };
+            break;
+          }
         }
       }
-    }
-    if (profitValues.length >= 2) {
-      fields.profitY1 = {
-        value: profitValues[0].toString(),
-        confidence: 0.75,
-        source: fileName,
-      };
-      fields.profitY2 = {
-        value: profitValues[1].toString(),
-        confidence: 0.75,
-        source: fileName,
-      };
     }
 
     const panMatch = text.match(/[A-Z]{5}[0-9]{4}[A-Z]/);
@@ -113,16 +152,17 @@ export class ItrExtractor implements Extractor {
     }
 
     const namePatterns = [
-      /(?:Name\s*of\s*Assessee|Taxpayer\s*Name|Name)\s*[:\n]\s*([^\n]+)/i,
-      /(?:Assesse|Tax\s*Payer)\s*[:\n]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
+      /Name\s*of\s*Company[:\s]+([A-Za-z\s]+)/i,
+      /Company[:\s]+([A-Za-z\s]+)/i,
+      /M\/S\s+([A-Za-z\s]+)/i,
     ];
 
     for (const pattern of namePatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
-        const name = cleanValue(match[1]);
-        if (name.length > 3) {
-          fields.fullName = {
+        const name = match[1].trim();
+        if (name.length > 2) {
+          fields.companyName = {
             value: name,
             confidence: 0.85,
             source: fileName,

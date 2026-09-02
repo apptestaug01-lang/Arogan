@@ -1,5 +1,5 @@
 import { ParsedDocument } from '../types.js';
-import { PdfParser } from './pdfParser.js';
+import { PdfParser, TesseractOcrEngine } from './pdfParser.js';
 import { ImageParser, OcrEngine } from './imageParser.js';
 import { DocxParser, XlsxParser } from './officeParser.js';
 
@@ -12,8 +12,9 @@ export class ParserRegistry {
   private parsers: DocumentParser[] = [];
 
   constructor(ocrEngine?: OcrEngine) {
-    this.parsers.push(new PdfParser());
-    this.parsers.push(new ImageParser(ocrEngine));
+    const tesseractEngine = new TesseractOcrEngine();
+    this.parsers.push(new PdfParser(tesseractEngine));
+    this.parsers.push(new ImageParser(ocrEngine || tesseractEngine));
     this.parsers.push(new DocxParser());
     this.parsers.push(new XlsxParser());
   }
@@ -24,5 +25,5 @@ export class ParserRegistry {
 
   getSupportedTypes(): string[] {
     return this.parsers.flatMap((p) => p.supportedTypes);
-  }
+  };
 }

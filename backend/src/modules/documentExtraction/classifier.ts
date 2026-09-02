@@ -76,15 +76,31 @@ export const DOCUMENT_TYPE_PATTERNS: DocumentTypePattern[] = [
   },
   {
     type: 'BALANCE_SHEET',
-    keywords: ['balance sheet', 'financial statement', 'assets', 'liabilities', 'equity'],
+    keywords: ['balance sheet', 'financial statement', 'assets', 'liabilities', 'equity', 'trial balance', 'p&l', 'profit and loss', 'pnl'],
     patterns: [
       /Balance\s*Sheet/i,
       /Total\s*Assets/i,
       /Total\s*Liabilities/i,
       /Net\s*Worth/i,
       /Financial\s*Statement/i,
+      /P&L/i,
+      /Profit\s*and\s*Loss/i,
+      /BALANCE\s*SHEET/i,
+      /PROFIT\s*AND\s*LOSS/i,
     ],
-    fields: ['netWorth', 'existingDebt', 'turnover', 'profit'],
+    fields: ['netWorth', 'existingDebt', 'turnover', 'profit', 'turnoverY1', 'turnoverY2', 'profitY1', 'profitY2'],
+    step: 'financials',
+  },
+  {
+    type: 'ITR',
+    keywords: ['income tax return', 'itr', 'assessment year', 'acknowledgement'],
+    patterns: [
+      /Income\s*Tax\s*Return/i,
+      /Assessment\s*Year/i,
+      /AY\s*\d{4}-\d{2}/i,
+      /Acknowledgement/i,
+    ],
+    fields: ['turnover', 'profit', 'itrYears', 'pan', 'fullName'],
     step: 'financials',
   },
   {
