@@ -1,8 +1,7 @@
 import pdf from 'pdf-parse';
-import { mkdtemp, writeFile, unlink, rm, access, stat } from 'fs/promises';
+import { mkdtemp, writeFile, unlink, rm, stat } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { constants } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { ParsedDocument, PageContent } from '../types.js';
 
@@ -12,13 +11,28 @@ export interface OcrEngine {
 
 export class TesseractOcrEngine implements OcrEngine {
   async recognize(imagePath: string): Promise<{ text: string; confidence: number }> {
-    const Tesseract = await import('tesseract.js');
-    const worker = await Tesseract.createWorker('eng');
+    const sharp = await import('sharp');
+
+    const processedPath = imagePath.replace('.png', '-processed.png');
+
     try {
-      const { data } = await worker.recognize(imagePath);
-      return { text: data.text, confidence: data.confidence / 100 };
+      await sharp.default(imagePath)
+        .grayscale()
+        .threshold(128)
+        .png()
+        .toFile(processedPath);
+
+      const Tesseract = await import('tesseract.js');
+      const worker = await Tesseract.createWorker('eng');
+
+      try {
+        const { data } = await worker.recognize(processedPath);
+        return { text: data.text, confidence: data.confidence / 100 };
+      } finally {
+        await worker.terminate();
+      }
     } finally {
-      await worker.terminate();
+      await rm(processedPath, { force: true });
     }
   }
 }
@@ -33,6 +47,9 @@ async function findPdftoppm(): Promise<string> {
   ];
 
   for (const path of possiblePaths) {
+    if (path === 'pdftoppm') {
+      return path;
+    }
     try {
       await stat(path);
       return path;
@@ -51,7 +68,7 @@ async function convertPdfToImages(pdfPath: string): Promise<{ imagePath: string;
   const pdftoppmPath = await findPdftoppm();
 
   return new Promise((resolve, reject) => {
-    const args = ['-png', '-r', '200', pdfPath, outputPrefix];
+    const args = ['-png', '-r', '300', pdfPath, outputPrefix];
     const proc: ChildProcess = spawn(pdftoppmPath, args);
 
     let stderr = '';
@@ -68,7 +85,7 @@ async function convertPdfToImages(pdfPath: string): Promise<{ imagePath: string;
       for (let i = 1; i <= 10; i++) {
         const imagePath = `${outputPrefix}-${i}.png`;
         try {
-          await access(imagePath, constants.R_OK);
+          await stat(imagePath);
           results.push({
             imagePath,
             cleanup: async () => {
