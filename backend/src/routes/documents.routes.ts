@@ -12,6 +12,7 @@ import {
 import { listExplorer } from '../services/explorer.service.js'
 import { getDocumentView } from '../services/viewer.service.js'
 import { linkDocument } from '../services/link.service.js'
+import { AutoFillService } from '../modules/documentExtraction/autoFillService.js'
 import {
   documentPresignSchema,
   documentCompleteSchema,
@@ -163,6 +164,22 @@ router.get(
         documentId: req.params.documentId,
       })
       sendSuccess(res, 'View URL issued', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+const autoFillService = new AutoFillService()
+
+router.post(
+  '/:documentId/extract',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await autoFillService.extractFromDocument(req.user!.id, req.params.documentId)
+      sendSuccess(res, 'Document extracted', result)
     } catch (err) {
       next(err)
     }

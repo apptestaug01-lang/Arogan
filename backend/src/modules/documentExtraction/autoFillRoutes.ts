@@ -90,27 +90,4 @@ router.get(
   },
 );
 
-router.post(
-  '/documents/:documentId/extract',
-  authenticate,
-  async (req: Request, res: Response) => {
-    try {
-      const userId = (req as Request & { userId: string }).userId;
-      const { documentId } = req.params;
-
-      const result = await autoFillService.extractFromDocument(userId, documentId);
-
-      if (!result) {
-        res.status(404).json({ error: 'Document not found' });
-        return;
-      }
-
-      res.json(result);
-    } catch (error) {
-      console.error('Extraction error:', error);
-      res.status(500).json({ error: 'Document extraction failed' });
-    }
-  },
-);
-
 export default router;
