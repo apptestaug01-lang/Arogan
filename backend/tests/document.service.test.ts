@@ -41,10 +41,18 @@ jest.mock('../src/services/audit.service.js', () => ({
   logAuditEvent: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../src/services/storage.service.js', () => ({
+  createPresignedUploadUrl: jest.fn().mockResolvedValue('https://signed.url'),
+  headObject: jest.fn().mockResolvedValue({ size: 2048, checksum: 'abc123' }),
+  deleteObject: jest.fn().mockResolvedValue(undefined),
+  ensureBucket: jest.fn().mockResolvedValue(undefined),
+}));
+
 import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { prisma } from '../src/lib/prisma.js';
 import { logAuditEvent } from '../src/services/audit.service.js';
+import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket } from '../src/services/storage.service.js';
 import { presignDocument, completeDocument, deleteDocument, listUserDocuments, bulkDeleteDocuments } from '../src/services/document.service.js';
 import { buildDocumentKey } from '../src/utils/documentKey.js';
 
@@ -59,6 +67,9 @@ const PRESIGN_INPUT = {
 beforeEach(() => {
   // resetMocks clears factory implementations; re-establish them per test.
   (getSignedUrl as jest.Mock).mockResolvedValue('https://signed.url');
+  (createPresignedUploadUrl as jest.Mock).mockResolvedValue('https://signed.url');
+  (headObject as jest.Mock).mockResolvedValue({ size: 2048, checksum: 'abc123' });
+  (ensureBucket as jest.Mock).mockResolvedValue(undefined);
   (prisma.document.create as jest.Mock).mockResolvedValue({ id: 'doc-1' });
   (logAuditEvent as jest.Mock).mockResolvedValue(undefined);
 });
@@ -74,13 +85,12 @@ describe('presignDocument', () => {
     const expectedKey = buildDocumentKey('user-1', 'app-1', result.documentId, 'aadhar.pdf');
     expect(result.key).toBe(expectedKey);
 
-    const [client, command, options] = (getSignedUrl as jest.Mock).mock.calls[0];
-    expect(client).toBeInstanceOf(S3Client);
-    expect(command).toBeInstanceOf(PutObjectCommand);
-    expect(command.input.Key).toBe(expectedKey);
-    expect(command.input.ContentType).toBe('application/pdf');
-    expect(command.input.ContentLength).toBe(1024);
-    expect(options.expiresIn).toBe(900);
+    expect(createPresignedUploadUrl).toHaveBeenCalledWith(
+      expectedKey,
+      'application/pdf',
+      1024,
+      900,
+    );
 
     expect(logAuditEvent).toHaveBeenCalledWith(
       'DOCUMENT_PRESIGN',
@@ -109,13 +119,7 @@ describe('presignDocument', () => {
 
 describe('completeDocument', () => {
   it('records the document using storage metadata and marks it UPLOADED', async () => {
-    const client = new S3Client();
-    client.send.mockImplementation((cmd: unknown) => {
-      if (cmd instanceof HeadObjectCommand) {
-        return Promise.resolve({ ContentLength: 2048, ETag: '"abc123"' });
-      }
-      return Promise.resolve({});
-    });
+    (headObject as jest.Mock).mockResolvedValue({ size: 2048, checksum: 'abc123' });
 
     const result = await completeDocument({
       userId: 'user-1',
@@ -151,13 +155,7 @@ describe('completeDocument', () => {
   });
 
   it('fails when the uploaded object is missing from storage', async () => {
-    const client = new S3Client();
-    client.send.mockImplementation((cmd: unknown) => {
-      if (cmd instanceof HeadObjectCommand) {
-        return Promise.reject(new Error('NotFound'));
-      }
-      return Promise.resolve({});
-    });
+    (headObject as jest.Mock).mockRejectedValue(new Error('NotFound'));
 
     await expect(
       completeDocument({
@@ -175,14 +173,7 @@ describe('completeDocument', () => {
       id: 'doc-existing',
       originalName: 'aadhar.pdf',
     });
-
-    const client = new S3Client();
-    client.send.mockImplementation((cmd: unknown) => {
-      if (cmd instanceof HeadObjectCommand) {
-        return Promise.resolve({ ContentLength: 2048, ETag: '"abc123"' });
-      }
-      return Promise.resolve({});
-    });
+    (headObject as jest.Mock).mockResolvedValue({ size: 2048, checksum: 'abc123' });
 
     await expect(
       completeDocument({
@@ -228,7 +219,7 @@ describe('bulkDeleteDocuments', () => {
   beforeEach(() => {
     (prisma.document.findMany as jest.Mock).mockResolvedValue([OWNED]);
     (prisma.document.update as jest.Mock).mockResolvedValue({ id: 'doc-1', status: 'DELETED' });
-    (new S3Client() as any).send.mockImplementation(() => Promise.resolve({}));
+    (deleteObject as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('soft-deletes each owned document and removes the S3 object', async () => {
@@ -238,7 +229,7 @@ describe('bulkDeleteDocuments', () => {
       where: { id: 'doc-1' },
       data: { status: 'DELETED' },
     });
-    expect((new S3Client() as any).send).toHaveBeenCalled();
+    expect(deleteObject).toHaveBeenCalledWith(OWNED.s3Key);
   });
 
   it('returns early when no ids are supplied', async () => {
@@ -254,7 +245,7 @@ describe('deleteDocument', () => {
   beforeEach(() => {
     (prisma.document.findUnique as jest.Mock).mockResolvedValue(OWNER_DOC);
     (prisma.document.update as jest.Mock).mockResolvedValue({ id: 'doc-1', status: 'DELETED' });
-    (new S3Client() as any).send.mockImplementation(() => Promise.resolve({}));
+    (deleteObject as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('soft-deletes the document and deletes the S3 object', async () => {
@@ -264,7 +255,7 @@ describe('deleteDocument', () => {
       where: { id: 'doc-1' },
       data: { status: 'DELETED' },
     });
-    expect((new S3Client() as any).send).toHaveBeenCalled();
+    expect(deleteObject).toHaveBeenCalledWith(OWNER_DOC.s3Key);
     expect(result).toEqual({ id: 'doc-1', status: 'DELETED' });
   });
 

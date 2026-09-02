@@ -71,60 +71,60 @@ export async function ensureBucket(
       logger.error({ err: createErr instanceof Error ? createErr.message : String(createErr) }, '[Storage] Failed to create bucket')
       throw createErr
     }
-  }
 
-  // Best-effort hardening. Some S3-compatible backends may not implement BlockPublicAccess; treat
-  // that as a warning rather than a failure so the bucket stays usable.
-  try {
+    // Best-effort hardening. Some S3-compatible backends may not implement BlockPublicAccess; treat
+    // that as a warning rather than a failure so the bucket stays usable.
+    try {
+      await s3.send(
+        new PutPublicAccessBlockCommand({
+          Bucket: config.bucket,
+          PublicAccessBlockConfiguration: {
+            BlockPublicAcls: true,
+            IgnorePublicAcls: true,
+            BlockPublicPolicy: true,
+            RestrictPublicBuckets: true,
+          },
+        }),
+      )
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'PutPublicAccessBlock not supported by storage backend; ensure the bucket policy is private',
+      )
+    }
+
     await s3.send(
-      new PutPublicAccessBlockCommand({
+      new PutBucketCorsCommand({
         Bucket: config.bucket,
-        PublicAccessBlockConfiguration: {
-          BlockPublicAcls: true,
-          IgnorePublicAcls: true,
-          BlockPublicPolicy: true,
-          RestrictPublicBuckets: true,
-        },
+        CORSConfiguration: { CORSRules: CORS_RULES },
       }),
     )
-  } catch (err) {
-    logger.warn(
-      { err: err instanceof Error ? err.message : String(err) },
-      'PutPublicAccessBlock not supported by storage backend; ensure the bucket policy is private',
-    )
-  }
 
-  await s3.send(
-    new PutBucketCorsCommand({
-      Bucket: config.bucket,
-      CORSConfiguration: { CORSRules: CORS_RULES },
-    }),
-  )
-
-  // Best-effort cleanup: abort multipart uploads abandoned mid-flight so
-  // partial parts don't accrue. Some S3-compatible backends may not support lifecycle config;
-  // treat that as a warning rather than a failure.
-  try {
-    await s3.send(
-      new PutBucketLifecycleConfigurationCommand({
-        Bucket: config.bucket,
-        LifecycleConfiguration: {
-          Rules: [
-            {
-              ID: 'abort-incomplete-multipart-uploads',
-              Status: 'Enabled',
-              Filter: {},
-              AbortIncompleteMultipartUpload: { DaysAfterInitiation: MULTIPART_ABORT_DAYS },
-            },
-          ],
-        },
-      }),
-    )
-  } catch (err) {
-    logger.warn(
-      { err: err instanceof Error ? err.message : String(err) },
-      'Bucket lifecycle configuration not supported; incomplete multipart uploads need manual cleanup',
-    )
+    // Best-effort cleanup: abort multipart uploads abandoned mid-flight so
+    // partial parts don't accrue. Some S3-compatible backends may not support lifecycle config;
+    // treat that as a warning rather than a failure.
+    try {
+      await s3.send(
+        new PutBucketLifecycleConfigurationCommand({
+          Bucket: config.bucket,
+          LifecycleConfiguration: {
+            Rules: [
+              {
+                ID: 'abort-incomplete-multipart-uploads',
+                Status: 'Enabled',
+                Filter: {},
+                AbortIncompleteMultipartUpload: { DaysAfterInitiation: MULTIPART_ABORT_DAYS },
+              },
+            ],
+          },
+        }),
+      )
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'Bucket lifecycle configuration not supported; incomplete multipart uploads need manual cleanup',
+      )
+    }
   }
 }
 
