@@ -12,7 +12,6 @@ export interface OcrEngine {
 export class TesseractOcrEngine implements OcrEngine {
   async recognize(imagePath: string): Promise<{ text: string; confidence: number }> {
     const sharp = await import('sharp');
-
     const processedPath = imagePath.replace('.png', '-processed.png');
 
     try {
@@ -22,18 +21,29 @@ export class TesseractOcrEngine implements OcrEngine {
         .png()
         .toFile(processedPath);
 
-      const Tesseract = await import('tesseract.js');
-      const worker = await Tesseract.createWorker('eng');
-
-      try {
-        const { data } = await worker.recognize(processedPath);
-        return { text: data.text, confidence: data.confidence / 100 };
-      } finally {
-        await worker.terminate();
-      }
+      const text = await this.runTesseract(processedPath);
+      return { text, confidence: 0.7 };
     } finally {
       await rm(processedPath, { force: true });
     }
+  }
+
+  private async runTesseract(imagePath: string): Promise<string> {
+    const { spawn } = await import('child_process');
+    return new Promise<string>((resolve, reject) => {
+      const proc = spawn('tesseract', [imagePath, '-', '-l', 'eng'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      proc.on('error', (err: Error) => reject(err));
+      proc.on('close', (code: number) => {
+        if (code === 0) resolve(stdout);
+        else reject(new Error(`tesseract exited with code ${code}: ${stderr}`));
+      });
+    });
   }
 }
 

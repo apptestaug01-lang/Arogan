@@ -13,7 +13,11 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 
-RUN apk add --no-cache libc6-compat openssl git
+# poppler-utils: pdftoppm (PDF -> PNG rasterization) for OCR of scanned PDFs
+# tesseract-ocr:  OCR engine for extracting text from rasterized images
+# Without these, scanned PDFs (no embedded text) cannot be processed and the
+# vision LLM is also bypassed because the @cf/meta/llama-3.x models are text-only.
+RUN apk add --no-cache libc6-compat openssl git poppler-utils tesseract-ocr
 
 WORKDIR /app
 
