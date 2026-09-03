@@ -2,6 +2,9 @@ export interface ApplicationDraft {
   fullName: string;
   pan: string;
   aadhaar: string;
+  dateOfBirth: string;
+  gender: string;
+  father_name: string;
   email: string;
   mobile: string;
   address: string;
