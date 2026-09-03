@@ -26,24 +26,21 @@ export class XlsxParser {
   readonly supportedTypes = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel',
+    'application/vnd.ms-excel.sheet.binary.macroEnabled.12',
     'text/csv',
   ];
 
   async parse(body: Buffer, fileName: string, documentId: string): Promise<ParsedDocument> {
-    const lower = fileName.toLowerCase();
-    if (lower.endsWith('.xls') && !lower.endsWith('.xlsx')) {
-      throw new Error(
-        `Legacy .xls (BIFF) format is not supported. Please re-save the file as .xlsx (Office 2007+) and re-upload. File: ${fileName}`,
-      );
-    }
-
     const xlsx = await import('xlsx');
     let workbook;
     try {
-      workbook = xlsx.read(body, { type: 'buffer' });
+      workbook = xlsx.read(body, { type: 'buffer', cellDates: true, cellNF: false, cellText: false });
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       throw new Error(
-        `Failed to parse spreadsheet (${fileName}): ${e instanceof Error ? e.message : String(e)}. If this is a legacy .xls file, please re-save as .xlsx.`,
+        `Failed to parse spreadsheet (${fileName}): ${msg}. ` +
+          `Supported formats: .xlsx (OOXML), .xls (legacy BIFF8), .csv. ` +
+          `If the file is password-protected or corrupted, please re-save it in Excel and re-upload.`,
       );
     }
 
