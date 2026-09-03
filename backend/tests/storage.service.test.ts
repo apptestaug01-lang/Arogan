@@ -106,7 +106,7 @@ describe('ensureBucket', () => {
     expect(calledCommands).toContain(PutBucketCorsCommand);
   });
 
-  it('is idempotent and does nothing when the bucket already exists', async () => {
+  it('is idempotent and only updates CORS when the bucket already exists', async () => {
     const client = makeClient();
     client.send.mockResolvedValue({});
 
@@ -114,7 +114,7 @@ describe('ensureBucket', () => {
 
     const calledCommands = client.send.mock.calls.map((c) => c[0].constructor);
     expect(calledCommands).not.toContain(CreateBucketCommand);
-    expect(calledCommands).not.toContain(PutBucketCorsCommand);
+    expect(calledCommands).toContain(PutBucketCorsCommand);
   });
 
   it('tolerates an unsupported BlockPublicAccess call and still applies CORS', async () => {

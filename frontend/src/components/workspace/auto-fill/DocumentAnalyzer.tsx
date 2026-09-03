@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { ExtractedField } from '@/services/autoFill';
 import { CheckCircle2, AlertCircle, FileText, Loader2 } from 'lucide-react';
 
+export interface ExtractionProgress {
+  currentDocument: string;
+  currentIndex: number;
+  totalDocuments: number;
+  phase: 'reading' | 'parsing' | 'extracting' | 'done';
+}
+
 interface DocumentAnalyzerProps {
   extracting: boolean;
   extractedFields: Record<string, ExtractedField>;
@@ -11,6 +18,7 @@ interface DocumentAnalyzerProps {
   onAutoFill: () => void;
   onApplyField: (fieldName: string, value: string | number | boolean | string[]) => void;
   stepLabel: string;
+  progress?: ExtractionProgress | null;
 }
 
 function ConfidenceBadge({ confidence }: { confidence: number }) {
@@ -29,6 +37,43 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   );
 }
 
+function ProgressIndicator({ progress }: { progress: ExtractionProgress }) {
+  const phaseLabels: Record<ExtractionProgress['phase'], string> = {
+    reading: 'Reading from vault',
+    parsing: 'Parsing document',
+    extracting: 'Extracting fields',
+    done: 'Complete',
+  };
+
+  const percentage = progress.totalDocuments > 0
+    ? Math.round((progress.currentIndex / progress.totalDocuments) * 100)
+    : 0;
+
+  return (
+    <div className="border-t border-border bg-slate-50 p-4">
+      <div className="mb-2 flex items-center justify-between text-xs">
+        <span className="font-medium text-slate-700">
+          {phaseLabels[progress.phase]}
+        </span>
+        <span className="text-slate-500">
+          {progress.currentIndex}/{progress.totalDocuments}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full bg-primary-600 transition-all duration-300"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      {progress.currentDocument && (
+        <p className="mt-2 truncate text-xs text-slate-500">
+          {progress.currentDocument}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function DocumentAnalyzer({
   extracting,
   extractedFields,
@@ -37,8 +82,9 @@ export function DocumentAnalyzer({
   onAutoFill,
   onApplyField,
   stepLabel,
+  progress,
 }: DocumentAnalyzerProps) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(true);
 
   const fieldEntries = Object.entries(extractedFields);
   const hasResults = fieldEntries.length > 0 || unmatchedDocuments.length > 0;
@@ -69,7 +115,21 @@ export function DocumentAnalyzer({
         </Button>
       </div>
 
-      {hasResults && (
+      {extracting && progress && (
+        <div className="border-t border-border bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+            <span className="text-sm font-medium text-slate-700">
+              Reading documents from vault and extracting fields...
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            This may take a moment depending on the number and size of documents.
+          </p>
+        </div>
+      )}
+
+      {hasResults && !extracting && (
         <div className="border-t border-border">
           <button
             type="button"
@@ -77,7 +137,7 @@ export function DocumentAnalyzer({
             onClick={() => setExpanded(!expanded)}
           >
             <span>
-              {fieldEntries.length} field(s) extracted, {unmatchedDocuments.length} unmatched document(s)
+              ✓ {fieldEntries.length} field(s) extracted, {unmatchedDocuments.length} unmatched document(s)
             </span>
             <span>{expanded ? '▲' : '▼'}</span>
           </button>

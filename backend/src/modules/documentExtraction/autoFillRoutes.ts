@@ -1,75 +1,75 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Router, Response, NextFunction } from 'express';
 import { AutoFillService } from './autoFillService.js';
 import { WizardStep } from './types.js';
+import { authMiddleware, requireAuth, AuthenticatedRequest } from '../../middleware/authMiddleware.js';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 const autoFillService = new AutoFillService();
 
 const VALID_STEPS: WizardStep[] = ['kyc', 'business', 'financials', 'loan'];
 
-const authenticate = async (req: Request, res: Response, next: NextFunction) => {
-  const userId = req.headers['x-user-id'] as string;
-  if (!userId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-  (req as Request & { userId: string }).userId = userId;
-  next();
-};
+router.post(
+  '/:applicationId/extract-all',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { applicationId } = req.params;
+      const result = await autoFillService.extractAllDocuments(req.user!.id, applicationId);
+      res.setHeader('X-Extraction-Status', result.cacheStatus);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 router.post(
   '/:applicationId/autofill',
-  authenticate,
-  async (req: Request, res: Response) => {
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = (req as Request & { userId: string }).userId;
       const { applicationId } = req.params;
       const { step, documentIds } = req.body;
 
       if (!step || !VALID_STEPS.includes(step)) {
         res.status(400).json({
-          error: 'Invalid step. Must be one of: kyc, business, financials, loan',
+          success: false,
+          message: 'Invalid step. Must be one of: kyc, business, financials, loan',
         });
         return;
       }
 
-      const application = await prisma.application.findFirst({
-        where: { id: applicationId, userId },
-      });
-
-      if (!application) {
-        res.status(404).json({ error: 'Application not found' });
-        return;
-      }
-
-      const result = await autoFillService.autoFillStep(
-        userId,
+      const { data, cacheStatus } = await autoFillService.autoFillStep(
+        req.user!.id,
         applicationId,
         step,
         documentIds,
       );
 
-      res.json(result);
+      res.setHeader('X-Extraction-Status', cacheStatus);
+      res.json({ success: true, data });
     } catch (error) {
-      console.error('Auto-fill error:', error);
-      res.status(500).json({ error: 'Auto-fill processing failed' });
+      next(error);
     }
   },
 );
 
 router.get(
   '/:applicationId/autofill/status',
-  authenticate,
-  async (req: Request, res: Response) => {
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = (req as Request & { userId: string }).userId;
-      const { applicationId } = req.params;
-
+      const { prisma } = await import('../../lib/prisma.js');
       const documents = await prisma.document.findMany({
-        where: { userId, applicationId, status: { not: 'DELETED' } },
+        where: {
+          userId: req.user!.id,
+          applicationId: req.params.applicationId,
+          status: { not: 'DELETED' },
+        },
         select: {
           id: true,
           originalName: true,
@@ -78,14 +78,29 @@ router.get(
         },
       });
 
+      const documentIds = documents.map((d) => d.id);
+      const extractions = documentIds.length
+        ? await prisma.documentExtraction.findMany({
+            where: { documentId: { in: documentIds } },
+            select: { documentId: true, status: true, documentType: true, modelUsed: true, extractedAt: true, updatedAt: true },
+          })
+        : [];
+      const extractionByDoc = new Map(extractions.map((e) => [e.documentId, e]));
+
       res.json({
-        applicationId,
-        documents,
-        totalDocuments: documents.length,
+        success: true,
+        data: {
+          applicationId: req.params.applicationId,
+          documents: documents.map((d) => ({
+            ...d,
+            extraction: extractionByDoc.get(d.id) ?? null,
+          })),
+          totalDocuments: documents.length,
+          extractedCount: extractions.filter((e) => e.status === 'completed').length,
+        },
       });
     } catch (error) {
-      console.error('Status check error:', error);
-      res.status(500).json({ error: 'Failed to fetch status' });
+      next(error);
     }
   },
 );

@@ -97,9 +97,28 @@ model Document {
   status        DocumentStatus @default(PENDING)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  extraction    DocumentExtraction?
 
   @@index([userId])
   @@index([applicationId])
+}
+
+model DocumentExtraction {
+  id           String   @id @default(cuid())
+  documentId   String   @unique
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentType String
+  rawText      String   @db.Text
+  pages        Json
+  fields       Json
+  status       String
+  error        String?
+  modelUsed    String?
+  extractedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([documentId])
+  @@index([status])
 }
 
 enum ApplicationStatus {

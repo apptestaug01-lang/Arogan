@@ -1,4 +1,5 @@
 import { DocumentType, DocumentTypePattern, WizardStep } from './types.js';
+import { FIELD_SOURCES, getFieldsForStep as getFieldsForStepFromMap } from './fieldSources.js';
 
 export const DOCUMENT_TYPE_PATTERNS: DocumentTypePattern[] = [
   {
@@ -169,15 +170,18 @@ export function classifyDocument(fileName: string, text: string): { type: Docume
 }
 
 export function getFieldsForStep(step: WizardStep): string[] {
-  const fields: string[] = [];
-  for (const pattern of DOCUMENT_TYPE_PATTERNS) {
-    if (pattern.step === step) {
-      fields.push(...pattern.fields);
-    }
-  }
-  return [...new Set(fields)];
+  return getFieldsForStepFromMap(step);
 }
 
 export function getDocumentTypesForStep(step: WizardStep): DocumentType[] {
-  return DOCUMENT_TYPE_PATTERNS.filter((p) => p.step === step).map((p) => p.type);
+  const types = new Set<DocumentType>();
+  for (const sources of Object.values(FIELD_SOURCES)) {
+    for (const t of sources) {
+      const isInStep = Object.entries(FIELD_SOURCES).some(
+        ([field, src]) => src.includes(t) && getFieldsForStepFromMap(step as WizardStep).includes(field),
+      );
+      if (isInStep) types.add(t);
+    }
+  }
+  return Array.from(types);
 }

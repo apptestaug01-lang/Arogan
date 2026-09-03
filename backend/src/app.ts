@@ -104,8 +104,8 @@ async function checkDatabaseHealth(): Promise<boolean> {
 app.use('/api/auth', authRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/documents', documentsRouter);
-app.use('/api/applications', applicationsRouter);
 app.use('/api/applications', autoFillRouter);
+app.use('/api/applications', applicationsRouter);
 
 app.use(notFound);
 app.use(errorHandler);

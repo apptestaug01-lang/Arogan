@@ -54,7 +54,7 @@ export async function ensureBucket(
   config: StorageConfig = getStorageConfig(),
 ): Promise<void> {
   logger.info('[Storage] Ensuring bucket exists: ' + config.bucket + ' at endpoint: ' + config.endpoint)
-  
+
   const bucketExists = await s3.send(new HeadBucketCommand({ Bucket: config.bucket }))
     .then(() => true)
     .catch((err) => {
@@ -93,13 +93,6 @@ export async function ensureBucket(
       )
     }
 
-    await s3.send(
-      new PutBucketCorsCommand({
-        Bucket: config.bucket,
-        CORSConfiguration: { CORSRules: CORS_RULES },
-      }),
-    )
-
     // Best-effort cleanup: abort multipart uploads abandoned mid-flight so
     // partial parts don't accrue. Some S3-compatible backends may not support lifecycle config;
     // treat that as a warning rather than a failure.
@@ -125,6 +118,22 @@ export async function ensureBucket(
         'Bucket lifecycle configuration not supported; incomplete multipart uploads need manual cleanup',
       )
     }
+  }
+
+  // Always update CORS rules to ensure local development works
+  try {
+    await s3.send(
+      new PutBucketCorsCommand({
+        Bucket: config.bucket,
+        CORSConfiguration: { CORSRules: CORS_RULES },
+      }),
+    )
+    logger.info('[Storage] CORS rules updated')
+  } catch (err) {
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      'Failed to update CORS rules',
+    )
   }
 }
 

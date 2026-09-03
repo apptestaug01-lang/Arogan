@@ -8,6 +8,8 @@ export interface ExtractedField {
   raw?: string;
 }
 
+export type CacheStatus = 'cached' | 'live' | 'mixed';
+
 export interface AutoFillResult {
   step: 'kyc' | 'business' | 'financials' | 'loan';
   extractedFields: Record<string, ExtractedField>;
@@ -15,45 +17,65 @@ export interface AutoFillResult {
   missingFields: string[];
 }
 
-export interface ExtractionResult {
-  documentId: string;
-  fileName: string;
-  documentType: string;
-  fields: Record<string, ExtractedField>;
-  rawText: string;
+export interface ExtractAllResult {
+  documents: Array<{
+    documentId: string;
+    fileName: string;
+    documentType: string;
+    status: 'processing' | 'completed' | 'error';
+    modelUsed?: string;
+    error?: string;
+  }>;
+  extractedFields: Record<string, ExtractedField>;
+  fieldsByStep: Record<string, Record<string, ExtractedField>>;
+  totalDocuments: number;
+  processedDocuments: number;
+  cacheStatus: CacheStatus;
+}
+
+export interface AutoFillResponse {
+  data: AutoFillResult;
+  cacheStatus: CacheStatus;
+}
+
+export async function extractAllDocuments(applicationId: string): Promise<ExtractAllResult> {
+  const res = await api.post(`/applications/${applicationId}/extract-all`);
+  const cacheStatus = (res.headers['x-extraction-status'] as CacheStatus) ?? 'live';
+  return { ...res.data.data, cacheStatus };
 }
 
 export async function autoFillStep(
   applicationId: string,
   step: string,
   documentIds?: string[],
-): Promise<AutoFillResult> {
-  const { data } = await api.post(`/applications/${applicationId}/autofill`, {
+): Promise<AutoFillResponse> {
+  const res = await api.post(`/applications/${applicationId}/autofill`, {
     step,
     documentIds,
   });
-  return data.data;
+  const cacheStatus = (res.headers['x-extraction-status'] as CacheStatus) ?? 'live';
+  return { data: res.data.data, cacheStatus };
 }
 
-export async function getAutoFillStatus(
-  applicationId: string,
-): Promise<{
+export async function getAutoFillStatus(applicationId: string): Promise<{
   applicationId: string;
   documents: Array<{
     id: string;
     originalName: string;
     contentType: string;
     createdAt: string;
+    extraction: {
+      documentId: string;
+      status: string;
+      documentType: string;
+      modelUsed: string | null;
+      extractedAt: string;
+      updatedAt: string;
+    } | null;
   }>;
   totalDocuments: number;
+  extractedCount: number;
 }> {
   const { data } = await api.get(`/applications/${applicationId}/autofill/status`);
-  return data.data;
-}
-
-export async function extractDocument(
-  documentId: string,
-): Promise<ExtractionResult> {
-  const { data } = await api.post(`/documents/${documentId}/extract`);
   return data.data;
 }

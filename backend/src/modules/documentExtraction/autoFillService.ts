@@ -1,86 +1,173 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getStorageConfig } from '../../config/storage.config.js';
 import { PrismaClient } from '@prisma/client';
-import { ParserRegistry } from './parsers/index.js';
-import { OcrEngine } from './parsers/imageParser.js';
-import { ExtractorRegistry } from './extractors/index.js';
-import { classifyDocument, getFieldsForStep } from './classifier.js';
+import { ExtractionPipeline, PipelineResult } from './extractionPipeline.js';
 import {
   AutoFillResult,
   ExtractedField,
-  ExtractionResult,
-  ParsedDocument,
   WizardStep,
 } from './types.js';
+import {
+  FIELD_SOURCES,
+  getFieldsForStep,
+  getStepForField,
+  isKnownField,
+} from './fieldSources.js';
 
 const prisma = new PrismaClient();
 
+export interface ExtractAllResult {
+  documents: Array<{
+    documentId: string;
+    fileName: string;
+    documentType: string;
+    status: 'processing' | 'completed' | 'error';
+    modelUsed?: string;
+    error?: string;
+  }>;
+  extractedFields: Record<string, ExtractedField>;
+  fieldsByStep: Record<WizardStep, Record<string, ExtractedField>>;
+  totalDocuments: number;
+  processedDocuments: number;
+  cacheStatus: 'cached' | 'live' | 'mixed';
+}
+
 export class AutoFillService {
-  private parserRegistry: ParserRegistry;
-  private extractorRegistry: ExtractorRegistry;
-  private s3Client: S3Client;
-  private bucket: string;
-
-  constructor(ocrEngine?: OcrEngine) {
-    this.parserRegistry = new ParserRegistry(ocrEngine);
-    this.extractorRegistry = new ExtractorRegistry();
-
-    const config = getStorageConfig();
-    const protocol = config.useSsl ? 'https' : 'http';
-    this.s3Client = new S3Client({
-      endpoint: `${protocol}://${config.endpoint}:${config.port}`,
-      region: config.region,
-      credentials: {
-        accessKeyId: config.accessKey,
-        secretAccessKey: config.secretKey,
-      },
-      forcePathStyle: true,
-      requestChecksumCalculation: 'WHEN_REQUIRED',
-    });
-    this.bucket = config.bucket;
-  }
+  constructor(private pipeline: ExtractionPipeline = new ExtractionPipeline(prisma)) {}
 
   async autoFillStep(
     userId: string,
     applicationId: string,
     step: WizardStep,
     documentIds?: string[],
-  ): Promise<AutoFillResult> {
-    const documents = await this.getDocuments(userId, applicationId, documentIds);
-    const extractionResults: ExtractionResult[] = [];
-
-    for (const doc of documents) {
-      try {
-        const parsed = await this.retrieveAndParse(doc.s3Key, doc.originalName, doc.id);
-        const extraction = this.extractFields(parsed, doc.originalName);
-        extractionResults.push(extraction);
-      } catch (error) {
-        console.error(`Failed to process document ${doc.id}:`, error);
-      }
+  ): Promise<{ data: AutoFillResult; cacheStatus: 'cached' | 'live' | 'mixed' }> {
+    const docs = await this.getDocuments(userId, applicationId, documentIds);
+    if (docs.length === 0) {
+      return {
+        data: { step, extractedFields: {}, unmatchedDocuments: [], missingFields: getFieldsForStep(step) },
+        cacheStatus: 'cached',
+      };
     }
 
-    return this.mergeExtractions(extractionResults, step);
+    const results = await this.pipeline.processMany(
+      docs.map((d) => ({ id: d.id, s3Key: d.s3Key, originalName: d.originalName })),
+    );
+
+    return {
+      data: this.mergeForStep(results, step),
+      cacheStatus: this.summarizeCacheStatus(results),
+    };
   }
 
   async extractFromDocument(
     userId: string,
     documentId: string,
-  ): Promise<ExtractionResult | null> {
+  ): Promise<Record<string, ExtractedField> | null> {
     const doc = await prisma.document.findFirst({
       where: { id: documentId, userId, status: { not: 'DELETED' } },
+      select: { id: true, s3Key: true, originalName: true },
     });
-
     if (!doc) return null;
-
-    const parsed = await this.retrieveAndParse(doc.s3Key, doc.originalName, doc.id);
-    return this.extractFields(parsed, doc.originalName);
+    const result = await this.pipeline.processDocument({
+      id: doc.id,
+      s3Key: doc.s3Key,
+      originalName: doc.originalName,
+    });
+    return result.fields;
   }
 
-  private async getDocuments(
+  async extractAllDocuments(
     userId: string,
     applicationId: string,
-    documentIds?: string[],
-  ) {
+  ): Promise<ExtractAllResult> {
+    const docs = await this.getDocuments(userId, applicationId);
+    if (docs.length === 0) {
+      return {
+        documents: [],
+        extractedFields: {},
+        fieldsByStep: { kyc: {}, business: {}, financials: {}, loan: {} },
+        totalDocuments: 0,
+        processedDocuments: 0,
+        cacheStatus: 'cached',
+      };
+    }
+
+    const results = await this.pipeline.processMany(
+      docs.map((d) => ({ id: d.id, s3Key: d.s3Key, originalName: d.originalName })),
+    );
+
+    const allExtracted: Record<string, ExtractedField> = {};
+    const fieldsByStep: Record<WizardStep, Record<string, ExtractedField>> = {
+      kyc: {},
+      business: {},
+      financials: {},
+      loan: {},
+    };
+
+    for (const r of results) {
+      for (const [field, value] of Object.entries(r.fields)) {
+        if (!allExtracted[field] || value.confidence > allExtracted[field].confidence) {
+          allExtracted[field] = value;
+        }
+        const step = getStepForField(field);
+        if (step) {
+          if (!fieldsByStep[step][field] || value.confidence > fieldsByStep[step][field].confidence) {
+            fieldsByStep[step][field] = value;
+          }
+        }
+      }
+    }
+
+    return {
+      documents: results.map((r) => ({
+        documentId: r.documentId,
+        fileName: r.fileName,
+        documentType: r.documentType,
+        status: 'completed' as const,
+        modelUsed: r.modelUsed,
+      })),
+      extractedFields: allExtracted,
+      fieldsByStep,
+      totalDocuments: docs.length,
+      processedDocuments: results.length,
+      cacheStatus: this.summarizeCacheStatus(results),
+    };
+  }
+
+  private mergeForStep(results: PipelineResult[], step: WizardStep): AutoFillResult {
+    const targetFields = getFieldsForStep(step);
+    const extracted: Record<string, ExtractedField> = {};
+    const contributedFiles = new Set<string>();
+
+    for (const field of targetFields) {
+      const sources = FIELD_SOURCES[field] ?? [];
+      for (const sourceType of sources) {
+        const sourceResult = results.find((r) => r.documentType === sourceType);
+        if (sourceResult && sourceResult.fields[field]) {
+          extracted[field] = sourceResult.fields[field];
+          contributedFiles.add(sourceResult.fileName);
+          break;
+        }
+      }
+    }
+
+    const unmatched = results
+      .filter((r) => !contributedFiles.has(r.fileName) && r.fields && Object.keys(r.fields).length > 0)
+      .map((r) => r.fileName);
+
+    const missingFields = targetFields.filter((f) => !extracted[f]);
+
+    return { step, extractedFields: extracted, unmatchedDocuments: unmatched, missingFields };
+  }
+
+  private summarizeCacheStatus(results: PipelineResult[]): 'cached' | 'live' | 'mixed' {
+    if (results.length === 0) return 'cached';
+    const hasCached = results.some((r) => r.cacheStatus === 'cached');
+    const hasLive = results.some((r) => r.cacheStatus === 'live');
+    if (hasCached && hasLive) return 'mixed';
+    if (hasLive) return 'live';
+    return 'cached';
+  }
+
+  private async getDocuments(userId: string, applicationId: string, documentIds?: string[]) {
     return prisma.document.findMany({
       where: {
         userId,
@@ -88,92 +175,9 @@ export class AutoFillService {
         id: documentIds ? { in: documentIds } : undefined,
         status: { not: 'DELETED' },
       },
+      select: { id: true, s3Key: true, originalName: true, contentType: true },
     });
   }
-
-  private async retrieveAndParse(
-    key: string,
-    fileName: string,
-    documentId: string,
-  ): Promise<ParsedDocument> {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    const response = await this.s3Client.send(command);
-
-    if (!response.Body) {
-      throw new Error('Empty document body');
-    }
-
-    const chunks: Buffer[] = [];
-    const stream = response.Body as AsyncIterable<Uint8Array>;
-    for await (const chunk of stream) {
-      chunks.push(Buffer.from(chunk));
-    }
-    const body = Buffer.concat(chunks);
-
-    const contentType = response.ContentType || 'application/octet-stream';
-    const parser = this.parserRegistry.getParser(contentType);
-
-    if (!parser) {
-      throw new Error(`No parser for content type: ${contentType}`);
-    }
-
-    return parser.parse(body, fileName, documentId);
-  }
-
-  private extractFields(parsed: ParsedDocument, fileName: string): ExtractionResult {
-    const classification = classifyDocument(fileName, parsed.rawText);
-    const extractor = this.extractorRegistry.getExtractor(classification.type);
-
-    let fields: Record<string, ExtractedField> = {};
-    if (extractor) {
-      fields = extractor.extract(parsed.rawText, fileName);
-    }
-
-    return {
-      documentId: parsed.documentId,
-      fileName,
-      documentType: classification.type,
-      fields,
-      rawText: parsed.rawText,
-    };
-  }
-
-  private mergeExtractions(
-    results: ExtractionResult[],
-    step: WizardStep,
-  ): AutoFillResult {
-    const targetFields = getFieldsForStep(step);
-    const extractedFields: Record<string, ExtractedField> = {};
-    const unmatchedDocuments: string[] = [];
-
-    for (const result of results) {
-      let matched = false;
-
-      for (const [fieldName, field] of Object.entries(result.fields) as [string, ExtractedField][]) {
-        if (targetFields.includes(fieldName)) {
-          matched = true;
-
-          if (
-            !extractedFields[fieldName] ||
-            field.confidence > extractedFields[fieldName].confidence
-          ) {
-            extractedFields[fieldName] = field;
-          }
-        }
-      }
-
-      if (!matched) {
-        unmatchedDocuments.push(result.fileName);
-      }
-    }
-
-    const missingFields = targetFields.filter((f: string) => !extractedFields[f]);
-
-    return {
-      step,
-      extractedFields,
-      unmatchedDocuments,
-      missingFields,
-    };
-  }
 }
+
+export { isKnownField };

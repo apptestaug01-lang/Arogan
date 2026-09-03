@@ -44,3 +44,7 @@ coverage/
 # Playwright
 playwright-report/
 test-results/
+
+# Local Kilo design artifacts
+.kilo/
+

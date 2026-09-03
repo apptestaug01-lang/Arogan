@@ -389,22 +389,44 @@ export default function NewApplicationView() {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [initializing, setInitializing] = React.useState(false);
+  const [autoFilledSteps, setAutoFilledSteps] = React.useState<Set<number>>(new Set());
 
   const currentStepKey = STEP_KEYS[currentStep - 1];
 
-  const { autoFill, extracting, lastResult } = useAutoFill({
+  const { autoFill, extracting, lastResult, progress } = useAutoFill({
     applicationId: wizard.applicationId || '',
     onFieldsExtracted: (fields) => {
       wizard.applyExtractedFields(fields);
     },
   });
 
+  React.useEffect(() => {
+    let cancelled = false;
+    if (wizard.applicationId || initializing) return;
+    setInitializing(true);
+    wizard.saveDraft()
+      .then(() => {
+        if (!cancelled) toast('Application created', 'success');
+      })
+      .catch(() => {
+        if (!cancelled) toast('Failed to create application', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setInitializing(false);
+      });
+    return () => { cancelled = true; };
+  }, [wizard.applicationId, initializing, wizard, toast]);
+
   const handleAutoFill = async () => {
     if (!wizard.applicationId) {
-      toast('Please save the application as draft first', 'info');
+      toast('Please wait for application to initialize', 'info');
       return;
     }
-    await autoFill(currentStepKey);
+    const result = await autoFill(currentStepKey);
+    if (result) {
+      setAutoFilledSteps((prev) => new Set(prev).add(currentStep));
+    }
   };
 
   const validateStep = (step: number): boolean => {
@@ -480,6 +502,10 @@ export default function NewApplicationView() {
     }
   };
 
+  const hasAnyData = Object.values(wizard.data).some((v) =>
+    typeof v === 'string' ? v.trim() !== '' : Array.isArray(v) ? v.length > 0 : Boolean(v)
+  );
+
   const handleReview = () => {
     if (!validateStep(4)) {
       toast('Please fix the errors before reviewing', 'error');
@@ -543,6 +569,7 @@ export default function NewApplicationView() {
           onAutoFill={handleAutoFill}
           onApplyField={wizard.applyExtractedField}
           stepLabel={STEPS[currentStep - 1]}
+          progress={progress}
         />
 
         {renderStep()}
@@ -557,15 +584,17 @@ export default function NewApplicationView() {
           )}
         </div>
         <div className="flex gap-3">
-          <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={wizard.saving}>
-            {wizard.saving ? 'Saving…' : 'Save as draft'}
-          </Button>
+          {wizard.applicationId && (
+            <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={wizard.saving || !hasAnyData}>
+              {wizard.saving ? 'Saving…' : 'Save as draft'}
+            </Button>
+          )}
           {currentStep < 4 ? (
             <Button type="button" onClick={handleNext}>
               Save & Continue →
             </Button>
           ) : (
-            <Button type="button" onClick={handleReview}>
+            <Button type="button" onClick={handleReview} disabled={!hasAnyData}>
               Review & Submit →
             </Button>
           )}

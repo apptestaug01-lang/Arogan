@@ -11,7 +11,6 @@ import { validate } from '../middleware/validateRequest.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import {
   createApplicationSchema,
-  updateApplicationSchema,
   getApplicationSchema,
 } from '../utils/applicationValidation.js'
 import {
@@ -23,6 +22,25 @@ import {
 } from '../utils/constants.js'
 
 const router = Router()
+
+router.get(
+  '/constants',
+  authMiddleware,
+  requireAuth,
+  async (_req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      sendSuccess(res, 'Wizard constants', {
+        industries: WIZARD_INDUSTRIES,
+        businessTypes: WIZARD_BUSINESS_TYPES,
+        productTypes: WIZARD_PRODUCT_TYPES,
+        statementPeriods: WIZARD_STATEMENT_PERIODS,
+        assessmentYears: WIZARD_ASSESSMENT_YEARS,
+      })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
 
 router.get(
   '/',
@@ -42,7 +60,7 @@ router.get(
   '/:applicationId',
   authMiddleware,
   requireAuth,
-  validate(getApplicationSchema),
+  validate(getApplicationSchema, 'params'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const application = await getApplication(req.user!.id, req.params.applicationId)
@@ -82,7 +100,7 @@ router.patch(
   '/:applicationId',
   authMiddleware,
   requireAuth,
-  validate(updateApplicationSchema),
+  validate(getApplicationSchema, 'params'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const body = req.body
@@ -99,30 +117,11 @@ router.patch(
   },
 )
 
-router.get(
-  '/constants',
-  authMiddleware,
-  requireAuth,
-  async (_req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      sendSuccess(res, 'Wizard constants', {
-        industries: WIZARD_INDUSTRIES,
-        businessTypes: WIZARD_BUSINESS_TYPES,
-        productTypes: WIZARD_PRODUCT_TYPES,
-        statementPeriods: WIZARD_STATEMENT_PERIODS,
-        assessmentYears: WIZARD_ASSESSMENT_YEARS,
-      })
-    } catch (err) {
-      next(err)
-    }
-  },
-)
-
 router.post(
   '/:applicationId/submit',
   authMiddleware,
   requireAuth,
-  validate(getApplicationSchema),
+  validate(getApplicationSchema, 'params'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const application = await submitApplication(req.user!.id, req.params.applicationId)
