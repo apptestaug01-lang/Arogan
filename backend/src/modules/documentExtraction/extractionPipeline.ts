@@ -60,8 +60,13 @@ export class ExtractionPipeline {
     doc: PipelineDocumentInput,
     opts: { force?: boolean } = {},
   ): Promise<PipelineResult> {
+    logger.warn(
+      { docId: doc.id, opts, buildId: 'ocr-force-2026-09-03' },
+      '[ExtractionPipeline] processDocument called',
+    );
     if (opts.force && doc.id) {
-      await this.prisma.documentExtraction.deleteMany({ where: { documentId: doc.id } });
+      const del = await this.prisma.documentExtraction.deleteMany({ where: { documentId: doc.id } });
+      logger.warn({ docId: doc.id, deleted: del.count }, '[ExtractionPipeline] force delete');
     }
     if (!opts.force) {
       const existing = await this.prisma.documentExtraction.findUnique({
