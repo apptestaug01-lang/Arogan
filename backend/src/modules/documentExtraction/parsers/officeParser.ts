@@ -40,7 +40,16 @@ export class XlsxParser {
       throw new Error(
         `Failed to parse spreadsheet (${fileName}): ${msg}. ` +
           `Supported formats: .xlsx (OOXML), .xls (legacy BIFF8), .csv. ` +
-          `If the file is password-protected or corrupted, please re-save it in Excel and re-upload.`,
+          `If the file is password-protected, corrupted, or uses an older Excel format, ` +
+          `please open it in Excel and re-save as .xlsx.`,
+      );
+    }
+
+    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error(
+        `Spreadsheet ${fileName} contains no readable sheets. ` +
+          `The file may be empty, password-protected, or in a format not supported by this version of Excel. ` +
+          `Please open it in Excel and re-save as .xlsx.`,
       );
     }
 
