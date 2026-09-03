@@ -55,6 +55,12 @@ services:
         value: loanflow-documents
       - key: B2_REGION
         value: us-east-005
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_AI_MODEL
+        value: @cf/meta/llama-3.1-8b-instruct-fp8
 
   - type: web
     name: loanflow-frontend
