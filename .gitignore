@@ -45,6 +45,9 @@ coverage/
 playwright-report/
 test-results/
 
+# E2E testing harness (fixtures, scripts, screenshots, video)
+e2e/
+
 # Local Kilo design artifacts
 .kilo/
 
