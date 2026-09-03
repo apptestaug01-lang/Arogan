@@ -23,6 +23,25 @@ describe('LlmExtractor', () => {
     expect(await extractor.extractFields('PAN_CARD', 'short', 'a.pdf')).toBeNull();
   });
 
+  it('returns null when rawText is empty (scanned image with no OCR text)', async () => {
+    const extractor = new LlmExtractor();
+    expect(await extractor.extractFields('PAN_CARD', '', 'a.pdf')).toBeNull();
+  });
+
+  it('returns null when rawText is only whitespace', async () => {
+    const extractor = new LlmExtractor();
+    expect(await extractor.extractFields('PAN_CARD', '   \n\t  ', 'a.pdf')).toBeNull();
+  });
+
+  it('returns null and does not call fetch when rawText is empty', async () => {
+    const fetchSpy = jest.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const extractor = new LlmExtractor();
+    const result = await extractor.extractFields('PAN_CARD', '', 'scanned.pdf');
+    expect(result).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('returns null when fetch fails', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
     const extractor = new LlmExtractor();

@@ -53,7 +53,13 @@ export class LlmExtractor {
     fileName: string,
   ): Promise<Record<string, ExtractedField> | null> {
     if (!this.enabled) return null;
-    if (!rawText || rawText.trim().length < 10) return null;
+    if (!rawText || rawText.trim().length < 10) {
+      logger.warn(
+        { fileName, rawTextLength: rawText?.length ?? 0 },
+        '[LlmExtractor] skipping: text-only model cannot process empty/scanned input',
+      );
+      return null;
+    }
     const account = process.env.CLOUDFLARE_ACCOUNT_ID!;
     const token = process.env.CLOUDFLARE_API_TOKEN!;
 
