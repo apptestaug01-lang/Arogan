@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileDropzone, FileDropzoneHandle } from '@/components/workspace/FileDropzone';
@@ -9,6 +10,7 @@ import {
   bulkDeleteDocuments,
   DocumentSummary,
 } from '@/services/documents';
+import { listApplications } from '@/services/applications';
 import { formatBytes } from '@/constants/documents';
 import { useToast } from '@/components/workspace/ToastProvider';
 import {
@@ -46,12 +48,44 @@ function DocStatus({ status }: { status: string }) {
 export default function DocumentUploadView() {
   const toast = useToast();
   const dropzoneRef = React.useRef<FileDropzoneHandle>(null);
+  const [searchParams] = useSearchParams();
 
-  const [applicationId] = React.useState('LAP-2026-0184');
+  const [applicationId, setApplicationId] = React.useState<string | null>(
+    searchParams.get('applicationId'),
+  );
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [deleting, setDeleting] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [loadingApp, setLoadingApp] = React.useState(!applicationId);
+
+  React.useEffect(() => {
+    if (applicationId) return;
+    let cancelled = false;
+    listApplications()
+      .then(({ applications }) => {
+        if (cancelled) return;
+        const sorted = [...applications].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        const mostRecent = sorted[0]?.applicationId;
+        if (mostRecent) {
+          setApplicationId(mostRecent);
+          toast(`Using application ${mostRecent}`, 'info');
+        } else {
+          toast('Create a new application first to upload documents', 'info');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast('Failed to load applications', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingApp(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, toast]);
 
   const fetchDocuments = React.useCallback(async () => {
     try {
@@ -148,12 +182,20 @@ export default function DocumentUploadView() {
               <CardTitle>Upload documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <FileDropzone
-                ref={dropzoneRef}
-                applicationId={applicationId}
-                existingDocs={existingDocs}
-                onUploadComplete={handleUploadComplete}
-              />
+              {applicationId ? (
+                <FileDropzone
+                  ref={dropzoneRef}
+                  applicationId={applicationId}
+                  existingDocs={existingDocs}
+                  onUploadComplete={handleUploadComplete}
+                />
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
+                  {loadingApp
+                    ? 'Loading your applications...'
+                    : 'No application available. Create a new application first, then return here to upload documents.'}
+                </div>
+              )}
             </CardContent>
           </Card>
 
