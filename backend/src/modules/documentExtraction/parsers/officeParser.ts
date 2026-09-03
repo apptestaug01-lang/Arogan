@@ -30,8 +30,22 @@ export class XlsxParser {
   ];
 
   async parse(body: Buffer, fileName: string, documentId: string): Promise<ParsedDocument> {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.xls') && !lower.endsWith('.xlsx')) {
+      throw new Error(
+        `Legacy .xls (BIFF) format is not supported. Please re-save the file as .xlsx (Office 2007+) and re-upload. File: ${fileName}`,
+      );
+    }
+
     const xlsx = await import('xlsx');
-    const workbook = xlsx.read(body, { type: 'buffer' });
+    let workbook;
+    try {
+      workbook = xlsx.read(body, { type: 'buffer' });
+    } catch (e) {
+      throw new Error(
+        `Failed to parse spreadsheet (${fileName}): ${e instanceof Error ? e.message : String(e)}. If this is a legacy .xls file, please re-save as .xlsx.`,
+      );
+    }
 
     const fullText: string[] = [];
     const pages: PageContent[] = [];

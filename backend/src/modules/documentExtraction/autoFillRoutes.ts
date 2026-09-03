@@ -82,7 +82,15 @@ router.get(
       const extractions = documentIds.length
         ? await prisma.documentExtraction.findMany({
             where: { documentId: { in: documentIds } },
-            select: { documentId: true, status: true, documentType: true, modelUsed: true, extractedAt: true, updatedAt: true },
+            select: {
+              documentId: true,
+              status: true,
+              documentType: true,
+              modelUsed: true,
+              error: true,
+              extractedAt: true,
+              updatedAt: true,
+            },
           })
         : [];
       const extractionByDoc = new Map(extractions.map((e) => [e.documentId, e]));

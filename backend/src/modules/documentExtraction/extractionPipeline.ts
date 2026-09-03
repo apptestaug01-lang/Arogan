@@ -28,6 +28,8 @@ export interface PipelineResult {
 }
 
 const MAX_CONCURRENCY = 4;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_RAW_TEXT_CHARS = 200_000;
 
 export class ExtractionPipeline {
   private s3: S3Client;
@@ -135,9 +137,19 @@ export class ExtractionPipeline {
         const idx = cursor++;
         const doc = docs[idx];
         try {
-          const result = await this.processDocument(doc);
+          const result = await Promise.race([
+            this.processDocument(doc),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Document processing timed out (25s)')), 25_000),
+            ),
+          ]);
           results[idx] = result;
-        } catch {
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(
+            { documentId: doc.id, fileName: doc.originalName, err: message },
+            '[ExtractionPipeline] doc failed, continuing with others',
+          );
           results[idx] = {
             documentId: doc.id,
             fileName: doc.originalName,
@@ -158,6 +170,25 @@ export class ExtractionPipeline {
   }
 
   private async fetchAndParse(doc: PipelineDocumentInput): Promise<ParsedDocument> {
+    if (doc.s3Key) {
+      try {
+        const head = await this.s3.send(
+          new (await import('@aws-sdk/client-s3')).HeadObjectCommand({
+            Bucket: this.bucket,
+            Key: doc.s3Key,
+          }),
+        );
+        const size = head.ContentLength ?? 0;
+        if (size > MAX_FILE_SIZE_BYTES) {
+          throw new Error(
+            `File too large for extraction (${(size / 1024 / 1024).toFixed(1)} MB). Max supported: ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB.`,
+          );
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('File too large')) throw e;
+      }
+    }
+
     const response = await this.s3.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: doc.s3Key }),
     );
@@ -169,11 +200,21 @@ export class ExtractionPipeline {
     }
     const body = Buffer.concat(chunks);
 
+    if (body.length > MAX_FILE_SIZE_BYTES) {
+      throw new Error(
+        `File too large for extraction (${(body.length / 1024 / 1024).toFixed(1)} MB). Max supported: ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB.`,
+      );
+    }
+
     const contentType = response.ContentType ?? 'application/octet-stream';
     const parser = this.parsers.getParser(contentType);
     if (!parser) throw new Error(`No parser for content type: ${contentType}`);
 
-    return parser.parse(body, doc.originalName, doc.id);
+    const parsed = await parser.parse(body, doc.originalName, doc.id);
+    if (parsed.rawText.length > MAX_RAW_TEXT_CHARS) {
+      parsed.rawText = parsed.rawText.slice(0, MAX_RAW_TEXT_CHARS);
+    }
+    return parsed;
   }
 
   private async extract(
