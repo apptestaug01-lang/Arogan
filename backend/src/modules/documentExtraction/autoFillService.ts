@@ -38,6 +38,7 @@ export class AutoFillService {
     applicationId: string,
     step: WizardStep,
     documentIds?: string[],
+    opts: { force?: boolean } = {},
   ): Promise<{ data: AutoFillResult; cacheStatus: 'cached' | 'live' | 'mixed' }> {
     const docs = await this.getDocuments(userId, applicationId, documentIds);
     if (docs.length === 0) {
@@ -49,6 +50,7 @@ export class AutoFillService {
 
     const results = await this.pipeline.processMany(
       docs.map((d) => ({ id: d.id, s3Key: d.s3Key, originalName: d.originalName })),
+      opts,
     );
 
     return {
@@ -77,6 +79,7 @@ export class AutoFillService {
   async extractAllDocuments(
     userId: string,
     applicationId: string,
+    opts: { force?: boolean } = {},
   ): Promise<ExtractAllResult> {
     const docs = await this.getDocuments(userId, applicationId);
     if (docs.length === 0) {
@@ -92,6 +95,7 @@ export class AutoFillService {
 
     const results = await this.pipeline.processMany(
       docs.map((d) => ({ id: d.id, s3Key: d.s3Key, originalName: d.originalName })),
+      opts,
     );
 
     const allExtracted: Record<string, ExtractedField> = {};

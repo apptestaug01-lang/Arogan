@@ -60,6 +60,9 @@ export class ExtractionPipeline {
     doc: PipelineDocumentInput,
     opts: { force?: boolean } = {},
   ): Promise<PipelineResult> {
+    if (opts.force && doc.id) {
+      await this.prisma.documentExtraction.deleteMany({ where: { documentId: doc.id } });
+    }
     if (!opts.force) {
       const existing = await this.prisma.documentExtraction.findUnique({
         where: { documentId: doc.id },
@@ -127,7 +130,7 @@ export class ExtractionPipeline {
     }
   }
 
-  async processMany(docs: PipelineDocumentInput[]): Promise<PipelineResult[]> {
+  async processMany(docs: PipelineDocumentInput[], opts: { force?: boolean } = {}): Promise<PipelineResult[]> {
     const results: PipelineResult[] = [];
     let cursor = 0;
     const workers: Array<Promise<void>> = [];

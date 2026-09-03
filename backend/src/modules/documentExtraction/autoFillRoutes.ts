@@ -16,7 +16,8 @@ router.post(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { applicationId } = req.params;
-      const result = await autoFillService.extractAllDocuments(req.user!.id, applicationId);
+      const force = req.query.force === 'true' || req.query.force === '1';
+      const result = await autoFillService.extractAllDocuments(req.user!.id, applicationId, { force });
       res.setHeader('X-Extraction-Status', result.cacheStatus);
       res.json({ success: true, data: result });
     } catch (error) {
@@ -33,6 +34,7 @@ router.post(
     try {
       const { applicationId } = req.params;
       const { step, documentIds } = req.body;
+      const force = req.query.force === 'true' || req.query.force === '1';
 
       if (!step || !VALID_STEPS.includes(step)) {
         res.status(400).json({
@@ -47,6 +49,7 @@ router.post(
         applicationId,
         step,
         documentIds,
+        { force },
       );
 
       res.setHeader('X-Extraction-Status', cacheStatus);
