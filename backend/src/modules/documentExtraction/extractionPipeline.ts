@@ -60,13 +60,8 @@ export class ExtractionPipeline {
     doc: PipelineDocumentInput,
     opts: { force?: boolean } = {},
   ): Promise<PipelineResult> {
-    logger.warn(
-      { docId: doc.id, opts, buildId: 'ocr-force-2026-09-03' },
-      '[ExtractionPipeline] processDocument called',
-    );
     if (opts.force && doc.id) {
-      const del = await this.prisma.documentExtraction.deleteMany({ where: { documentId: doc.id } });
-      logger.warn({ docId: doc.id, deleted: del.count }, '[ExtractionPipeline] force delete');
+      await this.prisma.documentExtraction.deleteMany({ where: { documentId: doc.id } });
     }
     if (!opts.force) {
       const existing = await this.prisma.documentExtraction.findUnique({
@@ -146,7 +141,7 @@ export class ExtractionPipeline {
         const doc = docs[idx];
         try {
           const result = await Promise.race([
-            this.processDocument(doc),
+            this.processDocument(doc, opts),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Document processing timed out (25s)')), 25_000),
             ),
