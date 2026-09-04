@@ -136,6 +136,7 @@ model Application {
   applicationId String           @unique
   status        ApplicationStatus @default(DRAFT)
   data          Json
+  version       Int              @default(0)
   submittedAt   DateTime?
   reviewedAt    DateTime?
   createdAt     DateTime         @default(now())

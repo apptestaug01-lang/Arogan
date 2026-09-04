@@ -28,18 +28,35 @@ export default function NewApplicationView() {
   );
   const stateAppId = (location.state as LocationState | null)?.applicationId;
   const incomingAppId = urlAppId ?? stateAppId;
+  const queryEditing = React.useMemo(
+    () => new URLSearchParams(location.search).get('editing') === 'true',
+    [location.search],
+  );
   const toast = useToast();
   const wizard = useWizardState(incomingAppId);
   const [currentStep, setCurrentStep] = React.useState(1);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [initializing, setInitializing] = React.useState(false);
+  const [editing, setEditing] = React.useState(queryEditing);
+
+  // Editing is only meaningful when there's an app loaded. Default editing=true
+  // for DRAFT, false for SUBMITTED.
+  React.useEffect(() => {
+    if (wizard.status === 'SUBMITTED') {
+      setEditing(queryEditing);
+    } else if (wizard.status === 'DRAFT') {
+      setEditing(true);
+    }
+  }, [wizard.status, queryEditing]);
 
   const currentStepKey = STEP_KEYS[currentStep - 1];
+  const isReadOnly = wizard.status === 'SUBMITTED' && !editing;
 
   const { autoFill, extracting, lastResult, progress } = useAutoFill({
     applicationId: wizard.applicationId || '',
     onFieldsExtracted: (fields) => {
+      if (isReadOnly) return;
       wizard.applyExtractedFields(fields);
     },
   });
@@ -53,7 +70,8 @@ export default function NewApplicationView() {
 
   React.useEffect(() => {
     let cancelled = false;
-    if (wizard.applicationId || initializing) return;
+    if (!wizard.applicationId || initializing) return;
+    if (incomingAppId) return; // already linked to a server app, don't auto-create
     setInitializing(true);
     wizard.saveDraft()
       .then(() => {
@@ -66,7 +84,7 @@ export default function NewApplicationView() {
         if (!cancelled) setInitializing(false);
       });
     return () => { cancelled = true; };
-  }, [wizard.applicationId, initializing, wizard, toast]);
+  }, [wizard.applicationId, initializing, wizard, toast, incomingAppId]);
 
   const handleAutoFill = async (force = false) => {
     if (!wizard.applicationId) {
@@ -136,9 +154,10 @@ export default function NewApplicationView() {
   const handleConfirmSubmit = async () => {
     try {
       setSubmitting(true);
-      await wizard.submit();
+      const res = await wizard.submit();
       setReviewOpen(false);
-      toast('Application submitted successfully', 'success');
+      const isResubmit = res?.status === 'SUBMITTED' && wizard.version > 0;
+      toast(isResubmit ? 'Application re-submitted successfully' : 'Application submitted successfully', 'success');
       navigate('/dashboard/applications');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Submission failed', 'error');
@@ -158,6 +177,7 @@ export default function NewApplicationView() {
   const [stepperActive, setStepperActive] = React.useState(true);
 
   const applyStepAndAdvance = async (step: 'kyc' | 'business' | 'financials' | 'loan', fields: Record<string, ExtractedField>) => {
+    if (isReadOnly) return;
     if (Object.keys(fields).length === 0) {
       toast('No fields extracted for this document', 'info');
       return;
@@ -185,15 +205,55 @@ export default function NewApplicationView() {
     if (idx >= 0) setCurrentStep(idx + 1);
   };
 
+  const isSubmitted = wizard.status === 'SUBMITTED';
+  const canEdit = isSubmitted ? editing : true;
+
   return (
     <div className="mx-auto w-full max-w-4xl animate-fade-in">
       <div className="mb-8 space-y-1">
-        <p className="page-eyebrow">Loan workspace / Applications / New application</p>
-        <h1 className="page-title">New Loan Application</h1>
+        <p className="page-eyebrow">
+          Loan workspace / Applications / {isSubmitted && !editing ? 'View' : 'Edit'}
+        </p>
+        <h1 className="page-title">
+          {isSubmitted && !editing ? 'Application details' : 'New Loan Application'}
+        </h1>
         <p className="page-sub">
-          Complete all steps to submit your business loan application
+          {isSubmitted && !editing
+            ? 'Submitted application — view only. Click Edit to make changes.'
+            : 'Complete all steps to submit your business loan application'}
         </p>
       </div>
+
+      {isSubmitted && !editing && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <span>
+            This application has been submitted. You can still view all documents and extraction data, but the form is read-only.
+          </span>
+          <Button
+            size="sm"
+            onClick={() => setEditing(true)}
+            data-testid="enter-edit-mode"
+          >
+            Edit & re-submit
+          </Button>
+        </div>
+      )}
+
+      {isSubmitted && editing && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <span>
+            Editing submitted application — your changes will be saved as a new version. Re-submit to lock them in.
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setEditing(false)}
+            data-testid="exit-edit-mode"
+          >
+            Cancel editing
+          </Button>
+        </div>
+      )}
 
       <div className="mb-4">
         <StepTabs
@@ -207,7 +267,7 @@ export default function NewApplicationView() {
       <ProgressStepper currentStep={currentStep} totalSteps={4} labels={STEPS} />
 
       <div className="space-y-6">
-        {stepperActive && wizard.applicationId && (
+        {canEdit && stepperActive && wizard.applicationId && (
           <DocumentExtractionStepper
             applicationId={wizard.applicationId}
             onApplyStep={applyStepAndAdvance}
@@ -239,35 +299,50 @@ export default function NewApplicationView() {
             extractedFields={wizard.extractedFields}
             onChange={wizard.setField}
             onValidate={(step) => validateStep(step, wizard.data)}
+            readOnly={isReadOnly}
           />
         </div>
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-3">
-        <div>
-          {currentStep > 1 && (
-            <Button type="button" variant="outline" onClick={handleBack}>
-              ← Back
-            </Button>
-          )}
+      {!isReadOnly && (
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <div>
+            {currentStep > 1 && (
+              <Button type="button" variant="outline" onClick={handleBack}>
+                ← Back
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            {wizard.applicationId && (
+              <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={wizard.saving || !hasAnyData}>
+                {wizard.saving ? 'Saving…' : 'Save as draft'}
+              </Button>
+            )}
+            {currentStep < 4 ? (
+              <Button type="button" onClick={handleNext}>
+                Save & Continue →
+              </Button>
+            ) : (
+              <Button type="button" onClick={handleReview} disabled={!hasAnyData}>
+                {isSubmitted ? 'Review & Re-submit →' : 'Review & Submit →'}
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex gap-3">
-          {wizard.applicationId && (
-            <Button type="button" variant="ghost" onClick={handleSaveDraft} disabled={wizard.saving || !hasAnyData}>
-              {wizard.saving ? 'Saving…' : 'Save as draft'}
-            </Button>
-          )}
-          {currentStep < 4 ? (
-            <Button type="button" onClick={handleNext}>
-              Save & Continue →
-            </Button>
-          ) : (
-            <Button type="button" onClick={handleReview} disabled={!hasAnyData}>
-              Review & Submit →
-            </Button>
-          )}
+      )}
+
+      {isReadOnly && (
+        <div className="mt-8 flex items-center justify-end">
+          <Button
+            type="button"
+            onClick={() => navigate('/dashboard/applications')}
+            data-testid="back-to-applications"
+          >
+            ← Back to applications
+          </Button>
         </div>
-      </div>
+      )}
 
       <ReviewOverlay
         open={reviewOpen}

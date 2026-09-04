@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { ApplicationDraft } from '@/types/application';
-import { getWizardConstants, submitApplication, createApplication, updateApplication, getApplication } from '@/services/applications';
+import { getWizardConstants, submitApplication, resubmitApplication, createApplication, updateApplication, getApplication } from '@/services/applications';
 import type { WizardConstants, ApplicationSummary } from '@/services/applications';
 import type { ExtractedField } from '@/services/autoFill';
 
@@ -56,6 +56,8 @@ interface WizardState {
   saving: boolean;
   errors: Record<string, string | string[]>;
   applicationId?: string;
+  status: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'UNKNOWN';
+  version: number;
 }
 
 export interface UseWizardStateReturn extends WizardState {
@@ -78,6 +80,8 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
   const [errors, setErrors] = React.useState<Record<string, string | string[]>>({});
   const [applicationId, setApplicationId] = React.useState<string | undefined>(initialApplicationId);
   const [extractedFields, setExtractedFields] = React.useState<Record<string, ExtractedField>>({});
+  const [status, setStatus] = React.useState<WizardState['status']>('UNKNOWN');
+  const [version, setVersion] = React.useState<number>(0);
 
   // Mirror of `data` that updates synchronously inside setData-like helpers
   // (e.g. applyExtractedFields) so the next saveDraft() in the same tick
@@ -111,8 +115,12 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     setLoading(true);
     getApplication(applicationId)
       .then((res) => {
-        if (!cancelled && res.application.data) {
-          setData((prev) => ({ ...prev, ...res.application.data }));
+        if (!cancelled) {
+          if (res.application.data) {
+            setData((prev) => ({ ...prev, ...res.application.data }));
+          }
+          setStatus(res.application.status as WizardState['status']);
+          setVersion(typeof res.application.version === 'number' ? res.application.version : 0);
         }
       })
       .catch(() => {})
@@ -146,10 +154,14 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     try {
       if (applicationId) {
         const res = await updateApplication({ applicationId, data: dataRef.current as unknown as Record<string, unknown> });
+        setStatus(res.application.status as WizardState['status']);
+        setVersion(typeof res.application.version === 'number' ? res.application.version : version);
         return res.application;
       } else {
         const res = await createApplication({ data: dataRef.current as unknown as Record<string, unknown> });
         setApplicationId(res.application.applicationId);
+        setStatus(res.application.status as WizardState['status']);
+        setVersion(typeof res.application.version === 'number' ? res.application.version : 0);
         return res.application;
       }
     } finally {
@@ -163,7 +175,12 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     }
     setSaving(true);
     try {
-      const res = await submitApplication(applicationId);
+      // Re-submit if the app is already SUBMITTED, otherwise initial submit.
+      const res = status === 'SUBMITTED'
+        ? await resubmitApplication(applicationId)
+        : await submitApplication(applicationId);
+      setStatus(res.application.status as WizardState['status']);
+      setVersion(typeof res.application.version === 'number' ? res.application.version : version);
       return res.application;
     } finally {
       setSaving(false);
@@ -175,6 +192,8 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     setErrors({});
     setApplicationId(undefined);
     setExtractedFields({});
+    setStatus('UNKNOWN');
+    setVersion(0);
   };
 
   const applyExtractedField = (fieldName: string, value: string | number | boolean | string[]) => {
@@ -213,6 +232,8 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     saving,
     errors,
     applicationId,
+    status,
+    version,
     setField,
     setErrors: setErrorsFn,
     clearErrors,

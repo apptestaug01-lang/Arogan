@@ -5,6 +5,7 @@ export interface ApplicationSummary {
   applicationId: string;
   status: string;
   data: Record<string, unknown>;
+  version?: number;
   submittedAt?: string;
   reviewedAt?: string;
   createdAt: string;
@@ -61,5 +62,10 @@ export async function getWizardConstants(): Promise<WizardConstants> {
 
 export async function submitApplication(applicationId: string): Promise<{ application: ApplicationSummary }> {
   const res = await api.post<{ data: { application: ApplicationSummary } }>(`/applications/${applicationId}/submit`, {});
+  return res.data.data;
+}
+
+export async function resubmitApplication(applicationId: string): Promise<{ application: ApplicationSummary }> {
+  const res = await api.post<{ data: { application: ApplicationSummary } }>(`/applications/${applicationId}/resubmit`, {});
   return res.data.data;
 }

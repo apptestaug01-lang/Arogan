@@ -8,6 +8,7 @@ interface BaseProps {
   onChange: (value: unknown) => void;
   error?: string;
   autoFilled?: boolean;
+  readOnly?: boolean;
 }
 
 function AutoFilledBadge() {
@@ -38,7 +39,7 @@ function ErrorMsg({ error }: { error?: string }) {
   return <p className="mt-0.5 text-xs text-red-500">{error}</p>;
 }
 
-function TextField({ def, value, onChange, error, autoFilled, type = 'text' }: BaseProps & { type?: string }) {
+function TextField({ def, value, onChange, error, autoFilled, type = 'text', readOnly }: BaseProps & { type?: string }) {
   return (
     <div>
       <Label def={def} autoFilled={autoFilled} />
@@ -46,30 +47,34 @@ function TextField({ def, value, onChange, error, autoFilled, type = 'text' }: B
       <input
         id={def.name}
         type={type}
-        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''}`}
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''} ${readOnly ? 'cursor-not-allowed bg-muted/30' : ''}`}
         value={(value as string | number | undefined) ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={def.placeholder}
         required={def.required}
+        readOnly={readOnly}
+        disabled={readOnly}
       />
       <ErrorMsg error={error} />
     </div>
   );
 }
 
-function TextareaField({ def, value, onChange, error, autoFilled }: BaseProps) {
+function TextareaField({ def, value, onChange, error, autoFilled, readOnly }: BaseProps) {
   return (
     <div>
       <Label def={def} autoFilled={autoFilled} />
       <Help def={def} />
       <textarea
         id={def.name}
-        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''}`}
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''} ${readOnly ? 'cursor-not-allowed bg-muted/30' : ''}`}
         rows={def.rows ?? 3}
         value={(value as string | undefined) ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={def.placeholder}
         required={def.required}
+        readOnly={readOnly}
+        disabled={readOnly}
       />
       {def.minLength && (
         <p className="mt-0.5 text-xs text-gray-400">
@@ -81,7 +86,7 @@ function TextareaField({ def, value, onChange, error, autoFilled }: BaseProps) {
   );
 }
 
-function NumberField({ def, value, onChange, error, autoFilled }: BaseProps) {
+function NumberField({ def, value, onChange, error, autoFilled, readOnly }: BaseProps) {
   return (
     <TextField
       def={def}
@@ -90,21 +95,23 @@ function NumberField({ def, value, onChange, error, autoFilled }: BaseProps) {
       error={error}
       autoFilled={autoFilled}
       type="number"
+      readOnly={readOnly}
     />
   );
 }
 
-function SelectField({ def, value, onChange, error, autoFilled }: BaseProps) {
+function SelectField({ def, value, onChange, error, autoFilled, readOnly }: BaseProps) {
   return (
     <div>
       <Label def={def} autoFilled={autoFilled} />
       <Help def={def} />
       <select
         id={def.name}
-        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''}`}
+        className={`input mt-1 w-full ${autoFilled ? 'border-emerald-300 bg-emerald-50/50' : ''} ${error ? 'border-red-400' : ''} ${readOnly ? 'cursor-not-allowed bg-muted/30' : ''}`}
         value={(value as string | undefined) ?? ''}
         onChange={(e) => onChange(e.target.value)}
         required={def.required}
+        disabled={readOnly}
       >
         <option value="">Select...</option>
         {(def.options ?? []).map((opt) => (
@@ -116,9 +123,10 @@ function SelectField({ def, value, onChange, error, autoFilled }: BaseProps) {
   );
 }
 
-function MultiSelectField({ def, value, onChange, error, autoFilled }: BaseProps) {
+function MultiSelectField({ def, value, onChange, error, autoFilled, readOnly }: BaseProps) {
   const arr = Array.isArray(value) ? (value as string[]) : [];
   const toggle = (opt: string) => {
+    if (readOnly) return;
     if (arr.includes(opt)) onChange(arr.filter((v) => v !== opt));
     else onChange([...arr, opt]);
   };
@@ -134,11 +142,12 @@ function MultiSelectField({ def, value, onChange, error, autoFilled }: BaseProps
               key={opt}
               type="button"
               onClick={() => toggle(opt)}
+              disabled={readOnly}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 selected
                   ? 'border-primary-500 bg-primary-50 text-primary-700'
                   : 'border-gray-300 bg-white text-gray-700 hover:border-primary-300'
-              }`}
+              } ${readOnly ? 'cursor-not-allowed opacity-60' : ''}`}
             >
               {selected ? '✓ ' : ''}{opt}
             </button>
@@ -150,7 +159,7 @@ function MultiSelectField({ def, value, onChange, error, autoFilled }: BaseProps
   );
 }
 
-function BooleanField({ def, value, onChange, error, autoFilled }: BaseProps) {
+function BooleanField({ def, value, onChange, error, autoFilled, readOnly }: BaseProps) {
   const boolVal = Boolean(value);
   return (
     <div>
@@ -160,10 +169,11 @@ function BooleanField({ def, value, onChange, error, autoFilled }: BaseProps) {
         type="button"
         role="switch"
         aria-checked={boolVal}
-        onClick={() => onChange(!boolVal)}
+        onClick={() => !readOnly && onChange(!boolVal)}
+        disabled={readOnly}
         className={`mt-1 inline-flex h-6 w-11 items-center rounded-full transition-colors ${
           boolVal ? 'bg-primary-500' : 'bg-gray-300'
-        } ${error ? 'ring-2 ring-red-400' : ''}`}
+        } ${error ? 'ring-2 ring-red-400' : ''} ${readOnly ? 'cursor-not-allowed opacity-60' : ''}`}
       >
         <span
           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -209,6 +219,7 @@ export function renderStep(
   onChange: <K extends keyof ApplicationDraft>(key: K, value: ApplicationDraft[K]) => void,
   extractedFields: Record<string, { value: string | number | boolean | string[] }>,
   FIELDS_BY_STEP: Record<string, import('./fieldRegistry').FieldDef[]>,
+  readOnly: boolean = false,
 ) {
   const defs = FIELDS_BY_STEP[step] ?? [];
   return (
@@ -224,6 +235,7 @@ export function renderStep(
               onChange={(v) => onChange(def.name, v as ApplicationDraft[typeof def.name])}
               error={errorMsg}
               autoFilled={!!extractedFields[def.name]}
+              readOnly={readOnly}
             />
           </div>
         );

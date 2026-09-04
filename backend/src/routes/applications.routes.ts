@@ -5,6 +5,7 @@ import {
   getApplication,
   listApplications,
   submitApplication,
+  resubmitApplication,
 } from '../services/application.service.js'
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js'
 import { validate } from '../middleware/validateRequest.js'
@@ -126,6 +127,21 @@ router.post(
     try {
       const application = await submitApplication(req.user!.id, req.params.applicationId)
       sendSuccess(res, 'Application submitted', { application })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.post(
+  '/:applicationId/resubmit',
+  authMiddleware,
+  requireAuth,
+  validate(getApplicationSchema, 'params'),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const application = await resubmitApplication(req.user!.id, req.params.applicationId)
+      sendSuccess(res, 'Application re-submitted', { application })
     } catch (err) {
       next(err)
     }

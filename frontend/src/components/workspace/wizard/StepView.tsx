@@ -13,9 +13,10 @@ interface Props {
   extractedFields: Record<string, { value: string | number | boolean | string[] }>;
   onChange: <K extends keyof ApplicationDraft>(key: K, value: ApplicationDraft[K]) => void;
   onValidate?: (step: WizardStep) => Record<string, string>;
+  readOnly?: boolean;
 }
 
-export function StepView({ step, data, errors, extractedFields, onChange, onValidate: _onValidate }: Props) {
+export function StepView({ step, data, errors, extractedFields, onChange, onValidate: _onValidate, readOnly = false }: Props) {
   const defs = useMemo(() => FIELDS_BY_STEP[step] ?? [], [step]);
   const required = defs.filter((d) => d.required);
   const filled = required.filter((d) => {
@@ -50,7 +51,7 @@ export function StepView({ step, data, errors, extractedFields, onChange, onVali
         </div>
       )}
 
-      {renderStep(step, data, errors, onChange, extractedFields, FIELDS_BY_STEP)}
+      {renderStep(step, data, errors, onChange, extractedFields, FIELDS_BY_STEP, readOnly)}
 
       {localErrorCount > 0 && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">

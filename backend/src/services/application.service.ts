@@ -23,6 +23,7 @@ export interface ApplicationSummary {
   applicationId: string
   status: string
   data: Record<string, any>
+  version: number
   submittedAt?: string
   reviewedAt?: string
   createdAt: string
@@ -33,29 +34,72 @@ export async function submitApplication(
   userId: string,
   applicationId: string,
 ): Promise<ApplicationSummary> {
-  const application = await applicationPrisma.update({
-    where: { applicationId },
-    data: {
-      status: 'SUBMITTED',
-      submittedAt: new Date(),
-    },
-  })
+  // Atomically transition DRAFT -> SUBMITTED and bump version + stamp
+  // submittedAt. We use a transaction so concurrent submits cannot
+  // double-increment the version.
+  const application = await prisma.$transaction(async (tx) => {
+    const existing = await tx.application.findFirst({
+      where: { userId, applicationId },
+    });
+    if (!existing) {
+      throw new Error('Application not found');
+    }
+    if (existing.status !== 'DRAFT' && existing.status !== 'SUBMITTED') {
+      throw new Error(`Cannot submit application in status ${existing.status}`);
+    }
+    return tx.application.update({
+      where: { id: existing.id },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
+  });
 
   await logAuditEvent('APPLICATION_SUBMITTED', undefined, undefined, userId, {
     applicationId: application.applicationId,
     status: application.status,
-  })
+    version: application.version,
+  });
 
-  return {
-    id: application.id,
+  return toSummary(application);
+}
+
+export async function resubmitApplication(
+  userId: string,
+  applicationId: string,
+): Promise<ApplicationSummary> {
+  // Re-submit on an already SUBMITTED app. Bumps version, leaves status
+  // SUBMITTED, refreshes submittedAt. The caller should have already
+  // written the new data via PATCH /:id.
+  const application = await prisma.$transaction(async (tx) => {
+    const existing = await tx.application.findFirst({
+      where: { userId, applicationId },
+    });
+    if (!existing) {
+      throw new Error('Application not found');
+    }
+    if (existing.status !== 'SUBMITTED') {
+      throw new Error('Only submitted applications can be re-submitted');
+    }
+    return tx.application.update({
+      where: { id: existing.id },
+      data: {
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
+  });
+
+  await logAuditEvent('APPLICATION_RESUBMITTED', undefined, undefined, userId, {
     applicationId: application.applicationId,
     status: application.status,
-    data: application.data as Record<string, any>,
-    submittedAt: application.submittedAt?.toISOString(),
-    reviewedAt: application.reviewedAt?.toISOString(),
-    createdAt: application.createdAt.toISOString(),
-    updatedAt: application.updatedAt.toISOString(),
-  }
+    version: application.version,
+  });
+
+  return toSummary(application);
 }
 
 export async function createApplication(input: CreateApplicationInput): Promise<ApplicationSummary> {
@@ -76,16 +120,7 @@ export async function createApplication(input: CreateApplicationInput): Promise<
     status: application.status,
   })
 
-  return {
-    id: application.id,
-    applicationId: application.applicationId,
-    status: application.status,
-    data: application.data as Record<string, any>,
-    submittedAt: application.submittedAt?.toISOString(),
-    reviewedAt: application.reviewedAt?.toISOString(),
-    createdAt: application.createdAt.toISOString(),
-    updatedAt: application.updatedAt.toISOString(),
-  }
+  return toSummary(application)
 }
 
 export async function updateApplication(input: UpdateApplicationInput): Promise<ApplicationSummary> {
@@ -96,8 +131,15 @@ export async function updateApplication(input: UpdateApplicationInput): Promise<
     if (input.status === 'UNDER_REVIEW') updateData.reviewedAt = new Date()
   }
 
+  const existing = await applicationPrisma.findFirst({
+    where: { userId: input.userId, applicationId: input.applicationId },
+  })
+  if (!existing) {
+    throw new Error('Application not found')
+  }
+
   const application = await applicationPrisma.update({
-    where: { applicationId: input.applicationId },
+    where: { id: existing.id },
     data: updateData,
   })
 
@@ -106,16 +148,7 @@ export async function updateApplication(input: UpdateApplicationInput): Promise<
     status: application.status,
   })
 
-  return {
-    id: application.id,
-    applicationId: application.applicationId,
-    status: application.status,
-    data: application.data as Record<string, any>,
-    submittedAt: application.submittedAt?.toISOString(),
-    reviewedAt: application.reviewedAt?.toISOString(),
-    createdAt: application.createdAt.toISOString(),
-    updatedAt: application.updatedAt.toISOString(),
-  }
+  return toSummary(application)
 }
 
 export async function getApplication(userId: string, applicationId: string): Promise<ApplicationSummary | null> {
@@ -124,17 +157,7 @@ export async function getApplication(userId: string, applicationId: string): Pro
   })
 
   if (!application) return null
-
-  return {
-    id: application.id,
-    applicationId: application.applicationId,
-    status: application.status,
-    data: application.data as Record<string, any>,
-    submittedAt: application.submittedAt?.toISOString(),
-    reviewedAt: application.reviewedAt?.toISOString(),
-    createdAt: application.createdAt.toISOString(),
-    updatedAt: application.updatedAt.toISOString(),
-  }
+  return toSummary(application)
 }
 
 export async function listApplications(userId: string): Promise<ApplicationSummary[]> {
@@ -143,14 +166,19 @@ export async function listApplications(userId: string): Promise<ApplicationSumma
     orderBy: { createdAt: 'desc' },
   })
 
-  return applications.map((a: any) => ({
+  return applications.map((a: any) => toSummary(a))
+}
+
+function toSummary(a: any): ApplicationSummary {
+  return {
     id: a.id,
     applicationId: a.applicationId,
     status: a.status,
-    data: a.data as Record<string, any>,
+    data: (a.data as Record<string, any>) ?? {},
+    version: typeof a.version === 'number' ? a.version : 0,
     submittedAt: a.submittedAt?.toISOString(),
     reviewedAt: a.reviewedAt?.toISOString(),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
-  }))
+  }
 }

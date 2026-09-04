@@ -243,6 +243,15 @@ export async function deleteDocument(input: DeleteDocumentInput) {
     data: { status: 'DELETED' },
   })
 
+  // Clear any cached extraction so a re-upload with the same id (or a new
+  // document of the same name) starts from a clean slate. The
+  // onDelete: Cascade on the relation only fires on hard delete, which
+  // we don't do here — we soft-delete the document, so the extraction row
+  // must be removed explicitly.
+  await prisma.documentExtraction
+    .deleteMany({ where: { documentId: doc.id } })
+    .catch(() => {})
+
   await logAuditEvent('DOCUMENT_DELETED', undefined, undefined, input.userId, {
     documentId: doc.id,
     key: doc.s3Key,
