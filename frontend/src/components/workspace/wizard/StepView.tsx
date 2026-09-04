@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { ApplicationDraft } from '@/types/application';
-import { FIELDS_BY_STEP, validateStep, STEP_LABELS } from './fieldRegistry';
+import type { WizardConstants } from '@/services/applications';
+import { resolveFieldDefs, validateStep, STEP_LABELS } from './fieldRegistry';
 import { renderStep } from './WizardField';
 
 export type WizardStep = 'kyc' | 'business' | 'financials' | 'loan';
@@ -14,10 +15,12 @@ interface Props {
   onChange: <K extends keyof ApplicationDraft>(key: K, value: ApplicationDraft[K]) => void;
   onValidate?: (step: WizardStep) => Record<string, string>;
   readOnly?: boolean;
+  constants: WizardConstants | null;
 }
 
-export function StepView({ step, data, errors, extractedFields, onChange, onValidate: _onValidate, readOnly = false }: Props) {
-  const defs = useMemo(() => FIELDS_BY_STEP[step] ?? [], [step]);
+export function StepView({ step, data, errors, extractedFields, onChange, onValidate: _onValidate, readOnly = false, constants }: Props) {
+  const resolvedFields = useMemo(() => resolveFieldDefs(constants), [constants]);
+  const defs = useMemo(() => resolvedFields[step] ?? [], [step, resolvedFields]);
   const required = defs.filter((d) => d.required);
   const filled = required.filter((d) => {
     const v = data[d.name];
@@ -51,7 +54,7 @@ export function StepView({ step, data, errors, extractedFields, onChange, onVali
         </div>
       )}
 
-      {renderStep(step, data, errors, onChange, extractedFields, FIELDS_BY_STEP, readOnly)}
+      {renderStep(step, data, errors, onChange, extractedFields, resolvedFields, readOnly)}
 
       {localErrorCount > 0 && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">

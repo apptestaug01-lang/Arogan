@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileDropzone, FileDropzoneHandle } from '@/components/workspace/FileDropzone';
@@ -10,7 +10,7 @@ import {
   bulkDeleteDocuments,
   DocumentSummary,
 } from '@/services/documents';
-import { createApplication, listApplications } from '@/services/applications';
+import { listApplications } from '@/services/applications';
 import { formatBytes } from '@/constants/documents';
 import { useToast } from '@/components/workspace/ToastProvider';
 import {
@@ -21,7 +21,6 @@ import {
   FileSpreadsheet,
   Inbox,
   Loader2,
-  Eye,
 } from 'lucide-react';
 
 const KNOWN_STATUSES = ['Reviewing', 'Draft', 'Verified', 'Uploaded'] as const;
@@ -47,70 +46,44 @@ function DocStatus({ status }: { status: string }) {
 
 export default function DocumentUploadView() {
   const toast = useToast();
-  const navigate = useNavigate();
   const dropzoneRef = React.useRef<FileDropzoneHandle>(null);
   const [searchParams] = useSearchParams();
-  const editingFlag = searchParams.get('editing') === 'true';
 
-  // Only honour an explicit ?applicationId=... query param. We do NOT auto-pick
-  // the user's most recent application: uploads must be tied to a deliberately
-  // created application, otherwise the autofill pipeline would attach files to
-  // whatever app happens to be at the top of the list.
-  // Read it directly from searchParams on every render so the dropzone sees
-  // the value immediately (avoids the useState/useEffect dance that races
-  // the FileDropzone mount).
-  const applicationId = searchParams.get('applicationId');
-  const [appStatus, setAppStatus] = React.useState<string | null>(null);
+  const [applicationId, setApplicationId] = React.useState<string | null>(
+    searchParams.get('applicationId'),
+  );
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [deleting, setDeleting] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [creatingApp, setCreatingApp] = React.useState(false);
+  const [loadingApp, setLoadingApp] = React.useState(!applicationId);
 
-  // applicationId and editingFlag are read from searchParams on every render,
-  // so no useState/useEffect dance is needed. The useEffect below looks up the
-  // app's status to drive the read-only banner.
-  // Look up the application status so we can show a read-only banner / hide
-  // delete controls when the app is SUBMITTED and the visitor is not in
-  // editing mode.
   React.useEffect(() => {
+    if (applicationId) return;
     let cancelled = false;
-    if (!applicationId) {
-      setAppStatus(null);
-      return;
-    }
-    (async () => {
-      try {
-        const { applications } = await listApplications();
+    listApplications()
+      .then(({ applications }) => {
         if (cancelled) return;
-        const found = (applications || []).find((a) => a.applicationId === applicationId);
-        setAppStatus(found ? found.status : null);
-      } catch {
-        if (!cancelled) setAppStatus(null);
-      }
-    })();
+        const sorted = [...applications].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        const mostRecent = sorted[0]?.applicationId;
+        if (mostRecent) {
+          setApplicationId(mostRecent);
+          toast(`Using application ${mostRecent}`, 'info');
+        } else {
+          toast('Create a new application first to upload documents', 'info');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast('Failed to load applications', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingApp(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [applicationId]);
-
-  const isReadOnly = appStatus === 'SUBMITTED' && !editingFlag;
-
-  const handleCreateApplication = React.useCallback(async () => {
-    setCreatingApp(true);
-    try {
-      const { application } = await createApplication({ data: {} });
-      toast(`Application ${application.applicationId} created`, 'success');
-      navigate('/dashboard/applications/new', { state: { applicationId: application.applicationId } });
-    } catch (err) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Failed to create application';
-      toast(message, 'error');
-    } finally {
-      setCreatingApp(false);
-    }
-  }, [navigate, toast]);
+  }, [applicationId, toast]);
 
   const fetchDocuments = React.useCallback(async () => {
     try {
@@ -188,10 +161,6 @@ export default function DocumentUploadView() {
     }
   };
 
-  const handleDocumentDeleted = () => {
-    fetchDocuments();
-  };
-
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -207,16 +176,7 @@ export default function DocumentUploadView() {
               <CardTitle>Upload documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              {isReadOnly ? (
-                <div
-                  data-testid="upload-readonly-notice"
-                  className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800"
-                >
-                  <Eye className="h-4 w-4" />
-                  Uploads are disabled in read-only mode. Open the wizard and click
-                  "Edit & re-submit" to make changes.
-                </div>
-              ) : applicationId ? (
+              {applicationId ? (
                 <FileDropzone
                   ref={dropzoneRef}
                   applicationId={applicationId}
@@ -224,28 +184,10 @@ export default function DocumentUploadView() {
                   onUploadComplete={handleUploadComplete}
                 />
               ) : (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-                  <UploadCloud className="mx-auto mb-3 h-10 w-10 text-gray-400" />
-                  <h3 className="mb-1 text-base font-semibold text-gray-900">
-                    Create a new application to upload documents
-                  </h3>
-                  <p className="mb-5 text-sm text-gray-600">
-                    Uploads are tied to a specific application. Create one to enable the file
-                    browser.
-                  </p>
-                  <Button onClick={handleCreateApplication} disabled={creatingApp}>
-                    {creatingApp ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="h-4 w-4" />
-                        Create New Application
-                      </>
-                    )}
-                  </Button>
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
+                  {loadingApp
+                    ? 'Loading your applications...'
+                    : 'No application available. Create a new application first, then return here to upload documents.'}
                 </div>
               )}
             </CardContent>
@@ -273,16 +215,6 @@ export default function DocumentUploadView() {
                   <p className="text-xs text-muted-foreground">files · {formatBytes(totalSize)}</p>
                 </div>
               </div>
-              {isReadOnly && (
-                <div
-                  data-testid="vault-readonly-banner"
-                  className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-                >
-                  <Eye className="h-4 w-4" />
-                  Read-only view — this application is submitted. Open the wizard and
-                  click "Edit & re-submit" to make changes.
-                </div>
-              )}
             </CardHeader>
             <CardContent className="space-y-5">
               {documents.length === 0 ? (
@@ -303,7 +235,6 @@ export default function DocumentUploadView() {
                             type="checkbox"
                             checked={selectedIds.has(d.id)}
                             onChange={() => toggleSelect(d.id)}
-                            disabled={isReadOnly}
                             className="h-4 w-4"
                             aria-label={`Select ${d.originalName}`}
                           />
@@ -323,10 +254,8 @@ export default function DocumentUploadView() {
                             <button
                               type="button"
                               onClick={() => handleDeleteOne(d.id)}
-                              disabled={isReadOnly}
-                              className="rounded p-1.5 text-muted-foreground hover:bg-danger-500/10 hover:text-danger-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                              className="rounded p-1.5 text-muted-foreground hover:bg-danger-500/10 hover:text-danger-500"
                               aria-label="Delete document"
-                              title={isReadOnly ? 'Open the wizard and click "Edit & re-submit" to make changes' : 'Delete document'}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -338,7 +267,7 @@ export default function DocumentUploadView() {
                 </div>
               )}
 
-              {documents.length > 0 && !isReadOnly && (
+              {documents.length > 0 && (
                 <div className="flex items-center justify-between border-t border-border pt-4">
                   <span className="text-xs text-muted-foreground">
                     {selectedIds.size} selected
