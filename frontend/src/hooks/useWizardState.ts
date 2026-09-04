@@ -79,6 +79,14 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
   const [applicationId, setApplicationId] = React.useState<string | undefined>(initialApplicationId);
   const [extractedFields, setExtractedFields] = React.useState<Record<string, ExtractedField>>({});
 
+  // Mirror of `data` that updates synchronously inside setData-like helpers
+  // (e.g. applyExtractedFields) so the next saveDraft() in the same tick
+  // picks up the freshest values, even before React commits the render.
+  const dataRef = React.useRef<ApplicationDraft>(data);
+  React.useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -137,10 +145,10 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
     setSaving(true);
     try {
       if (applicationId) {
-        const res = await updateApplication({ applicationId, data: data as unknown as Record<string, unknown> });
+        const res = await updateApplication({ applicationId, data: dataRef.current as unknown as Record<string, unknown> });
         return res.application;
       } else {
-        const res = await createApplication({ data: data as unknown as Record<string, unknown> });
+        const res = await createApplication({ data: dataRef.current as unknown as Record<string, unknown> });
         setApplicationId(res.application.applicationId);
         return res.application;
       }
@@ -186,7 +194,16 @@ export function useWizardState(initialApplicationId?: string): UseWizardStateRet
       }
       return next as unknown as ApplicationDraft;
     });
+    // Mirror the new values into the ref synchronously so the next saveDraft
+    // call (which runs immediately after, before React commits) sees them.
     setExtractedFields((prev) => ({ ...prev, ...fields }));
+    dataRef.current = (() => {
+      const next = { ...dataRef.current } as Record<string, unknown>;
+      for (const [fieldName, field] of Object.entries(fields)) {
+        next[fieldName] = field.value;
+      }
+      return next as unknown as ApplicationDraft;
+    })();
   };
 
   return {
