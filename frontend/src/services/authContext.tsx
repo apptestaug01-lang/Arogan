@@ -101,9 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = React.useCallback(async () => {
     try {
       const response = await getCurrentUserApi();
-      if (response.data.user) {
-        setUser(response.data.user as User);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      const user = response?.data?.user;
+      if (user) {
+        setUser(user as User);
+        localStorage.setItem('user', JSON.stringify(user));
       }
     } catch {
       // token invalid, force logout

@@ -52,13 +52,20 @@ export async function refreshAccessToken(): Promise<AuthTokens> {
     throw new Error('No refresh token available');
   }
 
-  const response = await axios.post<AuthTokens>(
+  const response = await axios.post<{
+    success: boolean;
+    data: { accessToken: string; refreshToken: string };
+  }>(
     `${api.defaults.baseURL}/auth/refresh`,
     { refreshToken },
     { withCredentials: true },
   );
 
-  const tokens = response.data;
+  // Backend wraps the payload in { success, message, data: { ... } }
+  const tokens = response.data?.data;
+  if (!tokens?.accessToken || !tokens?.refreshToken) {
+    throw new Error('Refresh response missing tokens');
+  }
   localStorage.setItem('accessToken', tokens.accessToken);
   localStorage.setItem('refreshToken', tokens.refreshToken);
   api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
