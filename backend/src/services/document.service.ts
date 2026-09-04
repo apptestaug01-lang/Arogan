@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js'
 import { buildDocumentKey } from '../utils/documentKey.js'
 import { createPresignedUploadUrl, headObject, deleteObject, ensureBucket } from './storage.service.js'
 import { logAuditEvent } from './audit.service.js'
+import { triggerExtraction } from '../utils/triggerExtraction.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
   MAX_DOCUMENT_SIZE_BYTES,
@@ -107,6 +108,7 @@ export async function completeDocument(input: CompleteDocumentInput) {
       documentId: input.documentId,
       key,
     })
+    triggerExtraction(input.userId, input.documentId)
     return document
   } catch (err) {
     if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {

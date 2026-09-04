@@ -60,6 +60,8 @@ export const WIZARD_FIELDS: FieldDef[] = [
   { name: 'netWorth', label: 'Net Worth (₹)', type: 'number', step: 'financials', required: false },
   { name: 'debt', label: 'Existing Debt (₹)', type: 'number', step: 'financials', required: false },
   { name: 'turnover', label: 'Current Year Turnover (₹)', type: 'number', step: 'financials', required: false, helpText: 'Estimated for the in-progress year' },
+  { name: 'profit', label: 'Current Year Profit (₹)', type: 'number', step: 'financials', required: false, helpText: 'Estimated for the in-progress year' },
+  { name: 'existingDebt', label: 'Total Existing Debt (₹)', type: 'number', step: 'financials', required: false },
   { name: 'itrYears', label: 'ITR Filed Years', type: 'multiselect', step: 'financials', required: false, options: ['AY 2022-23', 'AY 2023-24', 'AY 2024-25', 'AY 2025-26'] },
   { name: 'itrFiled', label: 'ITR Filed Status', type: 'multiselect', step: 'financials', required: false, options: ['YES', 'NO', 'PENDING'] },
 

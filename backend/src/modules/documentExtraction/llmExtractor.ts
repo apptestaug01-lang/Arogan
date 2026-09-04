@@ -17,11 +17,11 @@ const FIELD_PROMPTS: Record<DocumentType, string> = {
     'Extract GST certificate: gstin (15 chars), companyName (legal name), businessType, address, gstRegistered (true/false).',
   INCORPORATION_CERT:
     'Extract incorporation certificate: cin (21 chars), companyName, businessType, dateOfIncorporation (DD/MM/YYYY), signatory, designation.',
-  ITR: 'Extract ITR: pan, fullName, turnover, profit, itrYears (array), itrFiled (true/false).',
+  ITR: 'Extract ITR: pan, fullName, turnover (number, current FY), profit (number, current FY), itrYears (array of "AY YYYY-YY"), itrFiled (true/false).',
   BANK_STATEMENT:
-    'Extract bank statement: avgMonthlyBalance, avgMonthlyCredits, bankStatementPeriod (e.g. "Apr 2024 - Mar 2025"), chequeBounces (count), existingMonthlyEmi.',
+    'Extract bank statement: avgMonthlyBalance (number), avgMonthlyCredits (number), bankStatementPeriod (e.g. "Apr 2024 - Mar 2025"), chequeBounces (count), existingMonthlyEmi (number).',
   BALANCE_SHEET:
-    'Extract balance sheet: turnover, turnoverY1, turnoverY2, profit, profitY1, profitY2, netWorth, existingDebt.',
+    'Extract balance sheet: turnover (number), profit (number), netWorth (number), existingDebt (number).',
   SANCTION_LETTER:
     'Extract sanction letter: loanAmount (number), productType, tenor (months), interestRate (number, % per annum), purpose, collateral.',
   UNKNOWN:

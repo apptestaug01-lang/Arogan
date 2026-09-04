@@ -42,11 +42,13 @@ const baseDraft: ApplicationDraft = {
   purpose: '',
   collateral: '',
   turnover: '',
+  profit: '',
+  existingDebt: '',
 };
 
 describe('fieldRegistry', () => {
   it('exposes 40 fields across the four steps', () => {
-    expect(WIZARD_FIELDS).toHaveLength(40);
+    expect(WIZARD_FIELDS).toHaveLength(42);
     expect(FIELDS_BY_STEP.kyc.length).toBeGreaterThan(0);
     expect(FIELDS_BY_STEP.business.length).toBeGreaterThan(0);
     expect(FIELDS_BY_STEP.financials.length).toBeGreaterThan(0);

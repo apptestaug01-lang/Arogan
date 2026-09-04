@@ -45,6 +45,8 @@ const emptyDraft = (): ApplicationDraft => ({
   purpose: '',
   collateral: '',
   turnover: '',
+  profit: '',
+  existingDebt: '',
 });
 
 interface WizardState {

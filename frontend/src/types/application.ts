@@ -39,4 +39,6 @@ export interface ApplicationDraft {
   purpose: string;
   collateral: string;
   turnover: string;
+  profit: string;
+  existingDebt: string;
 }
