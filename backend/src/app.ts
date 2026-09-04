@@ -87,6 +87,7 @@ app.get('/health', async (_req, res) => {
     services: {
       database: dbOk ? 'connected' : 'disconnected',
     },
+    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? process.env.GIT_COMMIT?.slice(0, 7) ?? null,
   });
 });
 

@@ -1,0 +1,16 @@
+{
+  "name": "arogan-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root orchestration for Arogan business loan app monorepo",
+  "scripts": {
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-and-test.ps1",
+    "deploy:skip-test": "powershell -ExecutionPolicy Bypass -File scripts/deploy-and-test.ps1 -SkipTest",
+    "deploy:skip-push": "powershell -ExecutionPolicy Bypass -File scripts/deploy-and-test.ps1 -SkipPush",
+    "deploy:no-wait": "powershell -ExecutionPolicy Bypass -File scripts/deploy-and-test.ps1 -SkipDeployWait",
+    "e2e": "node e2e/test.js",
+    "lint": "npm run lint:check --prefix backend && npm run lint:check --prefix frontend",
+    "test": "npm test --prefix backend && npm test --prefix frontend",
+    "typecheck": "npx tsc --noEmit --prefix backend && npx tsc --noEmit --prefix frontend"
+  }
+}
