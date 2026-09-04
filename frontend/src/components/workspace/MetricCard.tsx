@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 interface MetricCardProps {
   label: string;
-  value: string;
+  value: string | number;
   hint: string;
   className?: string;
 }

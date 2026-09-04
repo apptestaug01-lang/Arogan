@@ -56,9 +56,10 @@ export default function DocumentUploadView() {
   // the user's most recent application: uploads must be tied to a deliberately
   // created application, otherwise the autofill pipeline would attach files to
   // whatever app happens to be at the top of the list.
-  const [applicationId, setApplicationId] = React.useState<string | null>(
-    searchParams.get('applicationId'),
-  );
+  // Read it directly from searchParams on every render so the dropzone sees
+  // the value immediately (avoids the useState/useEffect dance that races
+  // the FileDropzone mount).
+  const applicationId = searchParams.get('applicationId');
   const [appStatus, setAppStatus] = React.useState<string | null>(null);
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
@@ -66,12 +67,9 @@ export default function DocumentUploadView() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [creatingApp, setCreatingApp] = React.useState(false);
 
-  // Re-read applicationId/editing when the URL changes (e.g. user navigates
-  // to /dashboard/documents?applicationId=X&editing=true).
-  React.useEffect(() => {
-    setApplicationId(searchParams.get('applicationId'));
-  }, [searchParams]);
-
+  // applicationId and editingFlag are read from searchParams on every render,
+  // so no useState/useEffect dance is needed. The useEffect below looks up the
+  // app's status to drive the read-only banner.
   // Look up the application status so we can show a read-only banner / hide
   // delete controls when the app is SUBMITTED and the visitor is not in
   // editing mode.
