@@ -3,13 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ProgressStepper } from '@/components/workspace/ProgressStepper';
 import { ReviewOverlay } from '@/components/workspace/ReviewOverlay';
-import { DocumentAnalyzer } from '@/components/workspace/auto-fill';
+import { DocumentAnalyzer, DocumentExtractionStepper } from '@/components/workspace/auto-fill';
 import { useWizardState } from '@/hooks/useWizardState';
 import { useAutoFill } from '@/hooks/useAutoFill';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { StepView, type WizardStep } from '@/components/workspace/wizard/StepView';
 import { StepTabs } from '@/components/workspace/wizard/StepTabs';
 import { validateStep } from '@/components/workspace/wizard/fieldRegistry';
+import type { ExtractedField } from '@/services/autoFill';
 
 interface LocationState {
   applicationId?: string;
@@ -154,6 +155,36 @@ export default function NewApplicationView() {
     }
   };
 
+  const [stepperActive, setStepperActive] = React.useState(true);
+
+  const applyStepAndAdvance = async (step: 'kyc' | 'business' | 'financials' | 'loan', fields: Record<string, ExtractedField>) => {
+    if (Object.keys(fields).length === 0) {
+      toast('No fields extracted for this document', 'info');
+      return;
+    }
+    wizard.applyExtractedFields(fields);
+    try {
+      await wizard.saveDraft();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed to save draft', 'error');
+      return;
+    }
+    const idx = STEP_KEYS.indexOf(step);
+    const nextIdx = idx + 1;
+    if (nextIdx < STEP_KEYS.length) {
+      setCurrentStep(nextIdx + 1);
+      toast(`Saved ${Object.keys(fields).length} ${step.toUpperCase()} field(s) — moved to ${STEPS[nextIdx]}`, 'success');
+    } else {
+      toast(`Saved ${Object.keys(fields).length} LOAN field(s) — ready to submit`, 'success');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const advanceToStep = (step: 'kyc' | 'business' | 'financials' | 'loan') => {
+    const idx = STEP_KEYS.indexOf(step);
+    if (idx >= 0) setCurrentStep(idx + 1);
+  };
+
   return (
     <div className="mx-auto w-full max-w-4xl animate-fade-in">
       <div className="mb-8 space-y-1">
@@ -176,6 +207,15 @@ export default function NewApplicationView() {
       <ProgressStepper currentStep={currentStep} totalSteps={4} labels={STEPS} />
 
       <div className="space-y-6">
+        {stepperActive && wizard.applicationId && (
+          <DocumentExtractionStepper
+            applicationId={wizard.applicationId}
+            onApplyStep={applyStepAndAdvance}
+            onAdvance={advanceToStep}
+            onAllDone={() => setStepperActive(false)}
+          />
+        )}
+
         <DocumentAnalyzer
           applicationId={wizard.applicationId || ''}
           extracting={extracting}

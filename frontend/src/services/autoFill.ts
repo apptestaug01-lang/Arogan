@@ -46,6 +46,19 @@ export async function extractAllDocuments(applicationId: string, force = false):
   return { ...res.data.data, cacheStatus };
 }
 
+export async function extractOneDocument(
+  applicationId: string,
+  documentId: string,
+  force = false,
+): Promise<{ documentId: string; applicationId: string; fields: Record<string, ExtractedField>; fieldCount: number }> {
+  const res = await api.post(
+    `/applications/${applicationId}/extract/${documentId}`,
+    undefined,
+    { params: force ? { force: 'true' } : undefined },
+  );
+  return res.data.data;
+}
+
 export async function autoFillStep(
   applicationId: string,
   step: string,

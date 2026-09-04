@@ -62,17 +62,17 @@ export class AutoFillService {
   async extractFromDocument(
     userId: string,
     documentId: string,
+    opts: { force?: boolean } = {},
   ): Promise<Record<string, ExtractedField> | null> {
     const doc = await prisma.document.findFirst({
       where: { id: documentId, userId, status: { not: 'DELETED' } },
-      select: { id: true, s3Key: true, originalName: true },
+      select: { id: true, s3Key: true, originalName: true, applicationId: true },
     });
     if (!doc) return null;
-    const result = await this.pipeline.processDocument({
-      id: doc.id,
-      s3Key: doc.s3Key,
-      originalName: doc.originalName,
-    });
+    const result = await this.pipeline.processDocument(
+      { id: doc.id, s3Key: doc.s3Key, originalName: doc.originalName },
+      opts,
+    );
     return result.fields;
   }
 

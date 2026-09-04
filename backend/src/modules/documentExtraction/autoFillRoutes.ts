@@ -60,6 +60,34 @@ router.post(
   },
 );
 
+router.post(
+  '/:applicationId/extract/:documentId',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { applicationId, documentId } = req.params;
+      const force = req.query.force === 'true' || req.query.force === '1';
+      const fields = await autoFillService.extractFromDocument(req.user!.id, documentId, { force });
+      if (!fields) {
+        res.status(404).json({ success: false, message: 'Document not found or extraction unavailable' });
+        return;
+      }
+      res.json({
+        success: true,
+        data: {
+          documentId,
+          applicationId,
+          fields,
+          fieldCount: Object.keys(fields).length,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.get(
   '/:applicationId/autofill/status',
   authMiddleware,
