@@ -61,11 +61,34 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
         setDocStatus((prev) => {
           const next = { ...prev };
           for (const d of status.documents) {
-            if (next[d.id]) continue; // don't override interactive state
-            if (d.extraction?.status === 'completed') next[d.id] = 'ready';
-            else if (d.extraction?.status === 'failed') next[d.id] = 'failed';
-            else if (d.extraction?.status === 'processing') next[d.id] = 'extracting';
-            else next[d.id] = 'pending';
+            const serverStatus = d.extraction?.status;
+            // If the server already produced a terminal extraction record,
+            // mirror it. We do this even if we previously marked it 'pending'
+            // or 'extracting' locally so the user sees the live state.
+            if (serverStatus === 'completed') {
+              next[d.id] = 'ready';
+            } else if (serverStatus === 'failed') {
+              next[d.id] = 'failed';
+            } else if (serverStatus === 'processing') {
+              // only set if not already 'extracting' (in-app call in flight)
+              if (next[d.id] !== 'extracting') next[d.id] = 'pending';
+            } else if (!next[d.id]) {
+              next[d.id] = 'pending';
+            }
+          }
+          return next;
+        });
+        // Also pull any cached fields from the server so we can render the
+        // "Apply N fields" button even if we never called extractOneDocument
+        // ourselves (the background trigger may have populated them).
+        setDocFields((prev) => {
+          const next = { ...prev };
+          for (const d of status.documents) {
+            if (!d.extraction || d.extraction.status !== 'completed') continue;
+            if (next[d.id]) continue;
+            // No local fields for this doc yet; leave it. The auto-extract
+            // effect below will fetch them, and the server doesn't return
+            // the field list in /autofill/status.
           }
           return next;
         });
@@ -88,10 +111,17 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
     };
   }, [applicationId]);
 
-  // Auto-extract each pending doc once it appears in the vault (in order).
+  // Auto-extract each doc that doesn't yet have a fields payload. Once the
+  // server reports the row as 'completed' the docStatus above flips to
+  // 'ready'; this effect is what populates docFields so the button can
+  // appear. We pull the actual fields via /extract/:documentId (which reads
+  // the warm cache) so the response is fast.
   React.useEffect(() => {
     if (!autoRunning) return;
-    const next = docs.find((d) => docStatus[d.id] === 'pending' || docStatus[d.id] === 'failed');
+    const next = docs.find((d) => {
+      const s = docStatus[d.id];
+      return (s === 'ready' || s === 'extracting') && !docFields[d.id];
+    });
     if (!next) {
       if (docs.length > 0 && docs.every((d) => docStatus[d.id] === 'ready')) {
         setAutoRunning(false);
@@ -99,17 +129,19 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
       }
       return;
     }
-    setDocStatus((s) => ({ ...s, [next.id]: 'extracting' }));
+    if (docStatus[next.id] !== 'extracting') {
+      setDocStatus((s) => ({ ...s, [next.id]: 'extracting' }));
+    }
     (async () => {
       try {
-        const res = await extractOneDocument(applicationId, next.id, true);
+        const res = await extractOneDocument(applicationId, next.id, false);
         setDocFields((f) => ({ ...f, [next.id]: res.fields }));
         setDocStatus((s) => ({ ...s, [next.id]: 'ready' }));
       } catch (e) {
         setDocStatus((s) => ({ ...s, [next.id]: 'failed' }));
       }
     })();
-  }, [docs, docStatus, autoRunning, applicationId, onAllDone]);
+  }, [docs, docStatus, docFields, autoRunning, applicationId, onAllDone]);
 
   const handleApplyStep = (doc: VaultDoc) => {
     const fields = docFields[doc.id] || {};
