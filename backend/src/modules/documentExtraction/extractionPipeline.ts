@@ -230,6 +230,18 @@ export class ExtractionPipeline {
     const extractor = this.regex.getExtractor(documentType);
     if (extractor) {
       regexFields = extractor.extract(rawText, fileName);
+    } else if (documentType === 'UNKNOWN') {
+      // No classifier match — try every extractor and keep the first that
+      // returns at least one field. This lets a real PAN/Aadhaar/GST still
+      // contribute fields even when the filename + text were too ambiguous
+      // to classify confidently.
+      for (const fallback of this.regex.allExtractors()) {
+        const out = fallback.extract(rawText, fileName);
+        if (Object.keys(out).length > 0) {
+          regexFields = out;
+          break;
+        }
+      }
     }
     return { llmFields, regexFields };
   }

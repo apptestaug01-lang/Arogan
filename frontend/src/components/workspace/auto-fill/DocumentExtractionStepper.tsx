@@ -116,19 +116,18 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
   // 'ready'; this effect is what populates docFields so the button can
   // appear. We pull the actual fields via /extract/:documentId (which reads
   // the warm cache) so the response is fast.
+  //
+  // We deliberately do NOT auto-hide the stepper once everything is ready:
+  // the user must explicitly click each "Apply & continue" to push the
+  // fields into the wizard. The stepper stays visible until the parent
+  // unmounts it (e.g. on application submit or page navigation).
   React.useEffect(() => {
     if (!autoRunning) return;
     const next = docs.find((d) => {
       const s = docStatus[d.id];
       return (s === 'ready' || s === 'extracting') && !docFields[d.id];
     });
-    if (!next) {
-      if (docs.length > 0 && docs.every((d) => docStatus[d.id] === 'ready')) {
-        setAutoRunning(false);
-        onAllDone();
-      }
-      return;
-    }
+    if (!next) return;
     if (docStatus[next.id] !== 'extracting') {
       setDocStatus((s) => ({ ...s, [next.id]: 'extracting' }));
     }
@@ -141,7 +140,7 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
         setDocStatus((s) => ({ ...s, [next.id]: 'failed' }));
       }
     })();
-  }, [docs, docStatus, docFields, autoRunning, applicationId, onAllDone]);
+  }, [docs, docStatus, docFields, autoRunning, applicationId]);
 
   const handleApplyStep = (doc: VaultDoc) => {
     const fields = docFields[doc.id] || {};

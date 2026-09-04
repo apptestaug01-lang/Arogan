@@ -25,6 +25,10 @@ export class ExtractorRegistry {
   getExtractor(documentType: DocumentType): Extractor | undefined {
     return this.extractors.get(documentType);
   }
+
+  allExtractors(): Extractor[] {
+    return Array.from(this.extractors.values());
+  }
 }
 
 export { PanCardExtractor, AadhaarExtractor, GstCertificateExtractor, ItrExtractor, BankStatementExtractor, BalanceSheetExtractor };
