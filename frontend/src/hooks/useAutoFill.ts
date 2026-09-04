@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { autoFillStep, AutoFillResult, ExtractedField } from '@/services/autoFill';
+import { extractAllDocuments, ExtractAllResult, ExtractedField } from '@/services/autoFill';
 import { useToast } from '@/components/workspace/ToastProvider';
 
 export interface ExtractionProgress {
@@ -16,51 +16,61 @@ export interface UseAutoFillOptions {
 }
 
 export interface UseAutoFillReturn {
-  autoFill: (step: 'kyc' | 'business' | 'financials' | 'loan') => Promise<AutoFillResult | null>;
+  autoFill: (step: 'kyc' | 'business' | 'financials' | 'loan' | 'all', force?: boolean) => Promise<ExtractAllResult | null>;
   extracting: boolean;
-  lastResult: AutoFillResult | null;
+  lastResult: ExtractAllResult | null;
   error: string | null;
   progress: ExtractionProgress | null;
 }
 
 export function useAutoFill({ applicationId, onFieldsExtracted, onProgress }: UseAutoFillOptions): UseAutoFillReturn {
   const [extracting, setExtracting] = React.useState(false);
-  const [lastResult, setLastResult] = React.useState<AutoFillResult | null>(null);
+  const [lastResult, setLastResult] = React.useState<ExtractAllResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState<ExtractionProgress | null>(null);
   const toast = useToast();
 
   const autoFill = React.useCallback(
-    async (step: 'kyc' | 'business' | 'financials' | 'loan') => {
+    async (step: 'kyc' | 'business' | 'financials' | 'loan' | 'all', force = false) => {
       if (!applicationId) {
-        setError('No application ID provided');
+        const msg = 'No application ID provided';
+        setError(msg);
+        toast(msg, 'error');
         return null;
       }
 
       setExtracting(true);
       setError(null);
-      setProgress({ currentDocument: 'Starting...', currentIndex: 0, totalDocuments: 0, phase: 'reading' });
-      onProgress?.({ currentDocument: 'Starting...', currentIndex: 0, totalDocuments: 0, phase: 'reading' });
+      setProgress({ currentDocument: 'Starting extraction…', currentIndex: 0, totalDocuments: 0, phase: 'reading' });
+      onProgress?.({ currentDocument: 'Starting extraction…', currentIndex: 0, totalDocuments: 0, phase: 'reading' });
 
       try {
-        const { data: result, cacheStatus } = await autoFillStep(applicationId, step);
+        const result = await extractAllDocuments(applicationId, force);
         setLastResult(result);
-        setProgress({ currentDocument: '', currentIndex: 0, totalDocuments: 0, phase: 'done' });
+        setProgress({ currentDocument: '', currentIndex: result.processedDocuments, totalDocuments: result.totalDocuments, phase: 'done' });
 
         const fieldCount = Object.keys(result.extractedFields).length;
         if (fieldCount > 0) {
-          const source = cacheStatus === 'cached' ? ' (cached)' : '';
-          toast(`Extracted ${fieldCount} field(s) from documents${source}`, 'success');
+          const source = result.cacheStatus === 'cached' ? ' (cached)' : result.cacheStatus === 'live' ? ' (re-extracted)' : '';
+          const perStep: string[] = [];
+          for (const [s, fields] of Object.entries(result.fieldsByStep)) {
+            const c = Object.keys(fields as Record<string, unknown>).length;
+            if (c > 0) perStep.push(`${s}:${c}`);
+          }
+          const stepHint = perStep.length > 0 ? ` (${perStep.join(', ')})` : '';
+          toast(`Extracted ${fieldCount} field(s) from ${result.processedDocuments} document(s)${source}${stepHint}`, 'success');
           onFieldsExtracted?.(result.extractedFields);
+        } else if (result.totalDocuments === 0) {
+          toast('No documents in vault. Upload documents first.', 'info');
         } else {
-          toast('No fields could be extracted for this step', 'info');
+          toast(`Processed ${result.processedDocuments} document(s) but no form fields could be extracted. Try "Force re-extract".`, 'info');
         }
 
         return result;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Auto-fill failed';
         setError(message);
-        toast(message, 'error');
+        toast(`Auto-fill failed: ${message}`, 'error');
         return null;
       } finally {
         setExtracting(false);

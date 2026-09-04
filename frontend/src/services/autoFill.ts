@@ -38,8 +38,10 @@ export interface AutoFillResponse {
   cacheStatus: CacheStatus;
 }
 
-export async function extractAllDocuments(applicationId: string): Promise<ExtractAllResult> {
-  const res = await api.post(`/applications/${applicationId}/extract-all`);
+export async function extractAllDocuments(applicationId: string, force = false): Promise<ExtractAllResult> {
+  const res = await api.post(`/applications/${applicationId}/extract-all`, undefined, {
+    params: force ? { force: 'true' } : undefined,
+  });
   const cacheStatus = (res.headers['x-extraction-status'] as CacheStatus) ?? 'live';
   return { ...res.data.data, cacheStatus };
 }

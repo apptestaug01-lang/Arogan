@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ProgressStepper } from '@/components/workspace/ProgressStepper';
 import { ReviewOverlay } from '@/components/workspace/ReviewOverlay';
@@ -11,13 +11,24 @@ import { StepView, type WizardStep } from '@/components/workspace/wizard/StepVie
 import { StepTabs } from '@/components/workspace/wizard/StepTabs';
 import { validateStep } from '@/components/workspace/wizard/fieldRegistry';
 
+interface LocationState {
+  applicationId?: string;
+}
+
 const STEPS = ['Personal & KYC', 'Business Details', 'Financials', 'Loan Request'];
 const STEP_KEYS: WizardStep[] = ['kyc', 'business', 'financials', 'loan'];
 
 export default function NewApplicationView() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const urlAppId = React.useMemo(
+    () => new URLSearchParams(location.search).get('applicationId') ?? undefined,
+    [location.search],
+  );
+  const stateAppId = (location.state as LocationState | null)?.applicationId;
+  const incomingAppId = urlAppId ?? stateAppId;
   const toast = useToast();
-  const wizard = useWizardState();
+  const wizard = useWizardState(incomingAppId);
   const [currentStep, setCurrentStep] = React.useState(1);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -31,6 +42,13 @@ export default function NewApplicationView() {
       wizard.applyExtractedFields(fields);
     },
   });
+  const [vaultRefreshKey, setVaultRefreshKey] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!extracting && lastResult) {
+      setVaultRefreshKey((k) => k + 1);
+    }
+  }, [extracting, lastResult]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -49,12 +67,12 @@ export default function NewApplicationView() {
     return () => { cancelled = true; };
   }, [wizard.applicationId, initializing, wizard, toast]);
 
-  const handleAutoFill = async () => {
+  const handleAutoFill = async (force = false) => {
     if (!wizard.applicationId) {
       toast('Please wait for application to initialize', 'info');
       return;
     }
-    await autoFill(currentStepKey);
+    await autoFill('all', force);
   };
 
   const handleValidateStep = (step: WizardStep): boolean => {
@@ -159,14 +177,18 @@ export default function NewApplicationView() {
 
       <div className="space-y-6">
         <DocumentAnalyzer
+          applicationId={wizard.applicationId || ''}
           extracting={extracting}
-          extractedFields={lastResult?.extractedFields || {}}
-          unmatchedDocuments={lastResult?.unmatchedDocuments || []}
-          missingFields={lastResult?.missingFields || []}
+          extractedFields={wizard.extractedFields}
+          unmatchedDocuments={[]}
+          missingFields={[]}
           onAutoFill={handleAutoFill}
           onApplyField={wizard.applyExtractedField}
+          onApplyAll={wizard.applyExtractedFields}
           stepLabel={STEPS[currentStep - 1]}
           progress={progress}
+          fullResult={lastResult}
+          refreshKey={vaultRefreshKey}
         />
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
