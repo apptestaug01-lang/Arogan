@@ -42,28 +42,34 @@ function Write-Section($msg) {
 function Get-LocalToken {
   $envFile = Join-Path $Script:Root '.env.local'
   if (Test-Path $envFile) {
-    Get-Content $envFile | ForEach-Object {
-      if ($_ -match '^\s*GITHUB_TOKEN\s*=\s*(.+)\s*$') {
+    $raw = (Get-Content $envFile -Raw) -replace "`r`n", "`n" -replace "`r", "`n"
+    foreach ($line in ($raw -split "`n")) {
+      $line = $line.Trim()
+      if ($line -match '^GITHUB_TOKEN\s*=\s*(.+?)\s*$') {
         return $Matches[1].Trim()
       }
-    } | Where-Object { $_ }
+    }
   }
   return $null
 }
 
 function Save-LocalToken($token) {
   $envFile = Join-Path $Script:Root '.env.local'
-  "GITHUB_TOKEN=$token" | Set-Content -Path $envFile -Encoding UTF8
+  # Write without trailing newline to keep the file content exact
+  [System.IO.File]::WriteAllText($envFile, "GITHUB_TOKEN=$token", [System.Text.Encoding]::UTF8)
   Write-Host "Token saved to $envFile" -ForegroundColor Green
   Write-Host "Add '.env.local' to .gitignore if not already there." -ForegroundColor Yellow
 }
 
 function Test-TokenFormat($token) {
-  return $token -match '^gh[ps]_[A-Za-z0-9]{20,}$'
-}
-
-function Test-TokenFormat($token) {
-  return $token -match '^gh[ps]_[A-Za-z0-9]{20,}$'
+  # GitHub token formats:
+  #   ghp_xxxxx        classic PAT
+  #   ghs_xxxxx        GitHub App server token
+  #   gho_xxxxx        OAuth user token
+  #   ghu_xxxxx        OAuth user-to-server token
+  #   ghr_xxxxx        GitHub App refresh token
+  #   github_pat_xxx   fine-grained PAT (newer)
+  return $token -match '^(ghp_|ghs_|gho_|ghu_|ghr_|github_pat_)[A-Za-z0-9_]{20,}$'
 }
 
 # -------------------------------------------------------------- preflight
