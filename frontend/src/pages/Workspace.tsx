@@ -27,9 +27,9 @@ export default function Workspace() {
   const crumbs = React.useMemo(() => {
     const items = [{ label: 'LoanFlow', to: '/dashboard' as string }];
     if (pathname === '/dashboard') {
-      items.push({ label: 'Overview', to: '/dashboard' });
+      items.push({ label: 'Dashboard', to: '/dashboard' });
     } else if (pathname.startsWith('/dashboard/overview')) {
-      items.push({ label: 'Dashboard', to: '/dashboard/overview' });
+      items.push({ label: 'Product picker', to: '/dashboard/overview' });
     } else if (pathname.startsWith('/dashboard/applications/new')) {
       items.push({ label: 'Applications', to: '/dashboard/applications' });
       items.push({ label: 'New application', to: '' });

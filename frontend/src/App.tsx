@@ -39,8 +39,8 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Workspace />}>
-            <Route index element={<WelcomeView />} />
-            <Route path="overview" element={<DashboardView />} />
+            <Route index element={<DashboardView />} />
+            <Route path="overview" element={<WelcomeView />} />
             <Route path="applications" element={<ApplicationsView />} />
             <Route path="applications/new" element={<NewApplicationView />} />
             <Route path="documents" element={<DocumentUploadView />} />

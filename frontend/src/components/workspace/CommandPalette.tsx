@@ -23,17 +23,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     () => [
       {
         id: 'overview',
-        label: 'Go to Overview',
+        label: 'Go to Dashboard',
         group: 'Navigate',
         keywords: 'dashboard home summary',
         run: () => navigate('/dashboard'),
-      },
-      {
-        id: 'dashboard',
-        label: 'Go to Dashboard',
-        group: 'Navigate',
-        keywords: 'metrics stats activity',
-        run: () => navigate('/dashboard/overview'),
       },
       {
         id: 'applications',
