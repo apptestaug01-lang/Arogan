@@ -14,6 +14,7 @@ export interface ExplorerEntry {
   lastModified?: string
   documentId?: string
   status?: string
+  hasArchive?: boolean
 }
 
 export interface ListExplorerInput {
@@ -76,11 +77,17 @@ export async function listExplorer(
     )
   }
 
-  const folders: ExplorerEntry[] = (result.CommonPrefixes ?? []).map((cp) => {
-    const key = cp.Prefix ?? ''
-    const name = key.slice(base.length).replace(/\/$/, '')
-    return { name, type: 'folder', key }
-  })
+  const folders: ExplorerEntry[] = (result.CommonPrefixes ?? [])
+    .filter((cp) => {
+      const key = cp.Prefix ?? ''
+      if (key.startsWith('.loanflow/')) return false
+      return true
+    })
+    .map((cp) => {
+      const key = cp.Prefix ?? ''
+      const name = key.slice(base.length).replace(/\/$/, '')
+      return { name, type: 'folder', key }
+    })
 
   const rawFiles = (result.Contents ?? []).filter((o) => (o.Key ?? '') !== base)
 
@@ -94,6 +101,16 @@ export async function listExplorer(
     for (const d of linked) documentIdByKey.set(d.s3Key, { id: d.id, status: d.status })
   }
 
+  const completedArchiveDocIds = new Set<string>()
+  if (documentIdByKey.size > 0) {
+    const docIds = Array.from(documentIdByKey.values()).map((d) => d.id)
+    const archives = await prisma.documentArchive.findMany({
+      where: { documentId: { in: docIds }, status: 'COMPLETED' },
+      select: { documentId: true },
+    })
+    for (const a of archives) completedArchiveDocIds.add(a.documentId)
+  }
+
   const files: ExplorerEntry[] = rawFiles.map((o) => {
     const doc = documentIdByKey.get(o.Key ?? '')
     return {
@@ -104,6 +121,7 @@ export async function listExplorer(
       lastModified: o.LastModified ? o.LastModified.toISOString() : undefined,
       documentId: doc?.id,
       status: doc?.status,
+      hasArchive: doc?.id ? completedArchiveDocIds.has(doc.id) : false,
     }
   })
 

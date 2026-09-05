@@ -22,6 +22,9 @@ jest.mock('../src/lib/prisma.js', () => ({
     document: {
       findMany: jest.fn().mockResolvedValue([]),
     },
+    documentArchive: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }))
 
@@ -39,6 +42,7 @@ function setupSend(result: any) {
 
 beforeEach(() => {
   ;(prisma.document.findMany as jest.Mock).mockResolvedValue([])
+  ;(prisma.documentArchive.findMany as jest.Mock).mockResolvedValue([])
 })
 
 describe('listExplorer', () => {
