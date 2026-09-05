@@ -97,3 +97,17 @@ export const WIZARD_ASSESSMENT_YEARS = [
   'AY 2023-24',
   'AY 2022-23',
 ] as const;
+
+// Lossless Archive constants (§5, §8, §17 C0)
+export const LOANFLOW_DERIVED_PREFIX = '.loanflow';
+
+export const ARCHIVE_SCHEMA_VERSION = '1.0' as const;
+
+export const ARCHIVE_EMBED_MAX_BYTES =
+  Number(process.env.ARCHIVE_EMBED_MAX_BYTES) || 25 * 1024 * 1024; // 25 MB
+
+export const ARCHIVE_GZ_OBJECT_MAX_BYTES =
+  Number(process.env.ARCHIVE_GZ_OBJECT_MAX_BYTES) || 100 * 1024 * 1024; // 100 MB
+
+export const ARCHIVE_CONVERT_TIMEOUT_MS =
+  Number(process.env.ARCHIVE_CONVERT_TIMEOUT_MS) || 90_000; // 90 s default

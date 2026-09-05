@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanFlow — Lossless Vault-to-JSON Pipeline (Deep Dive)</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { primaryColor: '#eef2ff', primaryTextColor: '#3730a3', primaryBorderColor: '#a5b4fc', lineColor: '#94a3b8', fontFamily: 'Inter, system-ui, sans-serif' }, flowchart: { useMaxWidth: true, htmlLabels: true } });
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #e2e8f0;
+      --brand: #4f46e5;
+      --brand-soft: #eef2ff;
+      --accent: #0e7490;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --crit: #b91c1c;
+      --crit-bg: #fef2f2;
+      --ok: #047857;
+      --ok-bg: #ecfdf5;
+      --code-bg: #0f172a;
+      --code-ink: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.65;
+    }
+    header.cover {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4f46e5 100%);
+      color: #fff;
+      padding: 64px 48px 56px;
+    }
+    header.cover .kicker { letter-spacing: .2em; text-transform: uppercase; font-size: 12px; opacity: .85; }
+    header.cover h1 { font-size: 42px; margin: 12px 0 8px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+    header.cover p { max-width: 820px; opacity: .94; font-size: 16px; }
+    header.cover .meta { margin-top: 26px; display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px; opacity: .9; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 32px 80px; }
+    .toc {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 24px 28px; margin-bottom: 36px;
+    }
+    .toc h2 { margin: 0 0 12px; font-size: 18px; }
+    .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 40px; }
+    .toc a { color: var(--brand); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    section {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 32px 36px; margin-bottom: 28px;
+    }
+    section h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+    section h3 { font-size: 18px; margin: 30px 0 10px; color: var(--accent); }
+    section h4 { font-size: 15px; margin: 22px 0 8px; }
+    section p, section li { color: var(--muted); }
+    section p code, section li code { background: #f1f5f9; padding: 1px 5px; border-radius: 5px; font-size: 12.5px; color: #c026d3; }
+    .lead { color: var(--ink); font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+    th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: var(--brand-soft); color: var(--ink); font-weight: 600; }
+    td code { background: #f1f5f9; padding: 1px 5px; border-radius: 5px; font-size: 12px; color: #c026d3; }
+    tr.cov td { background: #f0f9ff; }
+    tr.cov .cov-tag { font-weight: 700; color: var(--accent); white-space: nowrap; width: 1%; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+    .b-ok { background: var(--ok-bg); color: var(--ok); }
+    .b-warn { background: var(--warn-bg); color: var(--warn); }
+    .b-crit { background: var(--crit-bg); color: var(--crit); }
+    .b-brand { background: var(--brand-soft); color: var(--brand); }
+    .callout { border-left: 4px solid var(--brand); background: var(--brand-soft); padding: 14px 18px; border-radius: 8px; margin: 16px 0; }
+    .callout.warn { border-color: var(--warn); background: var(--warn-bg); }
+    .callout.crit { border-color: var(--crit); background: var(--crit-bg); }
+    .callout.ok { border-color: var(--ok); background: var(--ok-bg); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 18px 0; }
+    .stat { background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+    .stat .n { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: var(--brand); }
+    .stat .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+    .card { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; background: #fff; }
+    .card h4 { margin: 0 0 8px; font-size: 15px; }
+    .diagram { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 18px 0; overflow-x: auto; }
+    .mermaid { background: transparent; }
+    pre {
+      background: var(--code-bg); color: var(--code-ink); border-radius: 10px;
+      padding: 16px 18px; overflow-x: auto; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px; line-height: 1.55; margin: 14px 0;
+    }
+    pre code { background: transparent; color: inherit; padding: 0; }
+    code .k { color: #c4b5fd; }
+    code .s { color: #86efac; }
+    code .c { color: #64748b; }
+    .steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+    .steps li { position: relative; padding: 0 0 16px 44px; border-left: 2px solid var(--line); margin-left: 14px; }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: -16px; top: 0; width: 30px; height: 30px;
+      border-radius: 8px; background: var(--brand); color: #fff; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .steps li:last-child { border-left-color: transparent; }
+    .steps li p { margin: 0 0 4px; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }
+    @media (max-width: 860px) {
+      .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
+      .toc ol { columns: 1; }
+      header.cover { padding: 40px 24px; }
+      header.cover h1 { font-size: 30px; }
+      .wrap { padding: 24px 14px 60px; }
+      section { padding: 22px 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="cover">
+    <div class="kicker">Solution Deep Dive — Document Intelligence Pipeline</div>
+    <h1>Lossless S3/B2 Vault &rarr; JSON Archive &amp; In-Vault Viewer</h1>
+    <p>Production architecture for converting every uploaded document into a self-describing JSON archive with zero information loss, an idempotent worker pipeline, checksum-verified integrity, and first-class JSON preview in the existing vault explorer.</p>
+    <div class="meta">
+      <span>Date: 5 Sep 2026</span>
+      <span>Scope: Backend pipeline + storage layout + vault UX</span>
+      <span>Target: Production on Render + B2/R2</span>
+      <span>Applies to: Arogan / LoanFlow</span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="toc">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Problem and goals</a></li>
+        <li><a href="#s2">Current state audit</a></li>
+        <li><a href="#s3">The fidelity contract</a></li>
+        <li><a href="#s4">Reference architecture</a></li>
+        <li><a href="#s5">Storage layout</a></li>
+        <li><a href="#s6">DocumentArchive JSON schema</a></li>
+        <li><a href="#s7">Per-format converters</a></li>
+        <li><a href="#s8">Embed vs reference decision</a></li>
+        <li><a href="#s9">Worker pipeline and state machine</a></li>
+        <li><a href="#s10">Database schema evolution</a></li>
+        <li><a href="#s11">In-vault JSON viewing</a></li>
+        <li><a href="#s12">Security</a></li>
+        <li><a href="#s13">Testing and round-trip validation</a></li>
+        <li><a href="#s14">Backfill and rollout</a></li>
+        <li><a href="#s15">Risks and mitigations</a></li>
+        <li><a href="#s16">Effort estimate</a></li>
+        <li><a href="#s17">Chunk-wise implementation</a></li>
+        <li><a href="#s18">Corner-case register</a></li>
+        <li><a href="#appendix">Appendix: example archive</a></li>
+      </ol>
+    </div>
+
+    <!-- ============ 1 ============ -->
+    <section id="s1">
+      <h2>1. Problem and goals</h2>
+      <p class="lead">LoanFlow stores borrower documents (PDF, DOC/DOCX, XLS/XLSX, CSV, PNG, JPG, WEBP) in an S3-compatible vault (Backblaze B2 or Cloudflare R2). The existing batch converter writes a partial text dump to <code>.json</code> siblings. It is lossy, pollutes the vault namespace, and cannot guarantee recovery of the original document.</p>
+
+      <h3>Goals</h3>
+      <ul>
+        <li><strong>G1 — Zero data loss.</strong> The JSON artifact alone must preserve every meaningful byte, structure, table, image, and metadata of the original, and must prove integrity against the source object.</li>
+        <li><strong>G2 — Recovery guarantee.</strong> A rebuild must be byte-identical (<code>sha256</code> match) to the uploaded original for every supported format within a defined size envelope.</li>
+        <li><strong>G3 — Production pipeline.</strong> Idempotent, resumable, observable, failure-isolated, and safe to run on the full existing bucket as a one-time backfill and continuously on new uploads.</li>
+        <li><strong>G4 — Vault-native viewing.</strong> Analysts and borrowers open a converted <code>.json</code> directly in the vault: human-readable summary, raw JSON, per-page text, tables, and extracted fields — never raw base64 in the DOM.</li>
+        <li><strong>G5 — No vault pollution.</strong> Derived artifacts are stored in a dedicated <code>.loanflow/</code> namespace so the explorer keeps showing real documents, with an explicit toggle for JSON.</li>
+      </ul>
+
+      <div class="callout warn">
+        <strong>Definition of lossless used here.</strong> "Converting a document to JSON with no loss" is achieved only when the JSON is a <em>container</em>, not a text snapshot. It carries (a) the source's canonical semantic content with geometry and cell fidelity, (b) all embedded media and OOXML package parts, and (c) a recoverable copy of the original bytes (embedded or integrity-linked). A JSON of only <code>rawText</code> loses layout, tables, images, and fonts and is <strong>not</strong> lossless.
+      </div>
+    </section>
+
+    <!-- ============ 2 ============ -->
+    <section id="s2">
+      <h2>2. Current state audit</h2>
+      <p class="lead">What exists today, and why it does not meet the goals above.</p>
+
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Location</th><th>Behaviour</th><th>Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Object layout</td>
+            <td><code>backend/src/utils/documentKey.ts</code></td>
+            <td>Objects at <code>borrowers/{user}/applications/{app}/documents/{docId}/{file}</code></td>
+            <td><span class="badge b-ok">Good</span> Tenant-scoped and partitionable. Keep.</td>
+          </tr>
+          <tr>
+            <td>Upload</td>
+            <td><code>document.service.ts</code>, <code>multipart.service.ts</code></td>
+            <td>Presigned single + multipart upload, 5 GB ceiling, content-type allowlist, checksum captured.</td>
+            <td><span class="badge b-ok">Good</span> Keep as ingestion trigger.</td>
+          </tr>
+          <tr>
+            <td>Extraction pipeline</td>
+            <td><code>modules/documentExtraction/*</code></td>
+            <td>Classifies type, runs regex + LLM field extraction, writes <code>DocumentExtraction</code> in Postgres. Text-only; 10 MB cap; 25 s timeout.</td>
+            <td><span class="badge b-warn">Field layer only</span> Reuse classifier and extractors as the top layer of the new archive.</td>
+          </tr>
+          <tr>
+            <td>Batch converter</td>
+            <td><code>utils/documentConverter.ts</code>, <code>scripts/batchConvertDocuments.ts</code></td>
+            <td>Downloads object, parses text/html/csv, writes <code>{name}.json</code> sibling to the original in the <em>same</em> folder.</td>
+            <td><span class="badge b-crit">Lossy</span> Text-only; no geometry, cell types, merges, images; no byte fidelity; mutates the vault listing.</td>
+          </tr>
+          <tr>
+            <td>PDF OCR</td>
+            <td><code>documentConverter.ts</code> (line 145) vs <code>parsers/pdfParser.ts</code></td>
+            <td>Converter calls <code>sharp(pdfPath)</code> (does not rasterize PDFs). Parser correctly uses <code>pdftoppm</code>.</td>
+            <td><span class="badge b-crit">Broken</span> Converter OCR silently fails on scans.</td>
+          </tr>
+          <tr>
+            <td>DOCX</td>
+            <td><code>convertDocx</code>, <code>DocxParser</code></td>
+            <td>Mammoth raw text + rough HTML tag census. Images in the DOCX package are dropped.</td>
+            <td><span class="badge b-crit">Lossy</span> No media extraction, no per-paragraph structure.</td>
+          </tr>
+          <tr>
+            <td>XLSX</td>
+            <td><code>convertSpreadsheet</code>, <code>XlsxParser</code></td>
+            <td><code>sheet_to_json</code> + <code>sheet_to_csv</code>. Formulas evaluated, cell types and merges lost.</td>
+            <td><span class="badge b-warn">Partial</span> Cell type, formula, style, and merge fidelity missing.</td>
+          </tr>
+          <tr>
+            <td>Vault JSON preview</td>
+            <td><code>frontend/.../DocumentVaultView.tsx</code>, <code>services/viewer.service.ts</code></td>
+            <td>Opening a <code>.json</code> key fetches the object and pretty-prints into a <code>&lt;pre&gt;</code>.</td>
+            <td><span class="badge b-warn">Seed</span> Already JSON-aware; must be hardened (see §11).</td>
+          </tr>
+          <tr>
+            <td>Key viewer bug</td>
+            <td><code>viewer.service.ts</code> <code>getKeyView</code></td>
+            <td>Hardcodes <code>contentType: 'application/json'</code> and returns <code>documentId = checksum</code> for <em>every</em> key-based open.</td>
+            <td><span class="badge b-crit">Bug</span> Any file opened by key renders as JSON preview.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout crit">
+        <strong>Conclusion.</strong> Keep the object store as the durable source of truth. Replace the text-dump converter with a DocumentArchive builder and a dedicated derived-object namespace. Build the viewer on top of the existing JSON branch in <code>DocumentVaultView</code>, then fix the key-viewer content-type bug.
+      </div>
+    </section>
+
+    <!-- ============ 3 ============ -->
+    <section id="s3">
+      <h2>3. The fidelity contract</h2>
+      <p class="lead">For each format we define what "no loss" means as explicit, testable assertions.</p>
+
+      <table>
+        <thead>
+          <tr><th>Dimension</th><th>PDF</th><th>DOCX</th><th>XLSX / CSV</th><th>Images</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Document metadata</td>
+            <td>Title, author, subject, creator, producer, creation/mod dates, PDF version, page size</td>
+            <td>core.xml properties, revision, dates</td>
+            <td>Sheet names, count, document properties</td>
+            <td>Width, height, format, channels, space, depth, EXIF/ICC when present</td>
+          </tr>
+          <tr>
+            <td>Text</td>
+            <td>Per page, per text-run with <code>x,y,width,height</code> and font</td>
+            <td>Per paragraph and run with style names, list structure, ordering</td>
+            <td>Per cell with type, value, display text, hyperlink</td>
+            <td>OCR word boxes (<code>x,y,w,h,conf</code>) via Tesseract TSV</td>
+          </tr>
+          <tr>
+            <td>Structure</td>
+            <td>Page order, page count, embedded fonts and images inventory</td>
+            <td>Full OOXML parts preserved (<code>document.xml</code>, headers, footers, numbering, styles, media)</td>
+            <td>Merged ranges, row heights, column widths, number formats, formulas</td>
+            <td>No loss: original pixels retained via archive</td>
+          </tr>
+          <tr>
+            <td>Tables</td>
+            <td>Detected row/column grids with coordinates</td>
+            <td>Table rows and cells as document structure</td>
+            <td>Native cell grid incl. merges</td>
+            <td>N/A</td>
+          </tr>
+          <tr>
+            <td>Media</td>
+            <td>Embedded images extracted as assets; page images for scans</td>
+            <td>All <code>word/media/*</code> files as assets</td>
+            <td>Sheet images/charts as assets</td>
+            <td>Original image referenced as asset</td>
+          </tr>
+          <tr>
+            <td>Byte recovery</td>
+            <td colspan="4">Embedded base64+gzip original (within budget) OR content pointer + <code>sha256</code> to the immutable source object (see §8).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        Every converter ships a <strong>fidelity test</strong>: rebuild the document from the archive and assert <code>sha256(rebuild) === source.sha256</code>. This is the only objective definition of "no data loss" that matters in production.
+      </div>
+    </section>
+
+    <!-- ============ 4 ============ -->
+    <section id="s4">
+      <h2>4. Reference architecture</h2>
+      <p class="lead">One design principle: the JSON archive is a <em>self-describing container</em>, the original object stays immutable, and everything derived lives under a hidden <code>.loanflow/</code> prefix.</p>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    U["Browser / Mobile Uploader"]
+    U -->|"POST presign + complete"| API["Express API"]
+    API -->|"PUT object"| S3[("S3/B2 Vault")]
+    S3 --> E["Upload-Completed Event"]
+    E --> Q["Queue (SQS / BullMQ)"]
+    Q --> W1["Archive Worker 1"]
+    Q --> W2["Archive Worker 2"]
+    Q --> W3["Archive Worker N"]
+    W1 -->|"fetch source + sha256"| S3
+    W1 --> DET["Fidelity Contract Gate"]
+    DET -->|"per-format converter"| CA["Build DocumentArchive JSON"]
+    CA -->|"write .loanflow/.../document.json + assets"| S3
+    CA --> DB[("Postgres: DocumentArchive status")]
+    DB --> VIEW["Vault / Preview API"]
+    S3 --> VIEW
+    VIEW --> FE["Vault Explorer + JSON Viewer"]
+        </pre>
+      </div>
+
+      <div class="grid3">
+        <div class="card">
+          <h4>1. Source of truth</h4>
+          <p>The original object never moves and is never rewritten. Its <code>ETag</code> and a computed <code>sha256</code> become the archive's identity.</p>
+        </div>
+        <div class="card">
+          <h4>2. Derived namespace</h4>
+          <p><code>.loanflow/{docId}/document.json</code> plus <code>.loanflow/{docId}/assets/…</code>. The vault explorer filters this prefix out of normal listings.</p>
+        </div>
+        <div class="card">
+          <h4>3. Async workers</h4>
+          <p>An idempotent queue drives conversion. Workers are stateless, retried with backoff, and write results transactionally to S3 and Postgres.</p>
+        </div>
+      </div>
+
+      <h3>Why a queue instead of doing this inside the upload request?</h3>
+      <ul>
+        <li>Conversion of a 50-page scanned PDF takes seconds to minutes — too slow for a request lifecycle.</li>
+        <li>The upload path should return fast and never fail because a converter crashed.</li>
+        <li>Backfill of an existing bucket is just "enqueue every object", reusing the same workers.</li>
+        <li>Failures isolate per document; a poison message does not take down uploads or reads.</li>
+      </ul>
+    </section>
+
+    <!-- ============ 5 ============ -->
+    <section id="s5">
+      <h2>5. Storage layout</h2>
+
+      <pre><code><span class="c"># Source objects (unchanged, existing)</span>
+borrowers/{userId}/applications/{applicationId}/documents/{documentId}/{original.ext}
+
+<span class="c"># Derived archive namespace (new, hidden from normal explorer view)</span>
+.loanflow/{documentId}/document.json          <span class="c"># DocumentArchive container</span>
+.loanflow/{documentId}/assets/page-0001.png   <span class="c"># rasterized page images (scans)</span>
+.loanflow/{documentId}/assets/media-0001.png  <span class="c"># embedded DOCX/XLSX media</span>
+.loanflow/{documentId}/manifest.json          <span class="c"># converter run + verification record</span>
+.loanflow/{documentId}/original.gz            <span class="c"># OPTIONAL full-byte archive (see s8)</span></code></pre>
+
+      <table>
+        <thead>
+          <tr><th>Key</th><th>Owner</th><th>Content</th><th>Lifecycle</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>borrowers/…/documents/{documentId}/…</code></td>
+            <td>Borrower upload</td>
+            <td>Original immutable file</td>
+            <td>Kept forever; deletion only via documented soft-delete flow</td>
+          </tr>
+          <tr>
+            <td><code>.loanflow/{documentId}/document.json</code></td>
+            <td>Worker</td>
+            <td>Lossless DocumentArchive</td>
+            <td>Rebuildable; recreated on version bump or corruption</td>
+          </tr>
+          <tr>
+            <td><code>.loanflow/{documentId}/assets/*</code></td>
+            <td>Worker</td>
+            <td>Page images, media files, thumbnails</td>
+            <td>Rebuildable; candidate for Infrequent-Access tier</td>
+          </tr>
+          <tr>
+            <td><code>.loanflow/{documentId}/manifest.json</code></td>
+            <td>Worker</td>
+            <td>Converter version, timings, warnings, verification result</td>
+            <td>Retained for audit and debugging</td>
+          </tr>
+          <tr>
+            <td><code>.loanflow/{documentId}/original.gz</code></td>
+            <td>Worker</td>
+            <td>Gzip of original bytes (enabled per policy)</td>
+            <td>Retained while policy requires full self-containment</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>Why <code>.loanflow/</code> at the bucket root and not a sibling <code>.json</code>?</strong> Sibling JSON in the same folder breaks the explorer contract (folders contain only real documents), breaks the <code>documents/{docId}/{file}</code> 1:1 invariant, and mixes content types. A hidden dot-prefix namespace keeps listings clean while remaining inside the same bucket for cheap reads. Prefix isolation still applies: borrowers can only reach their own <code>borrowers/{userId}/…</code>; the derived namespace is keyed by <code>documentId</code> and served only through authorized APIs.
+      </div>
+    </section>
+
+    <!-- ============ 6 ============ -->
+    <section id="s6">
+      <h2>6. DocumentArchive JSON schema</h2>
+      <p class="lead">A versioned container. Every section is optional-with-purpose: an empty section must never silently mean "data missing" — the schema is explicit about what was and was not captured.</p>
+
+<pre><code>{
+  <span class="k">"schemaVersion"</span>: <span class="s">"1.0"</span>,
+  <span class="k">"archiveType"</span>: <span class="s">"document-archive"</span>,
+  <span class="k">"id"</span>: <span class="s">"documentId-here"</span>,
+
+  <span class="c">// (a) Provenance + integrity of the SOURCE object</span>
+  <span class="k">"source"</span>: {
+    <span class="k">"key"</span>: <span class="s">"borrowers/u/apps/a/documents/d/loan.pdf"</span>,
+    <span class="k">"contentType"</span>: <span class="s">"application/pdf"</span>,
+    <span class="k">"size"</span>: 1048576,
+    <span class="k">"etag"</span>: <span class="s">"9a7..."</span>,
+    <span class="k">"sha256"</span>: <span class="s">"e3b0c442..."</span>,
+    <span class="k">"originalName"</span>: <span class="s">"loan.pdf"</span>,
+    <span class="k">"uploadedAt"</span>: <span class="s">"2026-09-05T03:00:00Z"</span>
+  },
+
+  <span class="c">// (b) Converter provenance</span>
+  <span class="k">"generatedBy"</span>: { <span class="k">"tool"</span>: <span class="s">"loanflow-archiver"</span>, <span class="k">"version"</span>: <span class="s">"1.0.0"</span>, <span class="k">"at"</span>: <span class="s">"2026-09-05T03:01:00Z"</span> },
+
+  <span class="c">// (c) The converter's own claim about fidelity</span>
+  <span class="k">"fidelity"</span>: {
+    <span class="k">"roundTripVerified"</span>: true,          <span class="c">// rebuild + sha256 === source.sha256</span>
+    <span class="k">"originalAvailable"</span>: <span class="s">"embedded"</span>,    <span class="c">// embedded | gz-object | source-object</span>
+    <span class="k">"warnings"</span>: []                        <span class="c">// e.g. ["password-protected xlsx", "ocr fallback"]</span>
+  },
+
+  <span class="c">// (d) Format-specific deep structure (lossless target)</span>
+  <span class="k">"format"</span>: <span class="s">"pdf"</span>,                      <span class="c">// pdf | docx | xlsx | image | csv | unknown</span>
+  <span class="k">"metadata"</span>: { <span class="c">/* format-specific, see s7 */</span> },
+  <span class="k">"pages"</span>: [
+    {
+      <span class="k">"pageNumber"</span>: 1,
+      <span class="k">"width"</span>: 595.28, <span class="k">"height"</span>: 841.89,
+      <span class="k">"blocks"</span>: [
+        { <span class="k">"kind"</span>: <span class="s">"text"</span>, <span class="k">"bbox"</span>: [72, 72, 250, 14],
+          <span class="k">"runs"</span>: [{ <span class="k">"text"</span>: <span class="s">"Income Statement"</span>, <span class="k">"font"</span>: <span class="s">"Helvetica-Bold"</span>, <span class="k">"size"</span>: 16, <span class="k">"color"</span>: <span class="s">"#000000"</span> }] },
+        { <span class="k">"kind"</span>: <span class="s">"table"</span>, <span class="k">"bbox"</span>: [...], <span class="k">"grid"</span>: [ {<span class="k">"cell"</span>: [<span class="s">"Date"</span>, <span class="s">"Amount"</span>]} ] },
+        { <span class="k">"kind"</span>: <span class="s">"image"</span>, <span class="k">"asset"</span>: <span class="s">".loanflow/d/assets/media-0001.png"</span>, <span class="k">"bbox"</span>: [...] }
+      ],
+      <span class="k">"ocr"</span>: { <span class="k">"words"</span>: [{ <span class="k">"text"</span>: <span class="s">"Statement"</span>, <span class="k">"bbox"</span>: [...], <span class="k">"conf"</span>: 0.94 }], <span class="k">"text"</span>: <span class="s">"..."</span> }
+    }
+  ],
+  <span class="k">"text"</span>: { <span class="k">"rawText"</span>: <span class="s">"..."</span>, <span class="k">"charCount"</span>: 12345, <span class="k">"searchable"</span>: true },
+
+  <span class="c">// (e) Assets referenced above (embedded or object refs)</span>
+  <span class="k">"assets"</span>: [
+    { <span class="k">"name"</span>: <span class="s">"media-0001.png"</span>, <span class="k">"key"</span>: <span class="s">".loanflow/d/assets/media-0001.png"</span>, <span class="k">"sha256"</span>: <span class="s">"..."</span>, <span class="k">"size"</span>: 2048 }
+  ],
+
+  <span class="c">// (f) Byte archive (optional, see s8)</span>
+  <span class="k">"byteArchive"</span>: {
+    <span class="k">"encoding"</span>: <span class="s">"base64"</span>, <span class="k">"compression"</span>: <span class="s">"gzip"</span>,
+    <span class="k">"rawSize"</span>: 1048576, <span class="k">"archiveSize"</span>: 351234,
+    <span class="k">"data"</span>: <span class="s">"H4sIA..."</span>  <span class="c">// present only when policy = embed</span>
+  },
+
+  <span class="c">// (g) Reuse existing field layer for autofill/search</span>
+  <span class="k">"classification"</span>: { <span class="k">"documentType"</span>: <span class="s">"BANK_STATEMENT"</span>, <span class="k">"confidence"</span>: 0.9 },
+  <span class="k">"fields"</span>: { <span class="k">"accountNumber"</span>: { <span class="k">"value"</span>: <span class="s">"..."</span>, <span class="k">"confidence"</span>: 0.93, <span class="k">"source"</span>: <span class="s">"hybrid"</span>, <span class="k">"page"</span>: 1 } }
+}</code></pre>
+
+      <h3>Design rules</h3>
+      <ul>
+        <li><strong>Versioned schema</strong> — <code>schemaVersion</code> gates all readers; consumers must reject unknown versions.</li>
+        <li><strong>Every structure carries geometry</strong> — text without coordinates is not lossless for layout-sensitive documents (bank statements, balance sheets).</li>
+        <li><strong>Cells carry types</strong> — XLSX must not reduce everything to display strings; keep <code>type: number|string|date|bool|formula|error</code>.</li>
+        <li><strong>Assets are referenced, not inlined into <code>pages</code></strong> — keeps the container readable and lets the viewer stream assets lazily.</li>
+        <li><strong>Fields are a view, not the content</strong> — autofill fields remain in a separate top-level object so deleting them never destroys document content.</li>
+      </ul>
+    </section>
+
+    <!-- ============ 7 ============ -->
+    <section id="s7">
+      <h2>7. Per-format converters</h2>
+      <p class="lead">Concrete tooling and capture strategy for each format. All converters share one interface:</p>
+<pre><code>interface ArchiveConverter {
+  supports(contentType: string): boolean;
+  convert(ctx: ConvertContext): Promise&lt;ArchiveBuild&gt;;
+}</code></pre>
+
+      <h3>PDF — text layer + geometry + raster fallback + OCR</h3>
+      <ul>
+        <li><strong>Primary:</strong> use <code>pdfjs-dist</code> (already a frontend dependency; add to backend) to read text items with transform matrix <code>[x, y, w, h]</code>, font name and size per run. Extract page dimensions and document metadata.</li>
+        <li><strong>Embedded media:</strong> iterate PDF image XObjects, save each to <code>assets/media-*.png</code>/<code>jpg</code>.</li>
+        <li><strong>Scanned fallback:</strong> if a page's text length &lt; threshold, rasterize with <code>pdftoppm -r 300</code> (already used in <code>pdfToImageConverter.ts</code>) and OCR with Tesseract TSV to keep word boxes and confidence.</li>
+        <li><strong>Fix the existing bug:</strong> never send a PDF path into <code>sharp()</code>; use <code>pdftoppm</code> (poppler) as in the extraction pipeline.</li>
+      </ul>
+
+      <h3>DOCX — OOXML package fidelity + HTML render</h3>
+      <ul>
+        <li><strong>Unzip the package</strong> (use <code>adm-zip</code>, already a dependency) and capture: <code>word/document.xml</code>, headers, footers, numbering, styles, core properties, and all <code>word/media/*</code>.</li>
+        <li>Extract the content stream into ordered block objects (paragraphs, runs, tables, images) instead of one undifferentiated string.</li>
+        <li>Keep Mammoth <code>convertToHtml</code> output in a parallel <code>html</code> field for fast rendering, but the canonical content is the structured blocks.</li>
+        <li>Media bytes are stored as assets with their original relationship IDs so the DOCX can be reconstructed.</li>
+      </ul>
+
+      <h3>XLSX / XLS / CSV — cell-faithful grid</h3>
+      <ul>
+        <li>Use <code>xlsx</code> with <code>cellFormula: true, cellNF: true, cellStyles: true, cellDates: true</code>.</li>
+        <li>Serialize each sheet as an array of rows of typed cells: <code>{ t: "n|s|d|b|e|z", v, w, f?, z?, c? }</code> where <code>c</code> is an optional comment.</li>
+        <li>Capture <code>!merges</code>, <code>!cols</code>, <code>!rows</code>, and page setup so the visual grid is reproducible.</li>
+        <li>Store formula text (<code>f</code>) so calculations are not frozen into values; the viewer can show both <code>f</code> and cached <code>v</code>.</li>
+        <li>CSV is plain text: read with a strict parser (<code>csv-parse</code> or <code>papaparse</code> style) that preserves quoting and line endings.</li>
+      </ul>
+
+      <h3>Images — full metadata + word-level OCR</h3>
+      <ul>
+        <li>Capture <code>sharp</code> metadata: width, height, format, channels, space, depth, and (when available) EXIF/ICC profile presence.</li>
+        <li>OCR with Tesseract TSV so each word carries a box and confidence (improves on the current line-joined dump).</li>
+        <li>Pre-process with adaptive thresholding rather than a fixed <code>threshold(128)</code> to preserve low-contrast scans.</li>
+        <li>The image itself remains the source; the JSON adds a searchable text layer and geometry.</li>
+      </ul>
+
+      <table>
+        <thead>
+          <tr><th>Format</th><th>Library</th><th>Already in repo?</th><th>Key addition</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>PDF text+geometry</td><td><code>pdfjs-dist</code></td><td>Yes (frontend)</td><td>Add to backend deps</td></tr>
+          <tr><td>PDF raster</td><td><code>pdftoppm</code></td><td>Yes</td><td>Use it; never <code>sharp(pdf)</code></td></tr>
+          <tr><td>OCR</td><td><code>tesseract</code> + TSV</td><td>Yes</td><td>Word boxes + confidence</td></tr>
+          <tr><td>DOCX package</td><td><code>adm-zip</code> + Mammoth</td><td>Yes</td><td>Capture OOXML parts + media</td></tr>
+          <tr><td>XLSX cells</td><td><code>xlsx</code></td><td>Yes</td><td>Formula, styles, merges, cell types</td></tr>
+          <tr><td>Image metadata</td><td><code>sharp</code></td><td>Yes</td><td>Adaptive OCR preprocessing</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 8 ============ -->
+    <section id="s8">
+      <h2>8. Embed vs reference: how "no loss" is guaranteed at scale</h2>
+      <p class="lead">A JSON file that embeds a 2 GB PDF as base64 is not a document archive, it is a worse object store. The guarantee comes from policy, not from forcing bytes into JSON.</p>
+
+      <table>
+        <thead>
+          <tr><th>Source size</th><th>Strategy</th><th>Lossless guarantee</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>&le; 25 MB (typical bank statement, PAN, ITR, most scans)</td>
+            <td><code>byteArchive.data</code> = base64 of gzipped original bytes, embedded in <code>document.json</code></td>
+            <td>document.json alone can rebuild a byte-identical original</td>
+          </tr>
+          <tr>
+            <td>25 MB – 100 MB</td>
+            <td>Original stays as the immutable source object; <code>.loanflow/.../original.gz</code> holds a gzipped copy; <code>byteArchive</code> records <code>sha256</code>, sizes, and pointer</td>
+            <td>Full bytes are in two independent locations; JSON + any one copy rebuilds the original</td>
+          </tr>
+          <tr>
+            <td>&gt; 100 MB (multipart ceiling up to 5 GB)</td>
+            <td>Original object is the byte store; JSON carries full semantic content + integrity pointer</td>
+            <td>Semantic losslessness (every readable datum) + verifiable integrity; raw bytes live in S3</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout ok">
+        <strong>Recommended production default:</strong> embed up to 25 MB (gzip usually shrinks PDFs/DOCX/XLSX by 40–80%, so the payload stays modest), use the <code>original.gz</code> object tier to 100 MB, and rely on the source object above that. Store the policy in config so operators can raise the embed threshold later. Every archive, at every tier, records <code>source.sha256</code> and <code>fidelity.roundTripVerified</code>, which is the actual guarantee auditors care about.
+      </div>
+
+      <h3>Gzip before base64 — expected sizes</h3>
+      <table>
+        <thead><tr><th>Source</th><th>Raw</th><th>Gzip approx.</th><th>base64 of gzip</th></tr></thead>
+        <tbody>
+          <tr><td>Text-heavy PDF</td><td>10 MB</td><td>~3 MB</td><td>~4 MB</td></tr>
+          <tr><td>Bank statement PDF</td><td>2 MB</td><td>~0.8 MB</td><td>~1.1 MB</td></tr>
+          <tr><td>XLSX</td><td>1 MB</td><td>~0.3 MB</td><td>~0.4 MB</td></tr>
+          <tr><td>Scan PNG</td><td>15 MB</td><td>~14 MB</td><td>~19 MB</td></tr>
+        </tbody>
+      </table>
+      <p>PNG/JPEG compresses poorly (already compressed), which is exactly why a configurable threshold and the gz-object tier matter.</p>
+    </section>
+
+    <!-- ============ 9 ============ -->
+    <section id="s9">
+      <h2>9. Worker pipeline and state machine</h2>
+
+      <div class="diagram">
+        <pre class="mermaid">
+stateDiagram-v2
+    [*] --> PENDING: upload complete event
+    PENDING --> PROCESSING: worker leases job
+    PROCESSING --> COMPLETED: archive verified sha256
+    PROCESSING --> FAILED: converter error
+    PROCESSING --> RETRYABLE: transient error (timeout/5xx)
+    RETRYABLE --> PROCESSING: backoff + retry
+    RETRYABLE --> DEAD_LETTER: max attempts
+    FAILED --> PENDING: operator re-enqueue
+    DEAD_LETTER --> [*]
+    COMPLETED --> [*]
+        </pre>
+      </div>
+
+      <h3>Worker behaviour</h3>
+      <ol class="steps">
+        <li><p><strong>Idempotency key.</strong> Every job is addressed by <code>documentId</code>. Before converting, read the existing <code>DocumentArchive</code> row; if <code>status = COMPLETED</code> and the converter version is unchanged and <code>source.sha256</code> matches the object's current checksum, skip.</p></li>
+        <li><p><strong>Download with integrity.</strong> Stream the object to a temp file (or cap the in-memory buffer at the tier threshold). Compute <code>sha256</code> and compare to object metadata when present. Refuse to archive a source whose checksum cannot be verified.</p></li>
+        <li><p><strong>Convert under a wall-clock budget.</strong> Wrap per-document conversion in a timeout (e.g. 90 s for &le;10 MB, longer for larger tiers) so a pathological file cannot stall the queue.</p></li>
+        <li><p><strong>Write assets first, then the archive.</strong> Assets go to <code>.loanflow/{docId}/assets/…</code>, then <code>document.json</code> is written last with metadata referencing the assets. A crash before the final write leaves only orphaned assets, which a sweeper removes.</p></li>
+        <li><p><strong>Verify then commit.</strong> Optional but recommended for the embed tier: rebuild from the archive in a sandbox and compare <code>sha256</code> before marking <code>COMPLETED</code>.</p></li>
+        <li><p><strong>Update Postgres transactionally.</strong> Upsert <code>DocumentArchive</code> status, timings, converter version, asset list, fidelity result.</p></li>
+      </ol>
+
+      <h3>Failure isolation and retries</h3>
+      <table>
+        <thead><tr><th>Failure class</th><th>Example</th><th>Policy</th></tr></thead>
+        <tbody>
+          <tr><td>Transient</td><td>S3 5xx, network drop, timeout</td><td>Retry with exponential backoff + jitter, max 5 attempts</td></tr>
+          <tr><td>Permanent</td><td>Corrupt file, unsupported variant, password-protected</td><td>Mark FAILED with a structured <code>error</code> and <code>warnings</code>; never block the queue</td></tr>
+          <tr><td>Poison</td><td>Same document fails repeatedly</td><td>Move to DEAD_LETTER after max attempts; alert on-call</td></tr>
+          <tr><td>Operator</td><td>Converter version improved</td><td>Re-enqueue or run backfill by <code>converterVersion &lt; X</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Queue options for this stack</h4>
+          <p><strong>Recommended:</strong> BullMQ backed by the existing Redis/Postgres deployment, or SQS if the team moves off Render free-tier. On Render, a single Node worker process with <code>p-queue</code> concurrency (like the current <code>MAX_CONCURRENCY</code> pattern) is acceptable to start, then graduate to BullMQ/SQS when multi-instance.</p>
+        </div>
+        <div class="card">
+          <h4>Concurrency and memory</h4>
+          <p>Cap concurrency at workers &times; 2 and track RSS. Each 25 MB embed job needs ~3–4&times; that in transient memory (source buffer, gzip, base64). At 4 workers, budget ~400 MB for the worker. Never load a &gt;100 MB source fully into memory — stream to disk first.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 10 ============ -->
+    <section id="s10">
+      <h2>10. Database schema evolution</h2>
+      <p class="lead">Postgres tracks status and serves the API; the JSON payload itself lives in S3 and is fetched on demand. This mirrors the existing <code>Document</code> / <code>DocumentExtraction</code> split.</p>
+
+      <pre><code>model DocumentArchive {
+  id               String   @id @default(cuid())
+  documentId       String   @unique   <span class="c">// FK to Document.id</span>
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  status           String   @default("PENDING")  <span class="c">// PENDING|PROCESSING|COMPLETED|FAILED</span>
+  schemaVersion    String?
+  converterVersion String?
+  archiveKey       String?  <span class="c">// .loanflow/{docId}/document.json</span>
+  sourceSha256     String?
+  sourceEtag       String?
+  sourceSize       Int?
+  byteTier         String?  <span class="c">// embedded | gz-object | source-object</span>
+  fidelityVerified Boolean  @default(false)
+  error            Json?
+  warnings         Json?
+  assets           Json?    <span class="c">// [{name,key,sha256,size}]</span>
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([documentId])
+}</code></pre>
+
+      <ul>
+        <li>Keep <code>DocumentExtraction</code> untouched: it is the autofill/field layer. The archive is a superset; <code>fields</code> in the archive JSON can be populated from it after conversion.</li>
+        <li>Add a <code>derivedAt</code>/<code>converterVersion</code> gate so a newer converter can detect stale archives during backfill.</li>
+        <li>A scheduled sweeper (extend <code>cleanup.service.ts</code>) removes orphaned <code>.loanflow/</code> assets whose <code>DocumentArchive</code> row is not <code>COMPLETED</code> and older than a threshold.</li>
+      </ul>
+    </section>
+
+    <!-- ============ 11 ============ -->
+    <section id="s11">
+      <h2>11. In-vault JSON viewing and opening</h2>
+      <p class="lead">The vault already renders <code>.json</code> keys as pretty-printed text (<code>DocumentVaultView.tsx</code>, <code>handleFileOpen</code> JSON branch). We extend that into a proper JSON archive viewer without ever dumping raw base64 into the DOM.</p>
+
+      <h3>Explorer integration</h3>
+      <ul>
+        <li><strong>Hide derived objects by default.</strong> <code>listExplorer</code> (explorer.service.ts) should skip the <code>.loanflow/</code> prefix at the bucket root, and skip nothing inside real document folders (they no longer contain JSON siblings).</li>
+        <li><strong>Show JSON as a property, not a file.</strong> Each real document row gets a "JSON" action button when a <code>COMPLETED</code> <code>DocumentArchive</code> exists. Clicking it opens the archive viewer for that <code>documentId</code> — no fake file entry, no content-type guessing.</li>
+        <li><strong>Fix the key-viewer bug.</strong> <code>getKeyView</code> hardcodes <code>contentType: 'application/json'</code>; change it to <code>headObject</code>'s real content type so opening a PDF by key does not render the JSON branch.</li>
+      </ul>
+
+      <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    participant U as Vault user
+    participant V as Vault View (React)
+    participant A as API viewer.service
+    participant S as S3 derived object
+    participant D as Postgres DocumentArchive
+    U->>V: Click "JSON" on a document
+    V->>A: GET /api/documents/:id/archive-summary
+    A->>D: read status + converter + sha256
+    A->>S: presigned URL for document.json
+    A-->>V: { summary, presignedUrl }
+    V->>S: fetch document.json (streamed)
+    V->>V: render tree / tabs (never innerHTML)
+    U->>V: Open page / download JSON
+        </pre>
+      </div>
+
+      <h3>Viewer UX (build on the existing modal)</h3>
+      <div class="grid3">
+        <div class="card">
+          <h4>Summary tab</h4>
+          <p>File name, size, sha256, converter version, fidelity badge (verified/failed), classification, and extracted fields in a table — sourced from the archive header, not a re-parse.</p>
+        </div>
+        <div class="card">
+          <h4>Content tab</h4>
+          <p>Pages/sheets rendered from <code>pages</code>/<code>data</code>: text blocks, tables as real HTML tables, sheet grids with type badges, images loaded lazily from asset URLs.</p>
+        </div>
+        <div class="card">
+          <h4>Raw JSON tab</h4>
+          <p>Large-file-safe viewer: fetch is capped and paginated, text rendered into a <code>&lt;pre&gt;</code> via <code>textContent</code>, with find-in-document. A "Download .json" button streams the object through a presigned URL.</p>
+        </div>
+      </div>
+
+      <h3>Hardening the JSON render path</h3>
+      <ul>
+        <li><strong>Never use <code>dangerouslySetInnerHTML</code></strong> for archive content — the current <code>&lt;pre&gt;</code> + <code>JSON.stringify(parsed, null, 2)</code> approach is safe; a tree viewer must set <code>textContent</code>.</li>
+        <li><strong>Size cap on the raw view:</strong> if <code>archiveSize</code> &gt; ~10 MB, show summary/content first and stream the raw JSON in chunks or hand the download URL directly to the browser.</li>
+        <li><strong>Lazy assets:</strong> media and page images render only when their tab is active, using short-lived presigned URLs (5 min, consistent with <code>PRESIGNED_DOWNLOAD_TTL_SECONDS</code>).</li>
+        <li><strong>Error states:</strong> show <code>fidelity.warnings</code> prominently (e.g. "password-protected sheet — content may be partial").</li>
+      </ul>
+    </section>
+
+    <!-- ============ 12 ============ -->
+    <section id="s12">
+      <h2>12. Security</h2>
+      <table>
+        <thead><tr><th>Threat</th><th>Control</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Direct access to derived objects</td>
+            <td>Bucket stays private; every read is a presigned URL issued only after tenant-prefix authorization (reuse the existing <code>startsWith(borrowers/{userId}/)</code> and <code>doc.userId === userId</code> checks in explorer/viewer services).</td>
+          </tr>
+          <tr>
+            <td>Zip-slip / path traversal in converters</td>
+            <td>DOCX/XLSX are zip packages: validate every entry name against the package root, strip absolute paths and <code>..</code>, and never write extracted parts outside the temp sandbox.</td>
+          </tr>
+          <tr>
+            <td>XXE / XML attacks in OOXML</td>
+            <td>Parse package XML with an entity-expansion-safe parser (disable DTD/external entities). Mammoth and xlsx already ignore DTDs, but any raw <code>document.xml</code> parsing must not use <code>DOMParser</code> defaults that resolve entities.</td>
+          </tr>
+          <tr>
+            <td>Huge or deeply nested JSON on read</td>
+            <td>Read with a streaming JSON parser for large files; enforce a max archive size and max nesting depth in the viewer.</td>
+          </tr>
+          <tr>
+            <td>XSS via document text</td>
+            <td>All document-derived text is rendered as text nodes only. No HTML injection path in any viewer tab.</td>
+          </tr>
+          <tr>
+            <td>Secrets in metadata</td>
+            <td>Sanitize metadata: never store credentials or URLs from document properties; redact before persisting if detected.</td>
+          </tr>
+          <tr>
+            <td>Poison PDF / image bombs</td>
+            <td>Workers run with OS-level memory cap; conversion timeout; pixel-dimension and decompression-size guards before OCR/rasterization.</td>
+          </tr>
+          <tr>
+            <td>Borrower sees another's JSON</td>
+            <td>Archive is keyed by <code>documentId</code> which is owned by the user; API always resolves via <code>prisma.document</code> with a <code>userId</code> filter before issuing URLs (mirror <code>getDocumentView</code>).</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 13 ============ -->
+    <section id="s13">
+      <h2>13. Testing and round-trip validation</h2>
+
+      <h3>Golden corpus</h3>
+      <p>Commit a small fixture corpus (per format, per tricky case): text PDF, scanned PDF, DOCX with images and a table, XLSX with formulas/merges/dates, CSV with quoted commas, low-contrast scan, password-protected XLSX, empty workbook, corrupt file. Each fixture has an expected <code>sha256</code>.</p>
+
+      <h3>Test layers</h3>
+      <table>
+        <thead><tr><th>Layer</th><th>What it asserts</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td>Unit (converter)</td><td>Per-format parse, block ordering, cell fidelity, merge capture, OCR word boxes</td><td>backend/tests/archive/</td></tr>
+          <tr><td>Round-trip</td><td>rebuild(archive) hashes equal to source <code>sha256</code> for embed tier; structural equality for object tier</td><td>backend/tests/roundtrip/</td></tr>
+          <tr><td>Integration</td><td>Worker writes assets + JSON + DB row in order; retry/backoff; dead-letter; sweeper cleanup</td><td>backend/tests/archive.*.routes.test.ts</td></tr>
+          <tr><td>API / viewer</td><td>Summary endpoint 404/403 isolation; presigned URL scoping; JSON open flow in vault</td><td>frontend/tests + e2e</td></tr>
+          <tr><td>Frontend viewer</td><td>Large-JSON cap, no innerHTML usage, lazy asset tabs, warning display</td><td>frontend/tests/components</td></tr>
+        </tbody>
+      </table>
+
+      <h3>CI gate</h3>
+      <ul>
+        <li>Converters are pure functions of <code>(Buffer, fileName, config)</code> — no network. They run in the existing Jest backend job with the corpus as fixtures.</li>
+        <li>Add a job that runs the worker against a local S3 emulator (MinIO) or B2 test bucket with a seeded corpus, then asserts DB and object states.</li>
+        <li>Any converter version bump must ship with a new corpus expectation and a full-corpus re-run on a staging bucket before prod backfill.</li>
+      </ul>
+    </section>
+
+    <!-- ============ 14 ============ -->
+    <section id="s14">
+      <h2>14. Backfill and rollout</h2>
+      <p class="lead">The same code path that archives new uploads archives the existing bucket. No separate one-off script diverges from the pipeline.</p>
+
+      <ol class="steps">
+        <li><p><strong>Phase 0 — freeze converter semantics.</strong> Define schema v1, converter interface, fidelity contract, and fixtures. Merge the worker behind a feature flag.</p></li>
+        <li><p><strong>Phase 1 — dry-run backfill.</strong> List all source objects (paginate <code>ListObjectsV2</code>), compute <code>sha256</code>, and report what would be archived, tiered by size, without writing. Produce a dashboard count.</p></li>
+        <li><p><strong>Phase 2 — rate-limited backfill on staging.</strong> Enqueue in batches (e.g. 500 at a time), run workers at low concurrency, compare archive counts and fidelity failure rate against the dry-run numbers.</p></li>
+        <li><p><strong>Phase 3 — production backfill.</strong> Resume-safe: jobs are idempotent by <code>documentId</code>; restart mid-run simply skips completed archives. Monitor failure rate and dead-letter count.</p></li>
+        <li><p><strong>Phase 4 — continuous mode.</strong> Hook the worker to the upload-complete event so every new document is archived. Keep a scheduled reconciler that finds source objects with no <code>COMPLETED</code> archive older than X minutes (self-healing if an event is lost).</p></li>
+        <li><p><strong>Phase 5 — enable the vault toggle.</strong> Ship the archive summary endpoint, the viewer tabs, and the explorer "JSON" action; then turn off the old sibling-<code>.json</code> writer and remove those files.</p></li>
+      </ol>
+
+      <div class="callout warn">
+        <strong>Cleanup note.</strong> Removing legacy sibling <code>.json</code> files is a delete operation: confirm the inventory first, run in dry-run, and follow the repo's delete policy before executing any removal.
+      </div>
+    </section>
+
+    <!-- ============ 15 ============ -->
+    <section id="s15">
+      <h2>15. Risks and mitigations</h2>
+      <table>
+        <thead><tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Raster/OCR timeout on huge scanned PDFs</td>
+            <td>Medium</td><td>High</td>
+            <td>Per-page budget, page-count cap for OCR, skip OCR on pages over N megapixels, record <code>warnings</code></td>
+          </tr>
+          <tr>
+            <td>DOCX/XLSX zip bombs</td>
+            <td>Low</td><td>High</td>
+            <td>Decompressed-size guard before unzip; reject archives exceeding a ratio (e.g. 100&times; compressed size)</td>
+          </tr>
+          <tr>
+            <td>Converter version drift</td>
+            <td>High</td><td>Medium</td>
+            <td><code>converterVersion</code> in schema + DB; stale-archive detector; backfill by version</td>
+          </tr>
+          <tr>
+            <td>Embedded base64 bloats the object</td>
+            <td>Medium</td><td>Medium</td>
+            <td>Policy threshold; gzip first; PNG-heavy sources auto-fall to <code>gz-object</code> tier</td>
+          </tr>
+          <tr>
+            <td>Viewer DOM blow-up on large JSON</td>
+            <td>Medium</td><td>Medium</td>
+            <td>Streaming fetch, summary-first UI, chunked raw view, size caps</td>
+          </tr>
+          <tr>
+            <td>Event loss on upload</td>
+            <td>Low</td><td>High</td>
+            <td>Scheduled reconciler compares bucket vs DB and re-enqueues missing archives</td>
+          </tr>
+          <tr>
+            <td>S3 egress cost during backfill</td>
+            <td>Medium</td><td>Low</td>
+            <td>Backfill in the same region as the bucket, rate-limit concurrency, reuse checksums to skip unchanged sources</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 16 ============ -->
+    <section id="s16">
+      <h2>16. Effort estimate</h2>
+      <table>
+        <thead><tr><th>Workstream</th><th>Effort</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Schema + fidelity contract + fixtures</td><td>2–3 days</td><td>Agreement on "lossless" is the hard part; fixtures encode it</td></tr>
+          <tr><td>Archive converters (pdf/docx/xlsx/image)</td><td>5–8 days</td><td>Reuse <code>pdfToImageConverter</code>, <code>PdfParser</code>, OCR engine; replace text dumps</td></tr>
+          <tr><td>Worker + state machine + reconciler</td><td>3–5 days</td><td>BullMQ/SQS or p-queue first cut; DB model + sweeper</td></tr>
+          <tr><td>Storage layout + legacy cleanup</td><td>1–2 days</td><td><code>.loanflow/</code> namespace, explorer filter, removal plan</td></tr>
+          <tr><td>Vault viewer (summary/content/raw) + API</td><td>3–5 days</td><td>Fix <code>getKeyView</code> bug; reuse existing JSON modal branch</td></tr>
+          <tr><td>Tests + round-trip CI</td><td>3–4 days</td><td>Corpus, worker integration, frontend viewer tests</td></tr>
+          <tr><td>Backfill + rollout + monitoring</td><td>2–3 days</td><td>Dry-run, staging, prod, dashboard, alerting</td></tr>
+          <tr><td><strong>Total</strong></td><td><strong>~3.5–5 weeks</strong></td><td>Single engineer; parallelizable after schema freeze</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 17 ============ -->
+    <section id="s17">
+      <h2>17. Chunk-wise implementation on the existing codebase</h2>
+      <p class="lead">Each chunk lands independently, is reviewable, and keeps <code>npm run typecheck</code>, <code>npm run lint:check</code>, and <code>npm test</code> green in <code>backend/</code> and <code>frontend/</code>. Chunks are ordered so every step leaves the system functional; older components are only removed once the new path is proven.</p>
+      <p>Every chunk table below carries a <em>Corner cases</em> row that folds in its §18 register cases, so a chunk is self-contained: you can implement <code>C2</code> alone and know exactly which edge cases it must pass before merge. Codes <b>A–F</b> refer to the §18 register; codes named <b>worker C1–C6</b> are the §18 worker/queue group (distinct from the C0–C10 chunks).</p>
+
+      <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+    A["C0 Schema + Types"] --> B["C1 Converters"]
+    B --> C["C2 Integrity + Tiers"]
+    C --> D["C3 Archive Service"]
+    D --> E["C4 Worker + Queue"]
+    E --> F["C5 API + Upload Trigger"]
+    F --> G["C6 Explorer Isolation"]
+    G --> H["C7 Vault Viewer"]
+    H --> I["C8 Retire Legacy Converter"]
+    I --> J["C9 Backfill + Observability"]
+        </pre>
+      </div>
+
+      <div class="card" style="margin:14px 0;">
+        <h4>Repository map touched by this plan</h4>
+        <ul style="margin:8px 0 0;">
+          <li><code>backend/prisma/schema.prisma</code> + <code>backend/prisma/migrations/</code> — add <code>DocumentArchive</code></li>
+          <li><code>backend/src/modules/documentArchive/</code> — NEW pure converters + schema (mirrors existing <code>modules/documentExtraction/</code>)</li>
+          <li><code>backend/src/utils/documentConverter.ts</code> + <code>backend/src/scripts/batchConvertDocuments.ts</code> — replaced by new pipeline</li>
+          <li><code>backend/src/modules/documentExtraction/parsers/pdfToImageConverter.ts</code> — reused for PDF rasterization</li>
+          <li><code>backend/src/services/document.service.ts</code> — enqueue on upload complete</li>
+          <li><code>backend/src/services/explorer.service.ts</code> + <code>viewer.service.ts</code> — namespace filter + content-type fix</li>
+          <li><code>backend/src/routes/documents.routes.ts</code> + <code>backend/src/utils/validation.ts</code> — archive summary/view endpoints</li>
+          <li><code>backend/src/services/cleanup.service.ts</code> — derived-asset sweeper</li>
+          <li><code>frontend/src/pages/workspace/DocumentVaultView.tsx</code> + <code>frontend/src/components/workspace/</code> — JSON archive viewer</li>
+          <li><code>frontend/src/services/documents.ts</code> — archive API client</li>
+        </ul>
+      </div>
+
+      <h3>C0 — Foundation: constants, env, Prisma model</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Constants + env</td>
+            <td>In <code>backend/src/utils/constants.ts</code> add <code>LOANFLOW_DERIVED_PREFIX = '.loanflow'</code>, <code>ARCHIVE_EMBED_MAX_BYTES</code> (25 MB), <code>ARCHIVE_GZ_OBJECT_MAX_BYTES</code> (100 MB), <code>ARCHIVE_CONVERT_TIMEOUT_MS</code>. Add to <code>backend/.env.example</code> and <code>env.validation.ts</code> where configurable.</td>
+            <td>Unit test on constants; env validation passes</td>
+          </tr>
+          <tr>
+            <td>Prisma <code>DocumentArchive</code></td>
+            <td>Add the model from §10 to <code>schema.prisma</code>, add relation on <code>Document</code>. Create migration <code>npx prisma migrate dev --name add_document_archive</code>.</td>
+            <td><code>npx prisma generate</code>; migration applies; <code>prisma db push</code> no-op on migrated DB</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>A4</b> — key layout keeps <code>documentId</code>, so sanitized filename collisions cannot collide archives. §18 <b>D4</b> — document lifecycle/expiry rules in <code>constants.ts</code> must scope to the source prefix and exclude <code>.loanflow/</code> (embed tier is the recovery copy). §18 <b>E3</b> — ship a real additive migration; <code>prisma db push</code> stays additive-only for prod drift.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C1 — DocumentArchive schema + converter contracts (pure TS, no I/O)</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>NEW <code>backend/src/modules/documentArchive/types.ts</code></td>
+            <td>Port the §6 schema to interfaces: <code>DocumentArchive</code>, <code>SourceInfo</code>, <code>FidelityReport</code>, <code>PageBlock</code>, <code>TypedCell</code>, <code>ArchiveAsset</code>, <code>ByteArchive</code>. Add a <code>parseArchive(buf)</code> + <code>validateArchive(obj)</code> guard with <code>schemaVersion</code> rejection.</td>
+            <td><code>npx tsc --noEmit</code>; <code>backend/tests/documentArchive/types.test.ts</code></td>
+          </tr>
+          <tr>
+            <td>NEW <code>backend/src/modules/documentArchive/converters/index.ts</code></td>
+            <td>Define <code>interface ArchiveConverter { supports(contentType); convert(ctx): ArchiveBuild }</code> + <code>ArchiveConverterRegistry</code> mirroring the existing <code>ParserRegistry</code> pattern.</td>
+            <td>Registry unit test over content types</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">The §18 contract <em>enables</em> every mitigation in the register: mandatory <code>fidelity.warnings</code> + <code>originalAvailable</code> fields are what make §18 <b>A5</b>, <b>B2</b>, <b>B10</b> expressible; mandatory <code>source.sha256</code> + <code>size</code> back §18 <b>A1/A2/E1</b>; <code>schemaVersion</code> rejection in <code>parseArchive</code> is the gate for §18 converter-version idempotency (worker <b>C5</b>, <b>F3</b>) — unknown versions throw at the boundary, never silently degrade.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C2 — Per-format converters</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>NEW <code>converters/pdf.ts</code></td>
+            <td>Add <code>pdfjs-dist</code> to backend deps. Extract per-run geometry, page boxes, embedded images. Rasterize scanned pages by reusing <code>PdfToImageConverter</code> (<code>pdftoppm</code>) and OCR with word boxes (reuse <code>TesseractOcrEngine</code>). Never pass a PDF into <code>sharp()</code> (fixes <code>documentConverter.ts</code> bug).</td>
+            <td>Fixture corpus: text PDF, scanned PDF, encrypted PDF</td>
+          </tr>
+          <tr>
+            <td>NEW <code>converters/docx.ts</code></td>
+            <td>Unzip OOXML with <code>adm-zip</code>; capture core props, ordered blocks, tables, and <code>word/media/*</code> as assets with relationship ids. Keep Mammoth HTML as an auxiliary render field.</td>
+            <td>Fixture: DOCX with image + table; media appears in <code>assets</code></td>
+          </tr>
+          <tr>
+            <td>NEW <code>converters/xlsx.ts</code></td>
+            <td>Parse with <code>xlsx</code> using <code>cellFormula, cellNF, cellStyles, cellDates</code>; serialize typed cell grid, <code>!merges</code>, <code>!cols</code>, <code>!rows</code>. CSV via strict parser preserving quoting.</td>
+            <td>Fixture: XLSX with formulas, merges, dates; cell types preserved</td>
+          </tr>
+          <tr>
+            <td>NEW <code>converters/image.ts</code></td>
+            <td>Sharp metadata + adaptive OCR preprocessing (replace fixed <code>threshold(128)</code>) + Tesseract TSV word boxes.</td>
+            <td>Fixture: low-contrast scan yields word boxes with confidence</td>
+          </tr>
+          <tr>
+            <td>Registry wiring</td>
+            <td>Map content types from <code>ALLOWED_DOCUMENT_CONTENT_TYPES</code> to converters; unknown types return a structured <code>error</code> archive rather than throwing.</td>
+            <td><code>backend/tests/archive/*.test.ts</code> — converters are pure <code>(Buffer, name, config)</code>, no network, so they run in existing Jest job</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">This chunk is the fidelity heart of §18 group B. <b>A5</b> empty/whitespace files yield <code>warnings=["empty-content"]</code> archives, never a hang. <b>B1</b> sniff magic bytes before trusting the declared type (record both in <code>metadata.detected</code>). <b>B2</b> detect encryption markers and store a minimal archive with <code>warnings=["encrypted"]</code>. <b>B3</b> normalize coordinates via <code>viewport</code> scale+rotate. <b>B4</b> per-page OCR decision (rasterize only text-empty pages). <b>B5</b> <code>ocr-unavailable</code> graceful degradation after a runtime capability probe. <b>B6</b> sort runs by <code>(y,x)</code> clusters; keep raw run list; warning when reading order is ambiguous. <b>B7</b> cells keep <code>t/v/w/z</code>; never re-serialize JS dates; preserve raw identifier strings. <b>B8</b> store formula <code>f</code> and cached <code>v</code> independently. <b>B9</b> strict CSV with BOM strip + encoding/delimiter detection. <b>B10</b> legacy DOC/XLS binary fallback with <code>warnings=["legacy-format-unparsed"]</code> (round-trip still holds via byte tier). <b>B11</b> zip-slip hardening: validate every zip entry name, reject DTD/external entities, extract known parts to a sandbox path. <b>B12</b> per-page rasterization budget so a 500-page scan streams instead of exhausting memory.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C3 — Integrity and byte tiers</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>NEW <code>backend/src/modules/documentArchive/integrity.ts</code></td>
+            <td><code>sha256(buf)</code>, <code>gzipBuf(buf)</code>/<code>gunzipBuf</code>, <code>b64url</code> helpers, and <code>chooseByteTier(size): 'embedded' | 'gz-object' | 'source-object'</code> implementing the §8 policy table.</td>
+            <td>Round-trip <code>gunzip(gzip(x)) === x</code>; tier boundaries at 25/100 MB</td>
+          </tr>
+          <tr>
+            <td>Rebuild helper</td>
+            <td><code>rebuildOriginal(archive, assets): Promise&lt;Buffer&gt;</code> reconstructing the source from <code>byteArchive</code> or <code>gz-object</code> for round-trip CI checks.</td>
+            <td><code>sha256(rebuild) === source.sha256</code> on fixtures</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>A1</b> (with C4) — <code>sha256(buf)</code> is computed on the bytes the worker downloads; the stored ETag is <em>advisory only</em>, because multipart ETags are not content hashes. <b>F6</b> — <code>rebuildOriginal</code> round-trip runs on the embed-tier corpus; <code>gz-object</code>/<code>source-object</code> tiers verify via ETag+size consistency plus a scratch-bucket integration test instead of a local rebuild.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C4 — Archive build service</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>NEW <code>backend/src/services/archive.service.ts</code></td>
+            <td>Orchestrates: resolve <code>documentId</code> + ownership via <code>prisma.document</code>; <code>headObject</code>; stream/capped download; compute sha256; pick tier; run registry converter under timeout; write <code>.loanflow/{docId}/assets/*</code> first, then <code>document.json</code> and <code>manifest.json</code>; upsert <code>DocumentArchive</code> row; emit audit event (reuse <code>logAuditEvent</code>).</td>
+            <td>Integration test against MinIO/local B2 with seeded objects; row states PENDING → PROCESSING → COMPLETED</td>
+          </tr>
+          <tr>
+            <td>Idempotency gate</td>
+            <td>Skip when row is COMPLETED, converter version unchanged, and <code>sourceSha256</code> equals object checksum. <code>force</code> flag re-runs (mirrors existing extraction <code>opts.force</code>).</td>
+            <td>Run twice; second run writes nothing new</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>A1</b> (with C3) — compute sha256 from downloaded bytes, never from the DB ETag. <b>A2</b> (with C5) — re-<code>headObject</code> before download; a 404 becomes <code>FAILED</code> with code <code>SOURCE_MISSING</code>, not a blind retry. <b>A3</b> — optional content-addressed dedupe: if a COMPLETED archive exists for the same sha256, reference it instead of a second embedded copy. <b>A4</b> — compare current ETag/size before reusing a cached archive. Worker-group <b>C3</b> (with C5) — on timeout persist intermediate assets and write a partial archive with <code>warnings=["timed-out-partial"]</code>, resumable from page N. Worker-group <b>C5</b> — idempotency gate compares <code>sourceSha256</code> AND stored <code>schemaVersion</code>; a converter upgrade re-archives only on explicit <code>force</code> or targeted backfill, never on deploy.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C5 — Worker queue, reconciler, sweeper</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>NEW <code>backend/src/modules/documentArchive/worker.ts</code></td>
+            <td>Start with an in-process <code>p-queue</code> worker honoring <code>MAX_CONCURRENCY</code>-style limits (add <code>p-queue</code> dep), structured to swap to BullMQ/SQS later. Leases jobs, applies backoff + max attempts, moves poison jobs to a <code>DEAD_LETTER</code> marker row/queue.</td>
+            <td>Worker integration test: retry on transient error; dead-letter after max attempts</td>
+          </tr>
+          <tr>
+            <td>Reconciler</td>
+            <td>Periodic job listing source objects with no COMPLETED archive older than X minutes, re-enqueuing missing ones (self-heals lost upload events).</td>
+            <td>Simulate lost event; reconciler creates the archive</td>
+          </tr>
+          <tr>
+            <td>Sweeper</td>
+            <td>Extend <code>cleanup.service.ts</code> to delete orphaned <code>.loanflow/{docId}/assets</code> when the archive row is not COMPLETED and older than a threshold. (Deletion executes only per repo delete policy after dry-run inventory.)</td>
+            <td>Orphaned assets removed; completed archive assets untouched</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">The state-machine heart of §18 group C. Worker-group <b>C1</b> — unique <code>documentId</code> job id and a DB-level claim (<code>UPDATE ... SET status='PROCESSING' WHERE status IN ('PENDING','FAILED')</code>) as the only admission path, so the upload trigger and reconciler cannot double-enqueue. Worker-group <b>C2</b> — lease/heartbeat with expiry; reconciler reclaims stuck <code>PROCESSING</code> rows; sweeper removes orphan assets older than threshold (per delete policy). Worker-group <b>C3</b> (with C4) — persist partial progress. Worker-group <b>C4</b> — exponential backoff + max attempts, then <code>DEAD_LETTER</code> + alert; poison docs never stall the queue. Worker-group <b>C6</b> — reconciler enqueues only when the row is absent or <code>FAILED</code>; lease blocks <code>PROCESSING</code> re-entry. §18 <b>A2</b> (with C4) <code>SOURCE_MISSING</code> not auto-retried. <b>B5</b> (with C2) OCR capability probe at worker start. <b>B12</b> (with C2) page budget enforcement outside converters. <b>E1</b> (with C6) — reconciler verifies the derived object really exists, not just the DB row.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C6 — API endpoints and upload trigger</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Viewer fix</td>
+            <td>In <code>backend/src/services/viewer.service.ts</code> <code>getKeyView</code>, return the real content type from <code>headObject</code> instead of hardcoded <code>application/json</code>.</td>
+            <td>Opening a PDF by key no longer triggers the JSON branch</td>
+          </tr>
+          <tr>
+            <td>Archive endpoints</td>
+            <td>In <code>backend/src/routes/documents.routes.ts</code> add <code>GET /:documentId/archive-summary</code> (reads DB row; ownership-checked) and <code>GET /:documentId/archive-view</code> (presigned URL to <code>document.json</code> with tenant-prefix check). Validate params via <code>utils/validation.ts</code>.</td>
+            <td>Supertest: 200, 403 cross-user, 404 missing</td>
+          </tr>
+          <tr>
+            <td>Upload trigger</td>
+            <td>In <code>backend/src/services/document.service.ts</code> <code>completeDocument</code> (and multipart complete), enqueue an archive job after the row is recorded. Fire-and-forget so upload latency is unchanged.</td>
+            <td>Upload e2e: file appears then archive reaches COMPLETED async</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>D3</b> (with C8) — <code>archive-summary</code> reads the DB row / <code>manifest.json</code>; it never downloads <code>document.json</code> just to show a summary. <b>E1</b> (with C5) — summary reports <code>stale</code> and triggers re-archive when the object is missing. <b>E2</b> (with C8) — role-aware read: owner OR staff (<code>ANALYST</code>/<code>APPROVER</code>/<code>ADMIN</code>) with an audit event; borrower-to-borrower isolation is unchanged. <b>E4</b> — <code>getKeyView</code> returns the real content type from <code>headObject</code>, fixing the hardcoded-<code>application/json</code> bug. <b>F5</b> — derived objects are served only through ownership/staff-checked endpoints; the key-based prefix guard stays on the source namespace.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C7 — Explorer isolation</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Namespace filter</td>
+            <td>In <code>backend/src/services/explorer.service.ts</code> <code>listExplorer</code>, skip objects whose key starts with <code>.loanflow/</code> at bucket root so the vault shows real documents only.</td>
+            <td>Explorer unit test: <code>.loanflow/</code> absent from listings</td>
+          </tr>
+          <tr>
+            <td>Archive flag</td>
+            <td>Optionally extend <code>ExplorerEntry</code> with <code>hasArchive: boolean</code> by joining <code>DocumentArchive</code> on the already-resolved <code>documentId</code> map, so the UI can show the JSON action without an extra request per row.</td>
+            <td>Explorer returns <code>hasArchive</code> for known docs</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>D1</b> (with C10) — the <code>.loanflow/</code> namespace is invisible in vault listings, and derived data mirrors the source lifecycle (sweeper removes it when the document row is <code>DELETED</code>). <b>D2</b> (with C9) — hiding <code>.loanflow/</code> prevents derived objects from polluting the vault; legacy sibling <code>.json</code> files are inventoried separately so the UI can prefer the new archive by <code>documentId</code> during transition.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C8 — In-vault JSON viewer (frontend)</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>API client</td>
+            <td>Extend <code>frontend/src/services/documents.ts</code> with <code>getArchiveSummary(documentId)</code> and <code>getArchiveViewUrl(documentId)</code> (or fold into existing <code>getDocumentView</code>).</td>
+            <td>Jest mock assertions on request shape</td>
+          </tr>
+          <tr>
+            <td>Viewer component</td>
+            <td>Add <code>frontend/src/components/workspace/archive/ArchiveViewer.tsx</code> with Summary / Content / Raw tabs. Reuse the existing modal shell in <code>DocumentVaultView.tsx</code>; render content with <code>textContent</code> only, lazy-load asset URLs, cap raw JSON, show fidelity warnings. No <code>dangerouslySetInnerHTML</code>.</td>
+            <td>Component tests: tabs render; large-JSON cap; no innerHTML path; warning shown for <code>roundTripVerified:false</code></td>
+          </tr>
+          <tr>
+            <td>Row action</td>
+            <td>In <code>DocumentVaultView.tsx</code> / <code>DocumentExplorer</code>, add a "JSON" action on rows where <code>hasArchive</code>; keep the existing raw-<code>.json</code> fallback for legacy keys during transition.</td>
+            <td>Playwright/e2e: open a converted doc, see summary and content</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>D3</b> (with C6) — Summary tab reads the DB row / manifest only; the full <code>document.json</code> is never fetched to build UI state. <b>E2</b> (with C6) — staff-role view for credit review. <b>F1</b> — the tab replaces <code>DocumentVaultView</code>'s full <code>JSON.parse</code> of the opened file with a streaming / lazy / size-capped raw view; a megabyte embedded archive no longer freezes the page. <b>F2</b> — <code>byteArchive.data</code> node is collapsed/hidden by default; "download original" uses a presigned source URL, not client-side base64. <b>F7</b> — text and tables render via <code>textContent</code> + DOM APIs only, never <code>innerHTML</code>/<code>dangerouslySetInnerHTML</code>, so crafted PDF text or cell strings cannot XSS the vault.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C9 — Retire the legacy converter</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Repoint scripts</td>
+            <td>Rewrite <code>backend/src/scripts/batchConvertDocuments.ts</code> to enqueue through <code>archive.service</code> (keeps <code>--prefix</code>, <code>--dry-run</code>, <code>--limit</code>, <code>--concurrency</code>, <code>--force</code>) instead of calling <code>documentConverter.ts</code>. Update <code>convert:all</code>/<code>convert:dry-run</code> npm scripts and docs.</td>
+            <td><code>npm run convert:dry-run</code> lists candidates without writes</td>
+          </tr>
+          <tr>
+            <td>Remove legacy writer</td>
+            <td>Once no live document is archived by the old path, delete the sibling-<code>.json</code> writing logic. Inventory existing sibling JSONs first (dry-run), then remove per the repo delete policy; update docs that referenced <code>backend/src/utils/documentConverter.ts</code>.</td>
+            <td>Full <code>lint:check</code> + <code>typecheck</code> + <code>npm test</code> in backend</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>D2</b> (with C7) — the sibling-<code>.json</code> writer is only removed after a dry-run inventory of existing legacy JSONs; removal happens per the repo delete policy. The repointed <code>convert:all</code>/<code>convert:dry-run</code> scripts inherit the §18 <b>F3</b> scoping (never enqueue <code>.loanflow/</code> objects or legacy <code>.json</code> siblings) so a full run cannot double-create archives.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C10 — Backfill, observability, rollout</h3>
+      <table>
+        <thead><tr><th>Deliverable</th><th>Detail</th><th>Verify</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Backfill runner</td>
+            <td>Paginate <code>ListObjectsV2</code> over <code>borrowers/</code>, enqueue docs missing a COMPLETED archive (respect tier policy and rate limits). Idempotent by <code>documentId</code>; resumable across restarts.</td>
+            <td>Dry-run report matches object inventory; staged backfill matches expected counts</td>
+          </tr>
+          <tr>
+            <td>Observability</td>
+            <td>Structured logs for job lifecycle (reuse pino logger), counters per status and per format, dead-letter alert. Add <code>metrics</code> object in <code>manifest.json</code> for audit.</td>
+            <td>Log assertions in worker tests; dashboard counters update</td>
+          </tr>
+          <tr>
+            <td>Rollout sequence</td>
+            <td>Feature flag on worker start → staging corpus → staged prod backfill → continuous mode (upload trigger + reconciler) → vault toggle to users. See §14 for gates.</td>
+            <td>Every gate has a check: no new COMPLETED without round-trip verified on staging corpus</td>
+          </tr>
+          <tr class="cov">
+            <td class="cov-tag">Corner cases</td>
+            <td colspan="2">§18 <b>D1</b> (with C7) — sweeper removes <code>.loanflow/{docId}</code> assets when the source <code>Document</code> row is <code>DELETED</code>, so derived data never outlives the document. <b>D4</b> (with C0) — lifecycle/expiry rules exclude the derived namespace. <b>F3</b> — the backfill runner scopes <code>ListObjectsV2</code> to <code>borrowers/</code> and skips <code>.json</code> siblings and <code>.loanflow/</code>, idempotent per <code>documentId</code>. <b>F4</b> — resumability: <code>NextContinuationToken</code> bookmark persisted per run; workers skip already-COMPLETED ids, so an interrupted backfill never restarts from zero.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Sequence rationale.</strong> Pure schema and converters first (C0–C3) because they are low-risk and fully testable offline. Service + worker next (C4–C5) so the pipeline exists before any UI or routing change. API and explorer changes (C6–C7) then enable the viewer (C8). Only after the new path is proven in production do we retire the legacy writer (C9), then backfill the remaining history and add alerting (C10). Each chunk's verification column is the exit criterion for the merge.
+      </div>
+    </section>
+
+    <!-- ============ 18 ============ -->
+    <section id="s18">
+      <h2>18. Corner-case register</h2>
+      <p class="lead">Edge cases the chunk plan must design for, grouped by where they bite. Each row names the condition, why it is a real risk in this codebase, and which chunk owns the mitigation. Treat every row below as a required test case, not a nice-to-have.</p>
+
+      <div class="callout crit">
+        <strong>Two findings change the plan's assumptions:</strong> (1) <code>headObject()</code> (storage.service.ts:205) stores the S3 <code>ETag</code> as <code>checksum</code> — for multipart uploads an ETag is <em>not</em> the file hash, so "verify sha256 against DB checksum" is only valid for single-PUT objects; the archive worker must compute its own sha256 from the bytes it downloads. (2) <code>DocumentVaultView.tsx</code> runs <code>JSON.parse</code> on whatever it opens, so a large embedded archive would freeze the tab — the viewer must never parse a full archive for the summary tab.
+      </div>
+
+      <h3>A. Upload and integrity</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>A1</td>
+            <td>Multipart ETag is not a content hash</td>
+            <td>Objects &gt;100 MB go through <code>multipart.service.ts</code>; B2 returns an ETag of <code>md5(part1..partN)-N</code>, not the file digest. DB <code>checksum</code> cannot prove integrity.</td>
+            <td>C3/C4: always compute <code>sha256</code> on downloaded bytes; treat stored checksum as advisory only; for the <code>source-object</code> tier record ETag + size and mark integrity as "object-preserved, content unverified".</td>
+          </tr>
+          <tr>
+            <td>A2</td>
+            <td>Upload completed but object vanished</td>
+            <td><code>completeDocument</code> does <code>headObject</code> then returns 201; a lifecycle rule or external deletion could remove the object afterwards.</td>
+            <td>C4/C5: worker re-heads before download; on 404 mark <code>FAILED</code> with code <code>SOURCE_MISSING</code> and do not retry blindly (reconciler decides).</td>
+          </tr>
+          <tr>
+            <td>A3</td>
+            <td>Duplicate uploads of the same logical file</td>
+            <td>A borrower may upload the same PDF for two applications, creating two <code>documentId</code>s with identical bytes.</td>
+            <td>C4: optional content-addressed dedupe — if a COMPLETED archive exists for the same <code>sha256</code>, reuse it by reference instead of storing a second embedded copy.</td>
+          </tr>
+          <tr>
+            <td>A4</td>
+            <td>Object overwritten by key reuse</td>
+            <td>Keys embed <code>documentId</code> so collisions are unlikely, but <code>sanitizeFileName</code> can map two names to one key.</td>
+            <td>C0/C4: keep <code>documentId</code> in the key (already true); archive worker compares current ETag/size to the row before reusing a cached archive.</td>
+          </tr>
+          <tr>
+            <td>A5</td>
+            <td>Zero-byte or whitespace-only file passes upload</td>
+            <td>Presign validates <code>contentLength &gt; 0</code> but a 1-byte PDF or empty CSV is accepted; converters must not hang or produce empty archives.</td>
+            <td>C2: return a valid archive with an explicit <code>fidelity.warnings = ["empty-content"]</code>, not a throw.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>B. Converter and fidelity</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>B1</td>
+            <td>Content type lies (extension vs bytes)</td>
+            <td><code>ALLOWED_DOCUMENT_CONTENT_TYPES</code> is client-supplied at presign; a renamed file can be <code>application/pdf</code> with PNG bytes.</td>
+            <td>C2: sniff magic bytes first; fall back to the declared type only for ambiguous cases; record both in <code>metadata.detected</code>.</td>
+          </tr>
+          <tr>
+            <td>B2</td>
+            <td>Encrypted / password-protected files</td>
+            <td>Encrypted PDFs, DOCX (agile encryption), and XLSX are common in loan files; parsers may return garbage or throw.</td>
+            <td>C2: detect encryption markers; store a minimal archive with <code>warnings=["encrypted"]</code> and rely on the byte tier so no data is lost even though text extraction is empty.</td>
+          </tr>
+          <tr>
+            <td>B3</td>
+            <td>PDF page rotation and crop boxes</td>
+            <td><code>pdfjs-dist</code> transforms are in PDF space; <code>/Rotate 90</code> or crop boxes shift coordinates. Naive bbox storage becomes wrong.</td>
+            <td>C2: normalize coordinates per page using <code>viewport</code> (scale + rotate) before writing blocks.</td>
+          </tr>
+          <tr>
+            <td>B4</td>
+            <td>Mixed text + scanned PDF</td>
+            <td>A 20-page statement may have 15 born-digital pages and 5 scans. Whole-document OCR fallback (as today) is wasteful and error-prone.</td>
+            <td>C2: decide OCR per page (text length threshold), rasterize only empty pages, store per-page OCR plus page-image assets.</td>
+          </tr>
+          <tr>
+            <td>B5</td>
+            <td>OCR binary or language data missing at runtime</td>
+            <td><code>tesseract</code> and <code>eng.traineddata</code> must exist in the runtime image (backend Dockerfile adds them, but local dev or slim images may not).</td>
+            <td>C2/C5: capability probe at worker start; graceful degradation to <code>warnings=["ocr-unavailable"]</code> with no crash.</td>
+          </tr>
+          <tr>
+            <td>B6</td>
+            <td>Non-Latin / multi-column PDF text order</td>
+            <td>Devanagari, tables, and two-column layouts can interleave text runs in extraction order, corrupting reading order.</td>
+            <td>C2: sort runs by <code>(y, x)</code> clusters and keep raw run list; do not claim paragraph order when geometry is ambiguous; note in fidelity warnings.</td>
+          </tr>
+          <tr>
+            <td>B7</td>
+            <td>XLSX cell precision and date loss</td>
+            <td>Excel stores numbers as IEEE double; long account numbers (16+ digits) and dates need exact serial + display text. <code>xlsx</code> with <code>cellDates</code> may shift timezones.</td>
+            <td>C2: keep <code>t</code> (type), <code>v</code> (raw), <code>w</code> (formatted text), and <code>z</code> (number format); never rely on re-serializing JS dates; preserve raw cell strings for identifiers.</td>
+          </tr>
+          <tr>
+            <td>B8</td>
+            <td>Formulas and cached values</td>
+            <td><code>xlsx</code> returns <code>f</code> (formula) and cached <code>v</code>; some writers omit cached results, making cells appear empty.</td>
+            <td>C2: store <code>f</code> and <code>v</code> independently; viewer shows formula when value is absent; do not flag missing cache as empty cell.</td>
+          </tr>
+          <tr>
+            <td>B9</td>
+            <td>CSV encoding and delimiters</td>
+            <td>UTF-8 BOM, Windows-1252 exports, and semicolon-delimited regional CSVs defeat naive <code>split(',')</code>.</td>
+            <td>C2: strict CSV parser with BOM strip, encoding detection, and delimiter sniffing; preserve the raw line data.</td>
+          </tr>
+          <tr>
+            <td>B10</td>
+            <td>Legacy DOC and XLS binary formats</td>
+            <td><code>application/msword</code> and <code>application/vnd.ms-excel</code> are allowed; mammoth handles DOCX only and <code>xlsx</code> handles BIFF8, not older or RTF masquerading as DOC.</td>
+            <td>C2: attempt binary parse; on failure store bytes + <code>warnings=["legacy-format-unparsed"]</code> rather than a false "empty" archive; round-trip still holds via byte tier.</td>
+          </tr>
+          <tr>
+            <td>B11</td>
+            <td>OOXML zip-slip and entity expansion</td>
+            <td>DOCX/XLSX are zips; crafted entries (<code>../</code>) or DTDs could read files or expand entities when unpacking parts.</td>
+            <td>C2: validate every zip entry name; reject DTD/external entities; extract only known parts to a sandbox path.</td>
+          </tr>
+          <tr>
+            <td>B12</td>
+            <td>Very large page/image counts and memory spikes</td>
+            <td>A 500-page scan at 300 DPI can exhaust memory if rasterized eagerly. The existing pipeline caps at 10 MB and 25 s.</td>
+            <td>C2/C5: per-page budget and streaming; rasterize one page at a time; overall archive timeout with partial-result persistence.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>C. Worker, queue, and state machine</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>C1</td>
+            <td>Double-enqueue (upload trigger + reconciler race)</td>
+            <td><code>completeDocument</code> fires background work via <code>setImmediate</code> today; a reconciler polling the same document can enqueue twice.</td>
+            <td>C5: unique <code>documentId</code> job id; DB-level claim (<code>UPDATE ... SET status='PROCESSING' WHERE status IN ('PENDING','FAILED')</code>) as the only admission path.</td>
+          </tr>
+          <tr>
+            <td>C2</td>
+            <td>Worker crash mid-conversion</td>
+            <td>A process restart after assets are written but before <code>document.json</code> leaves orphans and a stuck <code>PROCESSING</code> row.</td>
+            <td>C5: lease/heartbeat with expiry; reconciler reclaims <code>PROCESSING</code> rows whose lease expired; sweeper removes orphan assets older than a threshold (per repo delete policy).</td>
+          </tr>
+          <tr>
+            <td>C3</td>
+            <td>Timeout truncation loses partial progress</td>
+            <td>Aborting a 90 s convert discards work already done (e.g. 40 parsed pages).</td>
+            <td>C4/C5: persist intermediate results in <code>assets</code> and, on timeout, write a partial archive with <code>warnings=["timed-out-partial"]</code> and allow resume from page N.</td>
+          </tr>
+          <tr>
+            <td>C4</td>
+            <td>Poison document blocks the queue</td>
+            <td>A pathological file failing forever stalls workers if retried indefinitely.</td>
+            <td>C5: exponential backoff + max attempts; move to <code>DEAD_LETTER</code> and alert; never re-queue automatically.</td>
+          </tr>
+          <tr>
+            <td>C5</td>
+            <td>Converter version bump invalidates everything</td>
+            <td>If the skip logic only checks <code>converterVersion</code>, a new release re-archives the entire vault.</td>
+            <td>C4: idempotency compares <code>sourceSha256</code> AND stored <code>schemaVersion</code>; a converter upgrade re-archives only on explicit <code>force</code> or a targeted backfill, not on deploy.</td>
+          </tr>
+          <tr>
+            <td>C6</td>
+            <td>Reconciler races with an in-flight job</td>
+            <td>Polling "no COMPLETED archive" while a worker is mid-flight triggers a duplicate.</td>
+            <td>C5: reconciler only enqueues when the DB row is absent or <code>FAILED</code>; lease prevents <code>PROCESSING</code> re-entry.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>D. Storage layout and lifecycle</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>D1</td>
+            <td>Soft-deleted documents keep derived data</td>
+            <td><code>Document.status=DELETED</code> keeps the object; a borrower who deletes a document should not keep a JSON twin that still exposes content.</td>
+            <td>C7/C10: derive-delete mirrors document lifecycle; sweeper removes <code>.loanflow/{docId}</code> when the source row is <code>DELETED</code>.</td>
+          </tr>
+          <tr>
+            <td>D2</td>
+            <td>Legacy sibling <code>.json</code> files confuse the viewer</td>
+            <td>The current converter writes <code>{name}.json</code> beside originals. After the move, the vault could contain both old lossy JSONs and new archives.</td>
+            <td>C7/C9: namespace filter hides <code>.loanflow/</code>; legacy sibling files are inventoried in dry-run and removed in C9 per delete policy; vault UI should prefer the new archive by <code>documentId</code>.</td>
+          </tr>
+          <tr>
+            <td>D3</td>
+            <td>Archive object exceeds single-object limits</td>
+            <td>Embedded base64 for the 25 MB tier is ~34 MB plus structure; fine for one object, but the viewer must not fetch it just to show a summary.</td>
+            <td>C6/C8: summary comes from the DB row / <code>manifest.json</code>, never by downloading <code>document.json</code>.</td>
+          </tr>
+          <tr>
+            <td>D4</td>
+            <td>Lifecycle policy deletes derived objects unintentionally</td>
+            <td>Any bucket lifecycle/expiry rule must not treat <code>.loanflow/</code> as disposable if it is the only byte copy in the embed tier.</td>
+            <td>C0/C10: lifecycle rules scope to source prefix or exclude <code>.loanflow/</code>; embed tier intentionally duplicates bytes for recovery.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>E. Database, API, and RBAC</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>E1</td>
+            <td>Row says COMPLETED but object is gone</td>
+            <td>DB and S3 can drift (manual delete, failed write, restored backup).</td>
+            <td>C5/C6: reconciler verifies object existence/size; summary endpoint reports <code>stale</code> and triggers re-archive.</td>
+          </tr>
+          <tr>
+            <td>E2</td>
+            <td>Analyst/Approver needs to open a borrower JSON</td>
+            <td>Today <code>getDocumentView</code> requires <code>doc.userId === req.user.id</code>; the credit team cannot review archives under strict owner-only checks.</td>
+            <td>C6/C8: role-aware read — owner OR staff (<code>ANALYST</code>/<code>APPROVER</code>/<code>ADMIN</code>) with audit event; keep borrower-to-borrower isolation intact.</td>
+          </tr>
+          <tr>
+            <td>E3</td>
+            <td>Prisma migration on an existing prod DB</td>
+            <td>Render production runs <code>prisma db push</code> on start (backend Dockerfile CMD), which is not additive-only by design.</td>
+            <td>C0: ship a real migration; keep <code>db push</code> additive for the new model and document that destructive drift is not used.</td>
+          </tr>
+          <tr>
+            <td>E4</td>
+            <td>Content-type stored for viewer is wrong</td>
+            <td><code>getKeyView</code> hardcodes <code>application/json</code>, breaking non-JSON key previews (existing bug).</td>
+            <td>C6: return the real content type from <code>headObject</code>; archive endpoints set <code>application/json</code> explicitly only for <code>.json</code> objects.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>F. Viewer, security, and backfill</h3>
+      <table>
+        <thead><tr><th>#</th><th>Corner case</th><th>Why it is real here</th><th>Mitigation owner</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>F1</td>
+            <td>Full JSON parse freezes the browser</td>
+            <td><code>DocumentVaultView.handleFileOpen</code> does <code>JSON.parse(response.data)</code> then pretty-prints; embedded archives are megabytes.</td>
+            <td>C8: summary tab reads DB/manifest; raw JSON tab streams and renders lazily or offers download; never parse the whole archive for UI state.</td>
+          </tr>
+          <tr>
+            <td>F2</td>
+            <td>Base64 payload in DOM / accidental exposure</td>
+            <td>The raw JSON tab must not dump <code>byteArchive.data</code> into the page by default.</td>
+            <td>C8: collapse/hide the byte archive node in the tree; "download original" uses a presigned source URL, not client-side base64 decode.</td>
+          </tr>
+          <tr>
+            <td>F3</td>
+            <td>Backfill must not reprocess derived objects</td>
+            <td>Bucket listing over <code>borrowers/</code> is fine, but a naive whole-bucket backfill could list <code>.loanflow/</code> or legacy JSONs.</td>
+            <td>C10: backfill scope is <code>borrowers/</code> only and skips <code>.json</code> siblings; idempotent per <code>documentId</code>.</td>
+          </tr>
+          <tr>
+            <td>F4</td>
+            <td>Backfill resume after partial run</td>
+            <td>A long backfill interrupted mid-way must not restart from zero.</td>
+            <td>C10: bookmark pagination via <code>NextContinuationToken</code> persisted per run; workers skip already-COMPLETED ids.</td>
+          </tr>
+          <tr>
+            <td>F5</td>
+            <td>Key/prefix isolation for derived namespace</td>
+            <td>A borrower must not reach another borrower's <code>.loanflow/{docId}</code> even with a crafted request.</td>
+            <td>C6: derived objects are only served through document-ownership (or staff-role) checked endpoints; key-based viewer prefix guard remains for the source namespace.</td>
+          </tr>
+          <tr>
+            <td>F6</td>
+            <td>Round-trip verification for non-embed tiers is impossible</td>
+            <td><code>rebuildOriginal</code> only works when bytes are embedded; the <code>gz-object</code> and <code>source-object</code> tiers cannot produce a local rebuild in CI.</td>
+            <td>C3: round-trip CI tests run on the embed tier corpus; higher tiers verify via ETag/size consistency and a separate integration test against a scratch bucket.</td>
+          </tr>
+          <tr>
+            <td>F7</td>
+            <td>Viewer renders OCR geometry or cell data as HTML</td>
+            <td>Archive content must never be injected as HTML (XSS via crafted PDF text or cell strings).</td>
+            <td>C8: text always via <code>textContent</code>; tables built with DOM APIs, not <code>innerHTML</code> from document-derived strings.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>How to use this register.</strong> Fold each row into the owning chunk's test plan (§13) as a fixture or an integration case before that chunk is merged. The highest-risk ones for <em>this</em> codebase are <strong>A1</strong> (ETag vs sha256), <strong>B4/B12</strong> (per-page vs whole-document OCR and memory), <strong>C1/C2</strong> (double-enqueue and crash orphans), <strong>D2</strong> (legacy sibling JSON confusion), and <strong>F1/F2</strong> (viewer JSON.parse and base64 exposure).
+      </div>
+    </section>
+
+    <!-- ============ Appendix ============ -->
+    <section id="appendix">
+      <h2>Appendix: example archive (excerpt)</h2>
+      <p class="lead">A 2 MB PDF bank statement, embedded tier. Truncated for readability.</p>
+      <pre><code>{
+  <span class="k">"schemaVersion"</span>: <span class="s">"1.0"</span>,
+  <span class="k">"source"</span>: {
+    <span class="k">"key"</span>: <span class="s">"borrowers/u/applications/a/documents/d/statement.pdf"</span>,
+    <span class="k">"contentType"</span>: <span class="s">"application/pdf"</span>,
+    <span class="k">"size"</span>: 2097152,
+    <span class="k">"sha256"</span>: <span class="s">"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"</span>
+  },
+  <span class="k">"fidelity"</span>: { <span class="k">"roundTripVerified"</span>: true, <span class="k">"originalAvailable"</span>: <span class="s">"embedded"</span>, <span class="k">"warnings"</span>: [] },
+  <span class="k">"metadata"</span>: { <span class="k">"pageCount"</span>: 3, <span class="k">"producer"</span>: <span class="s">"Acme Bank Core"</span>, <span class="k">"pageSizes"</span>: [[595.28, 841.89]] },
+  <span class="k">"pages"</span>: [
+    {
+      <span class="k">"pageNumber"</span>: 1,
+      <span class="k">"blocks"</span>: [
+        { <span class="k">"kind"</span>: <span class="s">"table"</span>, <span class="k">"bbox"</span>: [50, 90, 540, 520],
+          <span class="k">"rows"</span>: [
+            [ { <span class="k">"t"</span>: <span class="s">"s"</span>, <span class="k">"v"</span>: <span class="s">"Date"</span> }, { <span class="k">"t"</span>: <span class="s">"s"</span>, <span class="k">"v"</span>: <span class="s">"Narration"</span> }, { <span class="k">"t"</span>: <span class="s">"s"</span>, <span class="k">"v"</span>: <span class="s">"Amount"</span> } ],
+            [ { <span class="k">"t"</span>: <span class="s">"s"</span>, <span class="k">"v"</span>: <span class="s">"01-04-24"</span> }, { <span class="k">"t"</span>: <span class="s">"s"</span>, <span class="k">"v"</span>: <span class="s">"NEFT CR ACME"</span> }, { <span class="k">"t"</span>: <span class="s">"n"</span>, <span class="k">"v"</span>: 500000 } ]
+          ] }
+      ],
+      <span class="k">"ocr"</span>: null
+    }
+  ],
+  <span class="k">"classification"</span>: { <span class="k">"documentType"</span>: <span class="s">"BANK_STATEMENT"</span>, <span class="k">"confidence"</span>: 0.95 },
+  <span class="k">"fields"</span>: {
+    <span class="k">"accountNumber"</span>: { <span class="k">"value"</span>: <span class="s">"50012345678"</span>, <span class="k">"confidence"</span>: 0.97, <span class="k">"source"</span>: <span class="s">"hybrid"</span>, <span class="k">"page"</span>: 1 },
+    <span class="k">"statementPeriod"</span>: { <span class="k">"value"</span>: <span class="s">"Apr 2024"</span>, <span class="k">"confidence"</span>: 0.9, <span class="k">"source"</span>: <span class="s">"hybrid"</span>, <span class="k">"page"</span>: 1 }
+  }
+}</code></pre>
+
+      <div class="callout ok">
+        <strong>Bottom line.</strong> True lossless JSON conversion is a three-part deliverable: (1) a fidelity contract and versioned DocumentArchive schema, (2) per-format converters that preserve structure and geometry and record integrity, and (3) an idempotent worker pipeline that writes derived objects to a hidden namespace. Paired with the vault JSON viewer (summary, content, raw tabs), this gives LoanFlow a searchable, openable, verifiable JSON copy of every vault document with zero information loss — and the existing extraction/autofill layer rides on top unchanged.
+      </div>
+    </section>
+  </div>
+
+  <footer>LoanFlow — Lossless Vault-to-JSON Pipeline deep dive · v1.0 · 5 Sep 2026</footer>
+</body>
+</html>

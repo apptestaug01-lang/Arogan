@@ -98,6 +98,7 @@ model Document {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   extraction    DocumentExtraction?
+  documentArchive DocumentArchive?
 
   @@index([userId])
   @@index([applicationId])
@@ -119,6 +120,31 @@ model DocumentExtraction {
 
   @@index([documentId])
   @@index([status])
+}
+
+model DocumentArchive {
+  id               String    @id @default(cuid())
+  documentId       String    @unique
+  document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status           String    @default("PENDING") // PENDING|PROCESSING|COMPLETED|FAILED
+  schemaVersion    String?
+  converterVersion String?
+  archiveKey       String?   // .loanflow/{docId}/document.json
+  sourceSha256     String?
+  sourceEtag       String?
+  sourceSize       Int?
+  byteTier         String?   // embedded | gz-object | source-object
+  fidelityVerified Boolean   @default(false)
+  warnings         Json?
+  assets           Json?     // [{name,key,sha256,size}]
+  error            Json?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status])
+  @@index([documentId])
 }
 
 enum ApplicationStatus {

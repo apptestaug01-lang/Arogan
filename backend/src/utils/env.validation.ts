@@ -14,13 +14,16 @@ export interface ValidatedEnv {
   LOCKOUT_MINUTES: number;
   RATE_LIMIT_WINDOW_MS: number;
   RATE_LIMIT_MAX: number;
-   CORS_ORIGIN: string;
+  CORS_ORIGIN: string;
   FRONTEND_URL: string;
-   BREVO_API_KEY: string;
+  BREVO_API_KEY: string;
   BREVO_FROM_EMAIL: string;
   BREVO_FROM_NAME: string;
   BREVO_REPLY_TO: string;
   SESSION_CLEANUP_INTERVAL_MS: number;
+  ARCHIVE_EMBED_MAX_BYTES: number;
+  ARCHIVE_GZ_OBJECT_MAX_BYTES: number;
+  ARCHIVE_CONVERT_TIMEOUT_MS: number;
 }
 
 const requiredEnvVars = [
@@ -81,5 +84,8 @@ export function validateEnv(): ValidatedEnv {
     BREVO_FROM_NAME: process.env.BREVO_FROM_NAME || 'LoanFlow',
     BREVO_REPLY_TO: process.env.BREVO_REPLY_TO || process.env.BREVO_FROM_EMAIL || 'no-reply@loanflow.app',
     SESSION_CLEANUP_INTERVAL_MS: Number(process.env.SESSION_CLEANUP_INTERVAL_MS) || 3_600_000,
+    ARCHIVE_EMBED_MAX_BYTES: Number(process.env.ARCHIVE_EMBED_MAX_BYTES) || 25 * 1024 * 1024,
+    ARCHIVE_GZ_OBJECT_MAX_BYTES: Number(process.env.ARCHIVE_GZ_OBJECT_MAX_BYTES) || 100 * 1024 * 1024,
+    ARCHIVE_CONVERT_TIMEOUT_MS: Number(process.env.ARCHIVE_CONVERT_TIMEOUT_MS) || 90_000,
   };
 }
