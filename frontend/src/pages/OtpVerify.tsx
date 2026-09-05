@@ -55,7 +55,7 @@ export default function OtpVerify() {
       setError(e.response?.data?.message || 'Invalid OTP code');
       setOtpValue(Array(6).fill(''));
       setTimeout(() => {
-        inputRefs.current[0]?.focus();
+        inputRefs.current?.[0]?.focus();
       }, 150);
     } finally {
       setIsVerifying(false);

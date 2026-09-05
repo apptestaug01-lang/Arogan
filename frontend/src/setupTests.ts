@@ -6,18 +6,8 @@ Object.assign(global, {
   TextDecoder: TextDecoder,
 });
 
-// Mock import.meta.env for Jest
-Object.defineProperty(globalThis, 'import', {
-  value: {
-    meta: {
-      env: {
-        VITE_API_URL: '/api',
-      },
-    },
-  },
-  writable: true,
-  configurable: true,
-});
+// Provide __VITE_API_URL__ for Jest (replaces import.meta.env.VITE_API_URL at build time via Vite define)
+(globalThis as unknown as { __VITE_API_URL__: string }).__VITE_API_URL__ = '/api';
 
 const originalError = console.error;
 beforeAll(() => {

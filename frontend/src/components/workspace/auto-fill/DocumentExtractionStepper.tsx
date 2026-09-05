@@ -41,12 +41,12 @@ export interface DocumentExtractionStepperProps {
   onAllDone: () => void;
 }
 
-export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvance, onAllDone }: DocumentExtractionStepperProps) {
+export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvance, onAllDone: _onAllDone }: DocumentExtractionStepperProps) {
   const [docs, setDocs] = React.useState<VaultDoc[]>([]);
   const [docStatus, setDocStatus] = React.useState<Record<string, DocStatus>>({});
   const [docFields, setDocFields] = React.useState<Record<string, Record<string, ExtractedField>>>({});
   const [loading, setLoading] = React.useState(true);
-  const [autoRunning, setAutoRunning] = React.useState(true);
+  const [autoRunning, _setAutoRunning] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   // Poll vault status until everything is ready/failed.
@@ -136,7 +136,7 @@ export function DocumentExtractionStepper({ applicationId, onApplyStep, onAdvanc
         const res = await extractOneDocument(applicationId, next.id, false);
         setDocFields((f) => ({ ...f, [next.id]: res.fields }));
         setDocStatus((s) => ({ ...s, [next.id]: 'ready' }));
-      } catch (e) {
+      } catch (_e) {
         setDocStatus((s) => ({ ...s, [next.id]: 'failed' }));
       }
     })();

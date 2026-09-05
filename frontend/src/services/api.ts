@@ -1,9 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-const VITE_API_URL: string | undefined =
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-    ? import.meta.env.VITE_API_URL
-    : undefined;
+const VITE_API_URL: string | undefined = (globalThis as { __VITE_API_URL__?: string }).__VITE_API_URL__ || undefined;
 
 const api: AxiosInstance = axios.create({
   baseURL: VITE_API_URL || '/api',
