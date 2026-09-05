@@ -19,7 +19,9 @@
     "test:extraction": "tsx src/scripts/testExtraction.ts",
     "test:extraction:list": "tsx src/scripts/testExtraction.ts list",
     "test:extraction:db": "tsx src/scripts/testExtraction.ts db",
-    "test:extraction:extract": "tsx src/scripts/testExtraction.ts extract"
+    "test:extraction:extract": "tsx src/scripts/testExtraction.ts extract",
+    "convert:all": "tsx src/scripts/batchConvertDocuments.ts",
+    "convert:dry-run": "tsx src/scripts/batchConvertDocuments.ts --dry-run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1119.0",

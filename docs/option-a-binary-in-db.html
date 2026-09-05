@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Document Extraction Flow — Pick from S3, Convert to JSON, Store in DB</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+    --primary: #2563eb;
+    --primary-bg: #1e3a8a;
+    --green: #4ade80;
+    --green-bg: #14532d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header {
+    border-bottom: 1px solid var(--surface-2);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  h1 { font-size: 1.8rem; color: var(--accent); }
+  h2 {
+    font-size: 1.3rem;
+    margin: 2rem 0 1rem;
+    color: var(--accent);
+    border-bottom: 2px solid var(--surface-2);
+    padding-bottom: .4rem;
+  }
+  h3 { font-size: 1.05rem; margin: 1.2rem 0 .5rem; color: var(--text); }
+  .subtitle { color: var(--text-muted); font-size: .95rem; }
+  .badge {
+    display: inline-block;
+    padding: .2rem .7rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .badge-good { background: var(--green-bg); color: var(--green); }
+  .badge-dim { background: var(--surface-2); color: var(--text-muted); }
+  .badge-primary { background: var(--primary-bg); color: var(--primary); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: var(--surface);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td { padding: .7rem 1rem; text-align: left; border-bottom: 1px solid var(--surface); }
+  th { background: var(--surface-2); color: var(--text-muted); font-weight: 600; font-size: .85rem; }
+  td { color: var(--text); }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    border: 1px solid var(--surface-2);
+  }
+  .stat-card .value { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+  .stat-card .label { color: var(--text-muted); font-size: .8rem; margin-top: .3rem; }
+  .step-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .step-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1.2rem;
+    text-align: center;
+    border: 2px solid var(--surface-2);
+    transition: border-color .2s;
+  }
+  .step-card.active { border-color: var(--primary); }
+  .step-card .step-num {
+    display: inline-block;
+    width: 28px; height: 28px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    line-height: 28px;
+    font-size: .8rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+  }
+  .step-card .step-desc { color: var(--text-muted); font-size: .8rem; }
+  .callout {
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin: 1.5rem 0;
+    border-left: 4px solid;
+  }
+  .callout-good {
+    background: rgba(74, 222, 128, .08);
+    border-color: var(--green);
+  }
+  .callout-good h3 { color: var(--green); }
+  code {
+    background: var(--surface-2);
+    padding: .15rem .4rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', Consolas, monospace;
+    font-size: .85em;
+    color: var(--accent);
+  }
+  .mermaid-container {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid var(--surface-2);
+  }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--surface-2);
+    color: var(--text-muted);
+    font-size: .85rem;
+  }
+  .flow-steps {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1.2rem 1.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid var(--surface-2);
+  }
+  .flow-steps ol { list-style: none; counter-reset: step; }
+  .flow-steps li {
+    counter-increment: step;
+    padding: .8rem 0;
+    border-bottom: 1px solid var(--surface-2);
+    position: relative;
+    padding-left: 50px;
+  }
+  .flow-steps li:before {
+    counter-set: ;
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 32px; height: 32px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .9rem;
+  }
+  .flow-steps li:last-child { border-bottom: none; }
+  .flow-steps .step-name { font-weight: 600; color: var(--text); }
+  .flow-steps .step-detail { color: var(--text-muted); font-size: .85rem; margin-top: .2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Document Extraction Flow</h1>
+    <span class="badge badge-good">RECOMMENDED</span>
+    <p class="subtitle">Files are stored in S3, picked up for batch extraction after all uploads complete, converted to structured JSON, and stored in the database.</p>
+  </header>
+
+  <div class="callout callout-good">
+    <h3>Architecture Summary</h3>
+    <p><strong>Raw binaries live in object storage (Backblaze B2 / S3).</strong> Only the <em>extracted, structured JSON</em> — <code>fields</code>, <code>pages</code>, <code>rawText</code>, <code>documentType</code> — is stored in PostgreSQL. The extraction pipeline fetches documents <strong>from S3</strong> (not from an upload request body) and writes results to the <code>DocumentExtraction</code> table.</p>
+  </div>
+
+  <h2>Step-by-Step Flow</h2>
+  <div class="flow-steps">
+    <ol>
+      <li>
+        <div class="step-name">Upload files via presigned URLs</div>
+        <div class="step-detail">Client requests a presigned PUT URL from the backend <code>POST /api/documents/presign</code>. Upload goes directly Client → B2. No backend streaming. <em>Backend: document.service.ts:30</em></div>
+      </li>
+      <li>
+        <div class="step-name">Complete upload — register metadata in DB</div>
+        <div class="step-detail">Client calls <code>POST /api/documents/{documentId}/complete</code>. Backend verifies object exists (<code>headObject</code>), creates a <code>Document</code> record (points to S3 key), and triggers per-doc extraction. <em>Backend: document.service.ts:68</em></div>
+      </li>
+      <li>
+        <div class="step-name">Batch extraction (after all uploads)</div>
+        <div class="step-detail">When all documents are uploaded, the frontend calls <code>POST /:applicationId/extract-all</code>. This processes <strong>all</strong> documents for the application at once via <code>ExtractionPipeline.processMany()</code> with 4-way concurrency. <em>Backend: autoFillRoutes.ts:13, autoFillService.ts:79</em></div>
+      </li>
+      <li>
+        <div class="step-name">Pipeline picks each document from S3</div>
+        <div class="step-detail">The pipeline iterates over uploaded documents, reads each S3 key from the DB <code>Document</code> record, and issues a <code>GetObjectCommand</code> to fetch the file content into a Buffer. <em>Backend: extractionPipeline.ts:175</em></div>
+      </li>
+      <li>
+        <div class="step-name">Convert to structured data</div>
+        <div class="step-detail">Format-specific parsers parse the binary:
+        <ul style="margin-top:.3rem">
+          <li>PDF → pdf-parse + Tesseract OCR → text + pages</li>
+          <li>Images → Tesseract OCR → text</li>
+          <li>DOC/DOCX → mammoth → HTML/text</li>
+          <li>XLSX → xlsx lib → rows/tables</li>
+          <li>CSV → plain text</li>
+        </ul>
+        Documents ≤ 10 MB; larger files skip extraction.</div>
+      </li>
+      <li>
+        <div class="step-name">Extract fields (regex + LLM)</div>
+        <div class="step-detail">Each document is classified by type (PAN_CARD, BANK_STATEMENT, etc.). Type-specific regex extractors run first, then an LLM extractor. Results are merged by confidence. <em>Backend: extractionPipeline.ts:223-266</em></div>
+      </li>
+      <li>
+        <div class="step-name">Store JSON result in DB</div>
+        <div class="step-detail">Merged fields, raw text, page data, document type, and model used are persisted in <code>DocumentExtraction</code> table: <code>fields (Json)</code>, <code>pages (Json)</code>, <code>rawText (Text)</code>, <code>documentType</code>, <code>status</code>. <em>Backend: schema.prisma:106</em></div>
+      </li>
+      <li>
+        <div class="step-name">Autofill forms from DB</div>
+        <div class="step-detail">The <code>AutoFillService</code> reads extracted fields from the DB, maps them to wizard steps (kyc, business, financials, loan), and returns pre-filled form data. Cached results are served without re-extraction. <em>Backend: autoFillService.ts:36</em></div>
+      </div>
+    </ol>
+  </div>
+
+  <h2>Visual Architecture Diagram</h2>
+  <div class="mermaid-container">
+    <div class="mermaid">
+flowchart TD
+    A[<b>Step 1: Upload<br/>Client → S3 (B2)</b><br/>Presigned PUT URL<br/>Direct upload, no backend streaming] --> B[<b>Step 2: Complete<br/>Register in DB</b><br/>POST /document/complete<br/>Verify S3 object exists<br/>Create Document record<br/>s3Key points to S3]
+
+    B --> C[<b>Step 3: Batch Trigger<br/>All files uploaded?</b>]
+    C -->|Yes — click Extract All| D[<b>Step 4: Extraction Pipeline<br/>POST /extract-all</b><br/>processMany — 4 concurrent<br/>Iterates Document records<br/>Reads s3Key from DB]
+
+    D --> E[<b>Step 5: Fetch from S3<br/>GetObjectCommand</b><br/>Fetch file content<br/>into Node Buffer<br/>≤ 10 MB limit]
+
+    E --> F[<b>Step 6: Parse<br/>Format-specific</b><br/>PDF → pdf-parse + OCR<br/>Image → Tesseract OCR<br/>DOCX → mammoth<br/>XLSX → xlsx lib]
+
+    F --> G[<b>Step 7: Classify +<br/>Extract Fields</b><br/>Regex extractors (per type)<br/>LLM extractor (Cloudflare Llama3)<br/>Merge by confidence]
+
+    G --> H[<b>Step 8: Store JSON<br/>in PostgreSQL</b><br/>DocumentExtraction table:<br/>• fields (Json)<br/>• pages (Json)<br/>• rawText (Text)<br/>• documentType<br/>• status]
+
+    H --> I[<b>Step 9: Autofill Forms<br/>Read from DB cache</b><br/>AutoFillService<br/>Maps fields → wizard steps<br/>kyc / business / financials / loan]
+
+    style A fill:#1e40af,stroke:#3b82f6,color:#fff
+    style B fill:#1e40af,stroke:#3b82f6,color:#fff
+    style C fill:#ca8a04,stroke:#ca8a04,color:#000
+    style D fill:#2563eb,stroke:#60a5fa,color:#fff
+    style E fill:#7c3aed,stroke:#a78bfa,color:#fff
+    style F fill:#059669,stroke:#6ee7b9,color:#fff
+    style G fill:#059669,stroke:#6ee7b9,color:#fff
+    style H fill:#0ea5e9,stroke:#7dd3fc,color:#fff
+    style I fill:#dc2626,stroke:#fca5a5,color:#fff
+    </div>
+  </div>
+
+  <h2>Key Design Decisions</h2>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="value">S3</div>
+      <div class="label">Raw binaries never enter the DB</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">JSON</div>
+      <div class="label">Only extracted data in PostgreSQL</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">Batch</div>
+      <div class="label">Process all docs after uploads complete</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">Cache</div>
+      <div class="label">Skip re-extraction on repeat calls</div>
+    </div>
+  </div>
+
+  <h2>Database Schema (Extraction Results)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Column</th>
+        <th>Type</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td rowspan="7">Document</td><td>id</td><td>String (PK)</td><td>Unique document identifier</td></tr>
+      <tr><td>s3Key</td><td>String</td><td>S3/B2 object key (path to file)</td></tr>
+      <tr><td>originalName</td><td>String</td><td>User-facing filename</td></tr>
+      <tr><td>contentType</td><td>String</td><td>MIME type (PDF, XLSX, etc.)</td></tr>
+      <tr><td>size</td><td>Int</td><td>File size in bytes</td></tr>
+      <tr><td>checksum</td><td>String</td><td>Integrity verification</td></tr>
+      <tr><td>status</td><td>Enum</td><td>PENDING / UPLOADED / VERIFIED / DELETED</td></tr>
+      <tr><td colspan="4"><hr style="border-color:var(--surface-2)"></td></tr>
+      <tr><td rowspan="7">DocumentExtraction</td><td>documentId</td><td>String (FK)</td><td>Links to Document</td></tr>
+      <tr><td>documentType</td><td>String</td><td>PAN_CARD, BANK_STATEMENT, etc.</td></tr>
+      <tr><td>rawText</td><td>Text</td><td>Full extracted text (capped 200K chars)</td></tr>
+      <tr><td>pages</td><td>Json</td><td>Array: [{ pageNumber, text, confidence }]</td></tr>
+      <tr><td>fields</td><td>Json</td><td>Map: { fieldName: { value, confidence, source, page } }</td></tr>
+      <tr><td>status</td><td>String</td><td>processing / completed / failed</td></tr>
+      <tr><td>modelUsed</td><td>String?</td><td>regex / cloudflare-llama3 / hybrid</td></tr>
+    </tbody>
+  </table>
+
+  <h2>API Endpoints Used</h2>
+  <table>
+    <thead>
+      <tr><th>Step</th><th>Method</th><th>Endpoint</th><th>Backend Handler</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Get presigned upload URL</td><td>POST</td><td><code>/api/documents/presign</code></td><td><code>document.service.ts:30</code></td></tr>
+      <tr><td>Confirm upload + register</td><td>POST</td><td><code>/api/documents/{id}/complete</code></td><td><code>document.service.ts:68</code></td></tr>
+      <tr><td>Batch extract all documents</td><td>POST</td><td><code>/:appId/extract-all</code></td><td><code>autoFillRoutes.ts:13</code></td></tr>
+      <tr><td>Autofill single step</td><td>POST</td><td><code>/:appId/autofill</code></td><td><code>autoFillRoutes.ts:29</code></td></tr>
+      <tr><td>Extract single document</td><td>POST</td><td><code>/:appId/extract/{docId}</code></td><td><code>autoFillRoutes.ts:63</code></td></tr>
+      <tr><td>Check extraction status</td><td>GET</td><td><code>/:appId/autofill/status</code></td><td><code>autoFillRoutes.ts:91</code></td></tr>
+      <tr><td>Get download URL</td><td>GET</td><td><code>/api/documents/{id}/view</code></td><td>presigned download (5 min TTL)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Batch Conversion Utility</h2>
+  <p>A standalone CLI utility (<code>backend/src/scripts/batchConvertDocuments.ts</code>) reads documents from the S3/B2 bucket, lossless converts them to structured JSON, and writes the JSON back to the <strong>same bucket</strong> as <code>{originalName}.json</code>.</p>
+
+  <h3>Usage</h3>
+  <pre style="background:var(--surface-2); border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0;"><code>cd backend
+# Preview what would be converted (no writes)
+npm run convert:dry-run
+
+# Convert all documents in the bucket
+npm run convert:all
+
+# Convert only documents under a prefix
+npm run convert:all -- --prefix "borrowers/user123/"
+
+# Force re-convert everything (overwrite existing JSON)
+npm run convert:all -- --force
+
+# Limit to first 10 documents
+npm run convert:all -- --limit 10
+
+# Convert only PDFs
+npm run convert:all -- --contentType "application/pdf"</code></pre>
+
+  <h3>CLI Flags</h3>
+  <table>
+    <thead><tr><th>Flag</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>--prefix</code></td><td><code>(root)</code></td><td>Only process objects under this S3 key prefix</td></tr>
+      <tr><td><code>--force</code></td><td><code>false</code></td><td>Overwrite existing <code>.json</code> files (skip if already exists)</td></tr>
+      <tr><td><code>--dry-run</code></td><td><code>false</code></td><td>Log what would happen without writing JSON</td></tr>
+      <tr><td><code>--concurrency</code></td><td><code>3</code></td><td>Number of parallel workers</td></tr>
+      <tr><td><code>--limit</code></td><td><code>(all)</code></td><td>Maximum number of documents to process</td></tr>
+      <tr><td><code>--contentType</code></td><td><code>(all supported)</code></td><td>Only process documents of this MIME type</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Lossless JSON Structure</h3>
+  <p>Each converted JSON preserves <strong>all</strong> data from the source document — not just extracted fields. The converter module is at <code>backend/src/utils/documentConverter.ts</code>.</p>
+
+  <h3>JSON by Format</h3>
+
+  <h4>PDF</h4>
+  <pre style="background:var(--surface-2); border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0;"><code>{
+  "source": { "key": "...", "contentType": "application/pdf", "size": 1048576, "checksum": "...", "convertedAt": "2026-..." },
+  "format": "pdf",
+  "metadata": {
+    "pageCount": 5,
+    "title": "...", "author": "...",
+    "subject": "...", "creator": "...",
+    "producer": "...", "creationDate": "...", "modDate": "...",
+    "pdfVersion": "1.7"
+  },
+  "pages": [
+    { "pageNumber": 1, "text": "...", "textLength": 1234 },
+    { "pageNumber": 2, "text": "...", "textLength": 5678 }
+  ],
+  "rawText": "Full text of all pages joined..."
+}</code></pre>
+
+  <h4>DOCX (Word)</h4>
+  <pre style="background:var(--surface-2); border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0;"><code>{
+  "source": { ... },
+  "format": "docx",
+  "metadata": { "wordCount": 123, "charCount": 5678, "htmlLength": 7890, "htmlElementTypes": ["p","h1","table"] },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "text": "Full extracted text...",
+      "html": "<p>...</p><h1>...</h1><table>...</table>"
+    }
+  ],
+  "rawText": "Full extracted text..."
+}</code></pre>
+
+  <h4>XLSX / CSV (Spreadsheets)</h4>
+  <pre style="background:var(--surface-2); border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0;"><code>{
+  "source": { ... },
+  "format": "xlsx",
+  "metadata": { "sheetCount": 2, "sheetNames": ["Sheet1", "Sheet2"], "fileName": "..." },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "name": "Sheet1",
+      "data": [["Header A","Header B"],["val1","val2"],["val3","val4"]],
+      "csv": "Header A,Header B\nval1,val2\nval3,val4"
+    },
+    {
+      "pageNumber": 2,
+      "name": "Sheet2",
+      "data": [...],
+      "csv": "..."
+    }
+  ],
+  "rawText": "=== Sheet: Sheet1 ===\nHeader A,Header B\n..."
+}</code></pre>
+
+  <h4>Images (PNG / JPG / WEBP)</h4>
+  <pre style="background:var(--surface-2); border-radius:8px; padding:1rem; overflow-x:auto; margin:1rem 0;"><code>{
+  "source": { ... },
+  "format": "image",
+  "metadata": {
+    "width": 1920, "height": 1080, "format": "png",
+    "channels": 4, "depth": "uchar", "space": "srgb",
+    "ocrConfidence": 0.92
+  },
+  "pages": [
+    { "pageNumber": 1, "text": "OCR extracted text...", "confidence": 0.92 }
+  ],
+  "rawText": "OCR extracted text..."
+}</code></pre>
+
+  <h3>Idempotency &amp; Resumability</h3>
+  <ul>
+    <li>If <code>{originalName}.json</code> already exists in the bucket, the document is <strong>skipped</strong> (use <code>--force</code> to override).</li>
+    <li>JSON output includes <code>Metadata</code> headers on the S3 object pointing back to the source key, content type, size, and checksum — so you can verify the JSON matches its source.</li>
+    <li>Documents larger than 100 MB are skipped (the converter loads the full file into memory for parsing).</li>
+    <li>Files that fail conversion (unsupported format, OCR unavailable) get a <code>jsonFile</code> with an <code>error</code> field describing the issue, so you can retry later.</li>
+  </ul>
+
+  <div class="footer">
+    <p>BusinessLoanApp — Document Extraction Architecture (S3 storage + DB-cached JSON extraction)</p>
+    <p style="font-size:0.8rem">Raw binaries: Backblaze B2 S3-compatible storage | Structured data: PostgreSQL (Prisma) | Extraction pipeline: pdf-parse, mammoth, xlsx, Tesseract OCR + LLM</p>
+    <p style="font-size:0.8rem">Lossless conversion utility: <code>backend/src/scripts/batchConvertDocuments.ts</code> | Core converter: <code>backend/src/utils/documentConverter.ts</code></p>
+  </div>
+
+</div>
+
+<script>
+  mermaid.initialize({ theme: 'neutral', flowchart: { curve: 'linear' } });
+  mermaid.contentLoaded();
+</script>
+</body>
+</html>
