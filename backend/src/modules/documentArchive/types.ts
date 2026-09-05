@@ -150,7 +150,8 @@ export function parseArchive(buf: Buffer): ParsedArchive {
       `Invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-  return validateArchive(parsed as ParsedArchive, true);
+  const result = validateArchive(parsed as Partial<DocumentArchive>, true);
+  return result as ParsedArchive;
 }
 
 export interface ValidationResult {
