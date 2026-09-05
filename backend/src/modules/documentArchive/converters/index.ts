@@ -58,10 +58,29 @@ export class ArchiveConverterRegistry {
   }
 
   getConverter(contentType: string): ArchiveConverter | undefined {
-    return this.converters.find((c) => c.supportedTypes.includes(contentType));
+    const exact = this.converters.find((c) => c.supportedTypes.includes(contentType));
+    if (exact) return exact;
+    const fallback = this.converters.find((c) => c.supportedTypes.includes('*'));
+    return fallback;
   }
 
   getSupportedTypes(): string[] {
     return this.converters.flatMap((c) => c.supportedTypes);
   }
 }
+
+import { PdfConverter } from './pdf.js';
+import { DocxConverter } from './docx.js';
+import { XlsxConverter } from './xlsx.js';
+import { ImageConverter } from './image.js';
+import { UnknownConverter } from './unknown.js';
+
+export const DEFAULT_CONVERTERS: ArchiveConverter[] = [
+  PdfConverter,
+  DocxConverter,
+  XlsxConverter,
+  ImageConverter,
+  UnknownConverter,
+];
+
+export { PdfConverter, DocxConverter, XlsxConverter, ImageConverter, UnknownConverter };
