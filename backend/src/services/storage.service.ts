@@ -231,3 +231,31 @@ export async function deleteObject(
     new DeleteObjectCommand({ Bucket: config.bucket, Key: key }),
   )
 }
+
+export async function getObject(
+  key: string,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<{ body: Uint8Array; contentType: string }> {
+  const result = await s3.send(
+    new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+  )
+  if (!result.Body) throw new Error(`Empty body for key: ${key}`)
+  const chunks: Buffer[] = []
+  for await (const chunk of result.Body as AsyncIterable<Uint8Array>) {
+    chunks.push(Buffer.from(chunk))
+  }
+  return { body: Buffer.concat(chunks), contentType: result.ContentType ?? 'application/octet-stream' }
+}
+
+export async function putObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: body, ContentType: contentType }),
+  )
+}
