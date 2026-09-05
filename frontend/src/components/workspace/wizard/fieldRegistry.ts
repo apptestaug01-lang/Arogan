@@ -3,6 +3,7 @@
 // stay in sync with what the LLM/regex extractors know how to fill in.
 
 import type { ApplicationDraft } from '@/types/application';
+import type { WizardConstants } from '@/services/applications';
 
 export type FieldType = 'text' | 'email' | 'tel' | 'date' | 'number' | 'textarea' | 'select' | 'boolean' | 'multiselect';
 
@@ -38,8 +39,8 @@ export const WIZARD_FIELDS: FieldDef[] = [
   { name: 'companyName', label: 'Company Name', type: 'text', step: 'business', required: true, placeholder: 'Legal entity name' },
   { name: 'cin', label: 'CIN', type: 'text', step: 'business', required: false, placeholder: '21-char Corporate Identity Number', pattern: '^[UL][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$' },
   { name: 'companyPan', label: 'Company PAN', type: 'text', step: 'business', required: false, placeholder: 'AAACR1234A' },
-  { name: 'businessType', label: 'Business Type', type: 'select', step: 'business', required: true, options: ['PRIVATE LIMITED', 'PUBLIC LIMITED', 'LIMITED LIABILITY PARTNERSHIP', 'PARTNERSHIP', 'PROPRIETORSHIP', 'ONE PERSON COMPANY', 'TRUST', 'SOCIETY'] },
-  { name: 'industry', label: 'Industry', type: 'select', step: 'business', required: true, options: ['PHARMACEUTICALS', 'MANUFACTURING', 'INFORMATION TECHNOLOGY', 'RETAIL', 'HEALTHCARE', 'AGRICULTURE', 'REAL ESTATE', 'EDUCATION', 'FINANCIAL SERVICES', 'OTHER'] },
+  { name: 'businessType', label: 'Business Type', type: 'select', step: 'business', required: true, options: ['Private Limited', 'Public Limited', 'LLP', 'Proprietorship', 'Partnership'] },
+  { name: 'industry', label: 'Industry', type: 'select', step: 'business', required: true, options: ['Infrastructure', 'Manufacturing', 'Renewable Energy', 'IT/ITES', 'Others'] },
   { name: 'groupCompany', label: 'Group Company', type: 'text', step: 'business', required: false, placeholder: 'Parent or affiliate entity (if any)' },
   { name: 'gstRegistered', label: 'GST Registered', type: 'boolean', step: 'business', required: false, helpText: 'Toggle on if the entity has a GSTIN' },
   { name: 'gstin', label: 'GSTIN', type: 'text', step: 'business', required: false, placeholder: '15-char GSTIN', pattern: '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$', helpText: 'Required only if GST Registered is on' },
@@ -52,7 +53,7 @@ export const WIZARD_FIELDS: FieldDef[] = [
   { name: 'turnoverY2', label: 'Turnover Year 2 (₹)', type: 'number', step: 'financials', required: true, placeholder: 'FY before last' },
   { name: 'profitY1', label: 'Profit Year 1 (₹)', type: 'number', step: 'financials', required: true },
   { name: 'profitY2', label: 'Profit Year 2 (₹)', type: 'number', step: 'financials', required: true },
-  { name: 'bankStatementPeriod', label: 'Bank Statement Period', type: 'text', step: 'financials', required: false, placeholder: 'e.g. Apr 2024 - Mar 2025' },
+  { name: 'bankStatementPeriod', label: 'Bank Statement Period', type: 'select', step: 'financials', required: false, options: ['3 months', '6 months', '12 months'] },
   { name: 'avgMonthlyBalance', label: 'Avg Monthly Balance (₹)', type: 'number', step: 'financials', required: true },
   { name: 'avgMonthlyCredits', label: 'Avg Monthly Credits (₹)', type: 'number', step: 'financials', required: false },
   { name: 'chequeBounces', label: 'Cheque Bounces (last 12 months)', type: 'number', step: 'financials', required: false },
@@ -67,7 +68,7 @@ export const WIZARD_FIELDS: FieldDef[] = [
 
   // Step 4 - Loan Request
   { name: 'loanAmount', label: 'Loan Amount (₹)', type: 'number', step: 'loan', required: true },
-  { name: 'productType', label: 'Product Type', type: 'select', step: 'loan', required: true, options: ['TERM LOAN', 'WORKING CAPITAL', 'OVERDRAFT', 'LETTER OF CREDIT', 'BANK GUARANTEE', 'PROJECT FINANCE'] },
+  { name: 'productType', label: 'Product Type', type: 'select', step: 'loan', required: true, options: ['Term Loan', 'Working Capital', 'Project Finance', 'LC/BG'] },
   { name: 'tenor', label: 'Tenor (months)', type: 'number', step: 'loan', required: true },
   { name: 'interestRate', label: 'Interest Rate (%)', type: 'number', step: 'loan', required: false },
   { name: 'purpose', label: 'Purpose', type: 'textarea', step: 'loan', required: true, minLength: 20, rows: 4, placeholder: 'At least 20 characters. What will the funds be used for?' },
@@ -92,6 +93,33 @@ export const STEP_LABELS: Record<WizardStep, string> = {
   financials: 'Financials',
   loan: 'Loan Request',
 };
+
+const CONSTANTS_TO_FIELDS: Record<keyof WizardConstants, (keyof ApplicationDraft)[]> = {
+  industries: ['industry'],
+  businessTypes: ['businessType'],
+  productTypes: ['productType'],
+  statementPeriods: ['bankStatementPeriod'],
+  assessmentYears: ['itrYears'],
+};
+
+export function resolveFieldDefs(constants: WizardConstants | null): Record<WizardStep, FieldDef[]> {
+  if (!constants) return FIELDS_BY_STEP;
+  const overrides: Record<string, string[]> = {};
+  (Object.keys(CONSTANTS_TO_FIELDS) as (keyof WizardConstants)[]).forEach((constantKey) => {
+    const constantValues = constants[constantKey] ?? [];
+    if (constantValues.length > 0) {
+      CONSTANTS_TO_FIELDS[constantKey].forEach((fieldName) => {
+        overrides[fieldName] = constantValues;
+      });
+    }
+  });
+  return {
+    kyc: FIELDS_BY_STEP.kyc.map((f) => (overrides[f.name] ? { ...f, options: overrides[f.name] } : f)),
+    business: FIELDS_BY_STEP.business.map((f) => (overrides[f.name] ? { ...f, options: overrides[f.name] } : f)),
+    financials: FIELDS_BY_STEP.financials.map((f) => (overrides[f.name] ? { ...f, options: overrides[f.name] } : f)),
+    loan: FIELDS_BY_STEP.loan.map((f) => (overrides[f.name] ? { ...f, options: overrides[f.name] } : f)),
+  };
+}
 
 export function validateField(def: FieldDef, value: unknown, context: ApplicationDraft): string | null {
   const stringVal = typeof value === 'string' ? value.trim() : '';

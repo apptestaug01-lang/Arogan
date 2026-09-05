@@ -300,6 +300,7 @@ export default function NewApplicationView() {
             onChange={wizard.setField}
             onValidate={(step) => validateStep(step, wizard.data)}
             readOnly={isReadOnly}
+            constants={wizard.constants}
           />
         </div>
       </div>
