@@ -7,6 +7,7 @@ import {
   PutObjectCommand,
   UploadPartCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
   PutPublicAccessBlockCommand,
   PutBucketCorsCommand,
   PutBucketLifecycleConfigurationCommand,
@@ -258,4 +259,46 @@ export async function putObject(
   await s3.send(
     new PutObjectCommand({ Bucket: config.bucket, Key: key, Body: body, ContentType: contentType }),
   )
+}
+
+export interface ListedObject {
+  key: string;
+  size: number;
+  etag?: string;
+}
+
+export async function listObjects(
+  prefix: string,
+  s3: S3Client = getStorageClient(),
+  config: StorageConfig = getStorageConfig(),
+): Promise<ListedObject[]> {
+  const results: ListedObject[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: config.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+        MaxKeys: 1000,
+      }),
+    );
+
+    if (result.Contents) {
+      for (const item of result.Contents) {
+        if (item.Key) {
+          results.push({
+            key: item.Key,
+            size: item.Size ?? 0,
+            etag: item.ETag ? item.ETag.replace(/"/g, '') : undefined,
+          });
+        }
+      }
+    }
+
+    continuationToken = result.NextContinuationToken;
+  } while (continuationToken);
+
+  return results;
 }
