@@ -53,6 +53,9 @@ jest.mock('../src/lib/prisma.js', () => ({
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    documentExtraction: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
   },
 }));
 
@@ -82,6 +85,7 @@ describe('documents routes', () => {
     // resetMocks clears factory implementations; re-establish per test.
     (getSignedUrl as jest.Mock).mockResolvedValue('https://signed.url');
     (prisma.document.create as jest.Mock).mockResolvedValue({ id: 'doc-1' });
+    (prisma.documentExtraction.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
     // headObject uses s3.send — give it a default resolution.
     new S3Client().send.mockResolvedValue({});
   });

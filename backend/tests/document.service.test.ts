@@ -34,6 +34,9 @@ jest.mock('../src/lib/prisma.js', () => ({
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    documentExtraction: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
   },
 }));
 
@@ -69,8 +72,10 @@ beforeEach(() => {
   (getSignedUrl as jest.Mock).mockResolvedValue('https://signed.url');
   (createPresignedUploadUrl as jest.Mock).mockResolvedValue('https://signed.url');
   (headObject as jest.Mock).mockResolvedValue({ size: 2048, checksum: 'abc123' });
+  (deleteObject as jest.Mock).mockResolvedValue(undefined);
   (ensureBucket as jest.Mock).mockResolvedValue(undefined);
   (prisma.document.create as jest.Mock).mockResolvedValue({ id: 'doc-1' });
+  (prisma.documentExtraction.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
   (logAuditEvent as jest.Mock).mockResolvedValue(undefined);
 });
 
