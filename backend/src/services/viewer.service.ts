@@ -69,9 +69,9 @@ export async function getKeyView(
   })
 
   return {
-    documentId: meta.checksum || input.key,
+    documentId: meta.etag || input.key,
     fileName,
-    contentType: 'application/json',
+    contentType: meta.contentType,
     size: meta.size,
     status: 'UPLOADED',
     viewUrl,

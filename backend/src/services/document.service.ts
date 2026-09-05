@@ -10,6 +10,7 @@ import {
   PRESIGNED_UPLOAD_TTL_SECONDS,
 } from '../utils/constants.js'
 import { ValidationError, StorageError, ConflictError } from '../utils/errors.js'
+import { archiveWorker } from '../modules/documentArchive/worker.js'
 
 export interface PresignDocumentInput {
   userId: string
@@ -104,12 +105,13 @@ export async function completeDocument(input: CompleteDocumentInput) {
         status: 'UPLOADED',
       },
     })
-    await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
-      documentId: input.documentId,
-      key,
-    })
-    triggerExtraction(input.userId, input.documentId)
-    return document
+  await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
+    documentId: input.documentId,
+    key,
+  })
+  triggerExtraction(input.userId, input.documentId)
+  void archiveWorker.enqueue(input.documentId, input.userId)
+  return document
   } catch (err) {
     if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {
       throw new ConflictError('A document with this name already exists. Please rename the file and try again.')

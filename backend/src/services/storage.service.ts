@@ -199,12 +199,17 @@ export async function headObject(
   key: string,
   s3: S3Client = getStorageClient(),
   config: StorageConfig = getStorageConfig(),
-): Promise<{ size: number; checksum: string }> {
+): Promise<{ size: number; checksum: string; contentType: string; etag: string }> {
   const result = await s3.send(
     new HeadObjectCommand({ Bucket: config.bucket, Key: key }),
   )
-  const checksum = result.ETag ? result.ETag.replace(/"/g, '') : ''
-  return { size: result.ContentLength ?? 0, checksum }
+  const etag = result.ETag ? result.ETag.replace(/"/g, '') : ''
+  return {
+    size: result.ContentLength ?? 0,
+    checksum: etag,
+    contentType: result.ContentType ?? 'application/octet-stream',
+    etag,
+  }
 }
 
 export async function checkStorageHealth(

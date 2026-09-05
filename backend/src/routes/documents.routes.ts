@@ -2,6 +2,8 @@ import { Router, Response, NextFunction } from 'express'
 import { authMiddleware, requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js'
 import { validate } from '../middleware/validateRequest.js'
 import { sendSuccess, sendError } from '../utils/response.js'
+import { prisma } from '../lib/prisma.js'
+import { PRESIGNED_DOWNLOAD_TTL_SECONDS } from '../utils/constants.js'
 import { presignDocument, completeDocument, deleteDocument, listUserDocuments, bulkDeleteDocuments } from '../services/document.service.js'
 import {
   presignMultipart,
@@ -11,6 +13,7 @@ import {
 } from '../services/multipart.service.js'
 import { listExplorer } from '../services/explorer.service.js'
 import { getDocumentView, getKeyView } from '../services/viewer.service.js'
+import { archiveService } from '../modules/documentArchive/archive.service.js'
 import { linkDocument } from '../services/link.service.js'
 import { AutoFillService } from '../modules/documentExtraction/autoFillService.js'
 import {
@@ -186,6 +189,57 @@ router.get(
         key,
       })
       sendSuccess(res, 'View URL issued', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/:documentId/archive-summary',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const doc = await prisma.document.findUnique({
+        where: { id: req.params.documentId },
+      })
+      if (!doc) {
+        sendError(res, 'Document not found', 404)
+        return
+      }
+      if (doc.userId !== req.user!.id && !['ANALYST', 'APPROVER', 'ADMIN'].includes(req.user!.role)) {
+        sendError(res, 'Not authorized to view this archive', 403)
+        return
+      }
+      const status = await archiveService.getArchiveStatus(req.params.documentId)
+      if (status) {
+        sendSuccess(res, 'Archive status', status)
+      } else {
+        sendSuccess(res, 'Archive status', { status: 'NO_ARCHIVE' })
+      }
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/:documentId/archive-view',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const result = await archiveService.getArchiveView(req.params.documentId, req.user!.id)
+      if (!result) {
+        sendError(res, 'Archive not available', 404)
+        return
+      }
+      sendSuccess(res, 'Archive view URL issued', {
+        archiveKey: result.archiveKey,
+        viewUrl: result.url,
+        expiresIn: PRESIGNED_DOWNLOAD_TTL_SECONDS,
+      })
     } catch (err) {
       next(err)
     }
