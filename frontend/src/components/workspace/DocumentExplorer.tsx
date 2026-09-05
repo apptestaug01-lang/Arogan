@@ -9,7 +9,7 @@ import { getExplorer, deleteDocument, ExplorerEntry } from '@/services/documents
 
 interface DocumentExplorerProps {
   className?: string;
-  onFileOpen?: (documentId: string) => void;
+  onFileOpen?: (entry: ExplorerEntry) => void;
   onDocumentDeleted?: () => void;
 }
 
@@ -204,6 +204,7 @@ export function DocumentExplorer({ className, onFileOpen, onDocumentDeleted }: D
           ))}
           {visibleFiles.map((f) => {
             const isProcessed = !!f.documentId;
+            const isJson = f.name.endsWith('.json');
             return (
               <div
                 key={f.key}
@@ -215,17 +216,22 @@ export function DocumentExplorer({ className, onFileOpen, onDocumentDeleted }: D
               >
                 <button
                   type="button"
-                  onClick={() => isProcessed && onFileOpen?.(f.documentId!)}
-                  disabled={!isProcessed}
+                  onClick={() => onFileOpen?.(f)}
                   className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                 >
                   <FileIcon
                     className={cn(
                       'h-5 w-5',
                       isProcessed ? 'text-primary-600' : 'text-muted-foreground',
+                      isJson && 'text-amber-500',
                     )}
                   />
                   <span className="truncate text-foreground">{f.name}</span>
+                  {isJson && (
+                    <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                      JSON
+                    </span>
+                  )}
                 </button>
                 <div className="flex min-w-0 items-center gap-2">
                   {f.status && isProcessed && <FileStatusBadge status={f.status} />}

@@ -44,6 +44,13 @@ export async function getDocumentView(documentId: string): Promise<DocumentViewR
   return res.data.data;
 }
 
+export async function getKeyView(key: string): Promise<DocumentViewResult> {
+  const res = await api.get<{ data: DocumentViewResult }>('/documents/view/key', {
+    params: { key },
+  });
+  return res.data.data;
+}
+
 export interface LinkedDocument {
   id: string;
   applicationId: string;

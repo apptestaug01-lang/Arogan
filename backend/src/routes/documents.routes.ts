@@ -10,7 +10,7 @@ import {
   listUploadedParts,
 } from '../services/multipart.service.js'
 import { listExplorer } from '../services/explorer.service.js'
-import { getDocumentView } from '../services/viewer.service.js'
+import { getDocumentView, getKeyView } from '../services/viewer.service.js'
 import { linkDocument } from '../services/link.service.js'
 import { AutoFillService } from '../modules/documentExtraction/autoFillService.js'
 import {
@@ -162,6 +162,28 @@ router.get(
       const result = await getDocumentView({
         userId: req.user!.id,
         documentId: req.params.documentId,
+      })
+       sendSuccess(res, 'View URL issued', result)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
+router.get(
+  '/view/key',
+  authMiddleware,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { key } = req.query as { key?: string }
+      if (!key) {
+        sendError(res, 'key query parameter is required', 400)
+        return
+      }
+      const result = await getKeyView({
+        userId: req.user!.id,
+        key,
       })
       sendSuccess(res, 'View URL issued', result)
     } catch (err) {

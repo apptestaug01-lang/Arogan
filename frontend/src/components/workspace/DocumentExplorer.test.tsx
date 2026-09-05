@@ -65,20 +65,19 @@ describe('DocumentExplorer', () => {
     expect(await screen.findByText('documents')).toBeInTheDocument();
   });
 
-  it('opens a file that has a document record via onFileOpen', async () => {
+   it('opens a file that has a document record via onFileOpen', async () => {
+    const entry = {
+      name: 'report.pdf',
+      type: 'file' as const,
+      key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+      size: 2048,
+      lastModified: '2026-08-20T10:00:00.000Z',
+      documentId: 'doc-uuid-1',
+    };
     mockedGetExplorer.mockResolvedValue({
       prefix: 'borrowers/user-1/',
       folders: [],
-      files: [
-        {
-          name: 'report.pdf',
-          type: 'file' as const,
-          key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
-          size: 2048,
-          lastModified: '2026-08-20T10:00:00.000Z',
-          documentId: 'doc-uuid-1',
-        },
-      ],
+      files: [entry],
       nextToken: null,
     });
 
@@ -86,21 +85,20 @@ describe('DocumentExplorer', () => {
     render(<DocumentExplorer onFileOpen={onFileOpen} />);
 
     fireEvent.click(await screen.findByText('report.pdf'));
-    expect(onFileOpen).toHaveBeenCalledWith('doc-uuid-1');
+    expect(onFileOpen).toHaveBeenCalledWith(entry);
   });
 
-  it('does not fire onFileOpen for an unprocessed file (no document record)', async () => {
+  it('opens an unprocessed file via onFileOpen (no document record)', async () => {
+    const entry = {
+      name: 'partial.bin',
+      type: 'file' as const,
+      key: 'borrowers/user-1/partial.bin',
+      size: 10,
+    };
     mockedGetExplorer.mockResolvedValue({
       prefix: 'borrowers/user-1/',
       folders: [],
-      files: [
-        {
-          name: 'partial.bin',
-          type: 'file' as const,
-          key: 'borrowers/user-1/partial.bin',
-          size: 10,
-        },
-      ],
+      files: [entry],
       nextToken: null,
     });
 
@@ -108,7 +106,7 @@ describe('DocumentExplorer', () => {
     render(<DocumentExplorer onFileOpen={onFileOpen} />);
 
     fireEvent.click(await screen.findByText('partial.bin'));
-    expect(onFileOpen).not.toHaveBeenCalled();
+    expect(onFileOpen).toHaveBeenCalledWith(entry);
   });
 
   it('renders a VERIFIED status badge for processed files', async () => {
