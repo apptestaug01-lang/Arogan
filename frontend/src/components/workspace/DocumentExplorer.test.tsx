@@ -88,6 +88,52 @@ describe('DocumentExplorer', () => {
     expect(onFileOpen).toHaveBeenCalledWith(entry);
   });
 
+  it('calls onArchiveOpen when the JSON action button is clicked for hasArchive rows', async () => {
+    const entry = {
+      name: 'report.pdf',
+      type: 'file' as const,
+      key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+      size: 2048,
+      lastModified: '2026-08-20T10:00:00.000Z',
+      documentId: 'doc-uuid-1',
+      hasArchive: true,
+    };
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [entry],
+      nextToken: null,
+    });
+
+    const onArchiveOpen = jest.fn();
+    render(<DocumentExplorer onArchiveOpen={onArchiveOpen} />);
+
+    fireEvent.click(await screen.findByLabelText('Open archive viewer for report.pdf'));
+    expect(onArchiveOpen).toHaveBeenCalledWith(entry);
+  });
+
+  it('does not render the JSON action button when hasArchive is false', async () => {
+    const entry = {
+      name: 'report.pdf',
+      type: 'file' as const,
+      key: 'borrowers/user-1/applications/app-1/documents/doc-1/report.pdf',
+      size: 2048,
+      lastModified: '2026-08-20T10:00:00.000Z',
+      documentId: 'doc-uuid-1',
+    };
+    mockedGetExplorer.mockResolvedValue({
+      prefix: 'borrowers/user-1/',
+      folders: [],
+      files: [entry],
+      nextToken: null,
+    });
+
+    render(<DocumentExplorer />);
+
+    await screen.findByText('report.pdf');
+    expect(screen.queryByLabelText('Open archive viewer')).not.toBeInTheDocument();
+  });
+
   it('opens an unprocessed file via onFileOpen (no document record)', async () => {
     const entry = {
       name: 'partial.bin',

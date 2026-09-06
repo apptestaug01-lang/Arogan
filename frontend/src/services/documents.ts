@@ -8,6 +8,7 @@ export interface ExplorerEntry {
   lastModified?: string;
   documentId?: string;
   status?: string;
+  hasArchive?: boolean;
 }
 
 export interface ExplorerResult {
@@ -234,4 +235,34 @@ export async function listDocuments(): Promise<DocumentSummary[]> {
 
 export async function bulkDeleteDocuments(documentIds: string[]): Promise<void> {
   await api.delete('/documents', { data: { documentIds } });
+}
+
+export interface ArchiveSummary {
+  status: string;
+  archiveKey?: string | null;
+  sourceSha256?: string | null;
+  byteTier?: string | null;
+  converterVersion?: string | null;
+  fidelityVerified: boolean;
+  warnings: string[];
+  error?: { code?: string; message?: string } | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ArchiveViewResult {
+  archiveKey: string;
+  viewUrl: string;
+  expiresIn: number;
+}
+
+export async function getArchiveSummary(documentId: string): Promise<ArchiveSummary> {
+  const res = await api.get<{ data: ArchiveSummary }>(`/documents/${documentId}/archive-summary`);
+  return res.data.data;
+}
+
+export async function getArchiveViewUrl(documentId: string): Promise<ArchiveViewResult> {
+  const res = await api.get<{ data: ArchiveViewResult }>(`/documents/${documentId}/archive-view`);
+  return res.data.data;
 }

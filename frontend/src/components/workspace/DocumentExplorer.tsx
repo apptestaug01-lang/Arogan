@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Folder, File as FileIcon, ChevronRight, Search, Trash2, CheckCircle2, UploadCloud, Clock } from 'lucide-react';
+import { Folder, File as FileIcon, ChevronRight, Search, Trash2, CheckCircle2, UploadCloud, Clock, FileJson } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { getExplorer, deleteDocument, ExplorerEntry } from '@/services/documents
 interface DocumentExplorerProps {
   className?: string;
   onFileOpen?: (entry: ExplorerEntry) => void;
+  onArchiveOpen?: (entry: ExplorerEntry) => void;
   onDocumentDeleted?: () => void;
 }
 
@@ -33,7 +34,7 @@ function formatModified(value?: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
 }
 
-export function DocumentExplorer({ className, onFileOpen, onDocumentDeleted }: DocumentExplorerProps) {
+export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocumentDeleted }: DocumentExplorerProps) {
   const [prefix, setPrefix] = React.useState('');
   const [folders, setFolders] = React.useState<ExplorerEntry[]>([]);
   const [files, setFiles] = React.useState<ExplorerEntry[]>([]);
@@ -235,6 +236,19 @@ export function DocumentExplorer({ className, onFileOpen, onDocumentDeleted }: D
                 </button>
                 <div className="flex min-w-0 items-center gap-2">
                   {f.status && isProcessed && <FileStatusBadge status={f.status} />}
+                  {f.hasArchive && onArchiveOpen && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onArchiveOpen(f);
+                      }}
+                      className="rounded p-1 text-amber-400 hover:bg-muted"
+                      aria-label={`Open archive viewer for ${f.name}`}
+                    >
+                      <FileJson className="h-4 w-4" />
+                    </button>
+                  )}
                   <span className="whitespace-nowrap text-xs text-muted-foreground">
                     {f.size != null ? formatBytes(f.size) : '—'}
                     {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { X, Download, FileJson, FileText } from 'lucide-react';
 import { DocumentExplorer } from '@/components/workspace/DocumentExplorer';
+import { ArchiveViewer } from '@/components/workspace/archive/ArchiveViewer';
 import { ExplorerEntry, DocumentViewResult, getDocumentView, getKeyView } from '@/services/documents';
 import api from '@/services/api';
 
@@ -13,6 +14,11 @@ interface ViewerState {
   jsonContent: string | null;
 }
 
+interface ArchiveViewerState {
+  open: boolean;
+  entry: ExplorerEntry | null;
+}
+
 export default function DocumentVaultView() {
   const [viewer, setViewer] = React.useState<ViewerState>({
     open: false,
@@ -22,6 +28,19 @@ export default function DocumentVaultView() {
     error: null,
     jsonContent: null,
   });
+
+  const [archiveViewer, setArchiveViewer] = React.useState<ArchiveViewerState>({
+    open: false,
+    entry: null,
+  });
+
+  const handleArchiveOpen = React.useCallback((entry: ExplorerEntry) => {
+    setArchiveViewer({ open: true, entry });
+  }, []);
+
+  const closeArchiveViewer = () => {
+    setArchiveViewer({ open: false, entry: null });
+  };
 
   const handleFileOpen = React.useCallback(async (entry: ExplorerEntry) => {
     setViewer({
@@ -160,7 +179,7 @@ export default function DocumentVaultView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <DocumentExplorer onFileOpen={handleFileOpen} />
+        <DocumentExplorer onFileOpen={handleFileOpen} onArchiveOpen={handleArchiveOpen} />
 
         <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">🛡 Protected storage</b>
@@ -204,6 +223,17 @@ export default function DocumentVaultView() {
             <div className="p-0">{renderViewerContent()}</div>
           </div>
         </div>
+      )}
+
+      {archiveViewer.open && archiveViewer.entry?.documentId && (
+        <ArchiveViewer
+          documentId={archiveViewer.entry.documentId}
+          onClose={closeArchiveViewer}
+          onDownloadOriginal={() => {
+            handleFileOpen(archiveViewer.entry!);
+            closeArchiveViewer();
+          }}
+        />
       )}
     </div>
   );
