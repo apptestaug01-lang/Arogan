@@ -1,7 +1,7 @@
-import { ListObjectsV2Command, PutObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { ListObjectsV2Command, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getStorageConfig } from '../config/storage.config.js'
 import { createS3Client } from '../services/storage.service.js'
-import { convertDocument, downloadFromS3 } from '../utils/documentConverter.js'
+import { ArchiveService } from '../modules/documentArchive/archive.service.js'
 import logger from '../middleware/logger.js'
 
 interface CliArgs {
@@ -13,7 +13,7 @@ interface CliArgs {
   contentType?: string
 }
 
-function parseArgs(argv: string[]): CliArgs {
+export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { force: false, dryRun: false, concurrency: 3 }
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i]
@@ -41,57 +41,38 @@ function parseArgs(argv: string[]): CliArgs {
   return args
 }
 
-const ALLOWED_CONTENT_TYPES = new Set([
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'text/csv',
-])
-
+export const LOANFLOW_DERIVED_PREFIX = '.loanflow'
 const JSON_SUFFIX = '.json'
+const DELETED_PREFIX = 'DELETED_'
 
-function toJsonKey(originalKey: string): string {
-  const lastSlash = originalKey.lastIndexOf('/')
-  const dirPath = lastSlash >= 0 ? originalKey.slice(0, lastSlash + 1) : ''
-  const baseName = lastSlash >= 0 ? originalKey.slice(lastSlash + 1) : originalKey
-  const nameWithoutExt = baseName.replace(/\.[^.]+$/, '')
-  return `${dirPath}${nameWithoutExt}${JSON_SUFFIX}`
-}
+export function shouldSkipKey(key: string): boolean {
+  const parts = key.split('/')
+  const fileName = parts[parts.length - 1] || ''
 
-async function objectExists(s3: S3Client, bucket: string, key: string): Promise<boolean> {
-  try {
-    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }))
-    return true
-  } catch {
-    return false
-  }
-}
+  if (parts.includes(LOANFLOW_DERIVED_PREFIX)) return true
+  if (key.includes(`/${LOANFLOW_DERIVED_PREFIX}/`)) return true
+  if (fileName.endsWith(JSON_SUFFIX)) return true
+  if (fileName.startsWith(DELETED_PREFIX)) return true
+  if (fileName === '') return true
 
-async function getObjectContentType(
-  s3: S3Client,
-  bucket: string,
-  key: string,
-): Promise<string> {
-  try {
-    const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }))
-    return head.ContentType ?? 'application/octet-stream'
-  } catch {
-    return 'application/octet-stream'
-  }
+  return false
 }
 
 interface ListedObject {
   key: string
   size: number
-  etag: string
 }
 
-async function listDocuments(
+export function listDocumentKeys(
+  s3: S3Client,
+  bucket: string,
+  prefix: string | undefined,
+  limit?: number,
+): Promise<ListedObject[]> {
+  return listObjects(s3, bucket, prefix, limit)
+}
+
+async function listObjects(
   s3: S3Client,
   bucket: string,
   prefix: string | undefined,
@@ -112,11 +93,12 @@ async function listDocuments(
 
     if (response.Contents) {
       for (const obj of response.Contents) {
-        if (!obj.Key || obj.Key.endsWith(JSON_SUFFIX)) continue
+        if (!obj.Key) continue
+        if (results.length >= (limit ?? Infinity)) break
+        if (shouldSkipKey(obj.Key)) continue
         results.push({
           key: obj.Key,
           size: obj.Size ?? 0,
-          etag: obj.ETag?.replace(/"/g, '') ?? '',
         })
       }
     }
@@ -127,19 +109,33 @@ async function listDocuments(
   return limit ? results.slice(0, limit) : results
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv)
+interface BatchResult {
+  completed: number
+  skipped: number
+  failed: number
+  dryRun: boolean
+}
+
+export interface BatchArgs {
+  prefix?: string
+  force: boolean
+  dryRun: boolean
+  concurrency: number
+  limit?: number
+}
+
+export async function runBatch(args: BatchArgs, archiveService: ArchiveService): Promise<BatchResult> {
   const config = getStorageConfig()
-  const s3 = createS3Client(config)
   const bucket = config.bucket
+  const s3 = createS3Client(config)
 
   logger.info({ bucket, prefix: args.prefix ?? '(root)' }, '[BatchConvert] Starting document-to-JSON conversion')
 
   if (args.dryRun) {
-    logger.info('[BatchConvert] DRY RUN — no files will be written')
+    logger.info('[BatchConvert] DRY RUN — no archives will be created')
   }
 
-  const documents = await listDocuments(s3, bucket, args.prefix, args.limit)
+  const documents = await listDocumentKeys(s3, bucket, args.prefix, args.limit)
 
   logger.info(
     {
@@ -155,8 +151,6 @@ async function main(): Promise<void> {
   let completed = 0
   let skipped = 0
   let failed = 0
-  let errors = 0
-  let contentTypeError = 0
 
   const queue: ListedObject[] = [...documents]
 
@@ -164,86 +158,51 @@ async function main(): Promise<void> {
     logger.info({ worker: workerId }, '[BatchConvert] Worker started')
     while (queue.length > 0) {
       const doc = queue.shift()!
-      const jsonKey = toJsonKey(doc.key)
 
       try {
-        if (!args.force) {
-          const exists = await objectExists(s3, bucket, jsonKey)
-          if (exists) {
-            skipped++
-            logger.info({ key: doc.key, jsonKey }, '[BatchConvert] Skipping — JSON already exists')
-            continue
-          }
-        }
-
-        const contentType = await getObjectContentType(s3, bucket, doc.key)
-        if (args.contentType ? contentType !== args.contentType : !ALLOWED_CONTENT_TYPES.has(contentType)) {
-          skipped++
-          contentTypeError++
-          logger.info({ key: doc.key, contentType }, '[BatchConvert] Skipping — unsupported content type')
-          continue
-        }
-
-        logger.info({ key: doc.key, size: doc.size, contentType }, '[BatchConvert] Downloading')
-
-        const downloaded = await downloadFromS3(doc.key, s3, config, 100 * 1024 * 1024)
-
-        logger.info({ key: doc.key }, '[BatchConvert] Converting to JSON')
-
-        const converted = await convertDocument(
-          downloaded.body,
-          downloaded.contentType,
-          doc.key.split('/').pop() ?? 'document',
-          doc.key,
-          {
-            size: downloaded.size,
-            checksum: downloaded.checksum,
-          },
+        const head = await s3.send(
+          new HeadObjectCommand({ Bucket: bucket, Key: doc.key }),
         )
 
-        if (converted.error && !converted.rawText && converted.pages.length === 0) {
-          errors++
-          logger.error({ key: doc.key, error: converted.error }, '[BatchConvert] Conversion failed — no usable data')
+        const contentType = head.ContentType ?? 'application/octet-stream'
+        const metadata = head.Metadata ?? {}
+
+        const documentId = metadata['document-id']
+        const userId = metadata['user-id']
+
+        if (!documentId || !userId) {
+          skipped++
+          logger.info({ key: doc.key }, '[BatchConvert] Skipping — no document-id/user-id metadata')
           continue
         }
 
-        const jsonStr = JSON.stringify(converted, null, 2)
+        logger.info({ key: doc.key, size: doc.size, contentType, documentId }, '[BatchConvert] Processing')
 
         if (args.dryRun) {
           logger.info(
-            { key: doc.key, jsonSize: jsonStr.length, format: converted.format },
-            '[BatchConvert] DRY RUN — would upload JSON',
+            { key: doc.key, documentId, format: contentType },
+            '[BatchConvert] DRY RUN — would enqueue archive',
           )
           completed++
           continue
         }
 
-        await s3.send(
-          new PutObjectCommand({
-            Bucket: bucket,
-            Key: jsonKey,
-            Body: jsonStr,
-            ContentType: 'application/json',
-            Metadata: {
-              'source-key': doc.key,
-              'source-content-type': downloaded.contentType,
-              'source-size': String(downloaded.size),
-              'source-checksum': downloaded.checksum,
-            },
-          }),
-        )
+        const result = await archiveService.createArchive({
+          documentId,
+          userId,
+          force: args.force,
+        })
 
-        completed++
-        logger.info(
-          {
-            key: doc.key,
-            jsonKey,
-            jsonSize: jsonStr.length,
-            format: converted.format,
-            pages: converted.pages.length,
-          },
-          '[BatchConvert] Saved JSON to S3',
-        )
+        if (result.status === 'COMPLETED') {
+          completed++
+          logger.info({ key: doc.key, documentId, archiveKey: result.archiveKey }, '[BatchConvert] Archive created')
+        } else {
+          failed++
+          logger.error(
+            { key: doc.key, error: result.error?.message },
+            '[BatchConvert] Conversion failed',
+          )
+        }
       } catch (err) {
         failed++
         logger.error({ key: doc.key, err: err instanceof Error ? err.message : String(err) }, '[BatchConvert] Failed')
@@ -260,8 +219,6 @@ async function main(): Promise<void> {
       completed,
       skipped,
       failed,
-      errors,
-      contentTypeSkipped: contentTypeError,
       total: completed + skipped + failed,
     },
     '[BatchConvert] Done',
@@ -270,9 +227,20 @@ async function main(): Promise<void> {
   if (failed > 0) {
     process.exit(1)
   }
+
+  return { completed, skipped, failed, dryRun: args.dryRun }
 }
 
-main().catch((err) => {
-  logger.fatal({ err: err instanceof Error ? err.message : String(err) }, '[BatchConvert] Fatal error')
-  process.exit(1)
-})
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv)
+  const archiveService = new ArchiveService()
+  await runBatch(args, archiveService)
+}
+
+const isMain = process.argv[1] && process.argv[1].endsWith('batchConvertDocuments.ts')
+if (isMain) {
+  main().catch((err) => {
+    logger.fatal({ err: err instanceof Error ? err.message : String(err) }, '[BatchConvert] Fatal error')
+    process.exit(1)
+  })
+}
