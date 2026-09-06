@@ -1,4 +1,5 @@
 import { ArchiveService } from './archive.service.js';
+import { archiveMetrics } from './metrics.js';
 import logger from '../../middleware/logger.js';
 
 export interface WorkerOptions {
@@ -45,10 +46,13 @@ export class ArchiveWorker {
     const existing = this.queue.find((j) => j.documentId === documentId);
     if (existing) return;
     this.queue.push({ documentId, userId, attempts: 0, enqueuedAt: new Date() });
+    archiveMetrics.increment('enqueued');
   }
 
   async process(): Promise<void> {
     if (this.queue.length === 0) return;
+
+    archiveMetrics.logLifecycle('start', { pending: this.queue.length });
 
     const batch = this.queue.splice(0, this.options.maxConcurrency);
 
@@ -57,16 +61,27 @@ export class ArchiveWorker {
         await this.runJobWithRetry(job);
       }),
     );
+
+    archiveMetrics.logLifecycle('complete', { pending: this.queue.length });
   }
 
   private async runJobWithRetry(job: QueuedJob): Promise<void> {
     while (true) {
       try {
-        await this.service.createArchive({
+        const result = await this.service.createArchive({
           documentId: job.documentId,
           userId: job.userId,
           force: false,
         });
+
+        if (result.status === 'COMPLETED') {
+          archiveMetrics.increment('completed');
+          archiveMetrics.incrementFormat(result.format ?? 'unknown');
+        } else {
+          archiveMetrics.increment('failed');
+          archiveMetrics.incrementStatus(result.status ?? 'unknown');
+        }
+
         return;
       } catch (err) {
         job.attempts++;
@@ -75,6 +90,7 @@ export class ArchiveWorker {
         const isTransient = msg !== undefined && /S3 \d{3}|network|timeout|temporarily|ECONNREFUSED/i.test(msg);
 
         if (isTransient && job.attempts <= this.options.maxRetries) {
+          archiveMetrics.increment('retried');
           const delay = this.options.retryDelayMs * Math.pow(2, job.attempts - 1);
           logger.info(
             { documentId: job.documentId, attempt: job.attempts, delay },
@@ -85,6 +101,7 @@ export class ArchiveWorker {
         }
 
         if (job.attempts > this.options.maxRetries) {
+          archiveMetrics.increment('deadLettered');
           this.deadLetters.push({
             documentId: job.documentId,
             userId: job.userId,
@@ -99,6 +116,7 @@ export class ArchiveWorker {
           return;
         }
 
+        archiveMetrics.increment('failed');
         logger.error(
           { documentId: job.documentId, attempt: job.attempts, error: msg },
           '[ArchiveWorker] Job failed',
@@ -122,6 +140,10 @@ export class ArchiveWorker {
 
   getDeadLetters(): DeadLetterEntry[] {
     return [...this.deadLetters];
+  }
+
+  getMetrics() {
+    return archiveMetrics.get();
   }
 
   getVersion(): string {

@@ -45,6 +45,7 @@ export interface ArchiveStatus {
 export interface CreateArchiveResult {
   status: string;
   archiveKey?: string | null;
+  format?: string | null;
   error?: { code?: string; message?: string } | null;
 }
 
@@ -116,7 +117,7 @@ export class ArchiveService {
           { documentId, sourceSha256: existing.sourceSha256 },
           '[Archive] Skipping — already COMPLETED with matching converter version',
         );
-        return { status: 'COMPLETED', archiveKey: existing.archiveKey };
+        return { status: 'COMPLETED', archiveKey: existing.archiveKey, format: null };
       }
 
       await prisma.documentArchive.update({
@@ -268,7 +269,7 @@ export class ArchiveService {
 
       logger.info({ documentId, archiveKey, byteTier }, '[Archive] Completed');
 
-      return { status: 'COMPLETED', archiveKey };
+      return { status: 'COMPLETED', archiveKey, format: detectedContentType };
     } catch (err) {
       const isMissing = err instanceof Error && /NotFound|not found/i.test(err.message);
       await prisma.documentArchive.update({

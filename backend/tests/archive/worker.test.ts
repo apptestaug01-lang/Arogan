@@ -1,4 +1,5 @@
 import { ArchiveWorker } from '../../src/modules/documentArchive/worker.js';
+import { archiveMetrics } from '../../src/modules/documentArchive/metrics.js';
 import { ArchiveService } from '../../src/modules/documentArchive/archive.service.js';
 import { ArchiveConverterRegistry } from '../../src/modules/documentArchive/converters/index.js';
 
@@ -90,6 +91,27 @@ describe('ArchiveWorker', () => {
       worker.enqueue('doc-2', 'user-1');
       const status = worker.getQueueStatus();
       expect(status.pending).toBe(2);
+    });
+  });
+
+  describe('getMetrics (C10 — observability)', () => {
+    it('tracks enqueued/completed/failed counters', async () => {
+      archiveMetrics.reset();
+
+      const serviceSpy = jest.spyOn(worker['service'], 'createArchive');
+      serviceSpy.mockResolvedValueOnce({ status: 'COMPLETED', archiveKey: '.loanflow/1/x', format: 'pdf' });
+      serviceSpy.mockResolvedValueOnce({ status: 'FAILED', error: { code: 'ERR', message: 'bad' } });
+
+      worker.enqueue('doc-1', 'user-1');
+      worker.enqueue('doc-2', 'user-1');
+      await worker.process();
+
+      const metrics = worker.getMetrics();
+      expect(metrics.enqueued).toBe(2);
+      expect(metrics.completed).toBe(1);
+      expect(metrics.failed).toBe(1);
+      expect(metrics.perFormat.pdf).toBe(1);
+      expect(metrics.perStatus.FAILED).toBe(1);
     });
   });
 });
