@@ -30,6 +30,10 @@ export const ImageConverter: ArchiveConverter = {
 
       const text = await runTesseractOcr(ctx.body, imageWidth, imageHeight);
 
+      if (!text) {
+        warnings.push('ocr-unavailable');
+      }
+
       const pages: ArchiveBuild['pages'] = [
         {
           pageNumber: 1,
