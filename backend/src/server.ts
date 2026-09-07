@@ -4,6 +4,7 @@ import { prisma } from './lib/prisma.js';
 import logger from './middleware/logger.js';
 import { stopCleanupJob } from './services/cleanup.service.js';
 import { ensureBucket } from './services/storage.service.js';
+import { startArchiveScheduler, stopArchiveScheduler } from './modules/documentArchive/scheduler.js';
 
 const port = process.env.PORT || 4000;
 
@@ -35,6 +36,8 @@ async function bootstrapStorage(): Promise<void> {
 
 await bootstrapStorage();
 
+startArchiveScheduler();
+
 server.listen(port, () => {
   logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${port}`);
 });
@@ -43,6 +46,7 @@ process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   server.close(async () => {
     stopCleanupJob();
+    stopArchiveScheduler();
     await prisma.$disconnect();
     process.exit(0);
   });
