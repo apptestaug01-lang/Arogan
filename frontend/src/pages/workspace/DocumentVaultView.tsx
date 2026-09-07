@@ -3,7 +3,6 @@ import { X, Download, FileJson, FileText } from 'lucide-react';
 import { DocumentExplorer } from '@/components/workspace/DocumentExplorer';
 import { ArchiveViewer } from '@/components/workspace/archive/ArchiveViewer';
 import { ExplorerEntry, DocumentViewResult, getDocumentView, getKeyView } from '@/services/documents';
-import api from '@/services/api';
 
 interface ViewerState {
   open: boolean;
@@ -63,15 +62,16 @@ export default function DocumentVaultView() {
       const isJson = entry.name.toLowerCase().endsWith('.json');
 
       if (isJson) {
-        const response = await api.get(result.viewUrl, {
-          responseType: 'text',
-          baseURL: '',
-        });
+        const response = await fetch(result.viewUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+        }
+        const responseText = await response.text();
         let parsed;
         try {
-          parsed = JSON.parse(response.data);
+          parsed = JSON.parse(responseText);
         } catch {
-          parsed = response.data;
+          parsed = responseText;
         }
         setViewer((prev) => ({
           ...prev,
