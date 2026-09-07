@@ -1,5 +1,6 @@
 import type { ArchiveConverter, ConvertContext, ArchiveBuild } from './index.js';
-import type { ArchiveAsset } from '../types.js';
+import { ArchiveAsset } from '../types.js';
+import { buildArchiveAssetKey } from '../../../utils/documentKey.js';
 
 export const DocxConverter: ArchiveConverter = {
   supportedTypes: [
@@ -71,14 +72,20 @@ export const DocxConverter: ArchiveConverter = {
       const htmlResult = await mammoth.convertToHtml({ buffer: ctx.body });
 
       const rawText = textResult.value;
-      const blocks = htmlResult.value
-        .split(/(?=<\/?(p|table|tr|td|th|div|h[1-6]|ul|ol|li)>)/i)
-        .filter((s) => s.trim().length > 0)
-        .map((html, idx) => ({
-          kind: 'html',
+      warnings.push('docx-media-not-uploaded');
+      if (mediaAssets.length > 0) {
+        for (const asset of mediaAssets) {
+          asset.key = buildArchiveAssetKey(ctx.documentId, asset.name);
+        }
+      }
+
+      const blocks = rawText
+        .split(/\f/)
+        .filter((t) => t.trim().length > 0)
+        .map((text) => ({
+          kind: 'text',
           bbox: [0, 0, 0, 0],
-          html: html.trim(),
-          order: idx,
+          runs: [{ text: text.trim() }],
         }));
 
       const metadata: Record<string, unknown> = {

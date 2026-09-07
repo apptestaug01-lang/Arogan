@@ -46,14 +46,18 @@ export const PdfConverter: ArchiveConverter = {
         pageTexts.forEach((text, idx) => {
           pages.push({
             pageNumber: idx + 1,
-            blocks: [{ kind: 'text', bbox: [0, 0, 0, 0], text: text.trim() }],
+            width: 0,
+            height: 0,
+            blocks: [{ kind: 'text', bbox: [0, 0, 0, 0], runs: [{ text: text.trim() }] }],
             ocr: null,
           });
         });
       } else if (rawText.trim().length > 0) {
         pages.push({
           pageNumber: 1,
-          blocks: [{ kind: 'text', bbox: [0, 0, 0, 0], text: rawText.trim() }],
+          width: 0,
+          height: 0,
+          blocks: [{ kind: 'text', bbox: [0, 0, 0, 0], runs: [{ text: rawText.trim() }] }],
           ocr: null,
         });
       }
