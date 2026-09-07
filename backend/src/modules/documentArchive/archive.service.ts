@@ -56,6 +56,34 @@ export interface ArchiveViewResult {
 
 const CONVERTER_VERSION = '1.0.0';
 
+function ensureStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string');
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === 'string');
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function ensureErrorObject(value: unknown): { code?: string; message?: string } | null {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value as { code?: string; message?: string };
+  }
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as { code?: string; message?: string };
+    } catch {
+      return { message: value };
+    }
+  }
+  return null;
+}
+
 export class ArchiveService {
   private registry: ArchiveConverterRegistry;
 
@@ -76,8 +104,8 @@ export class ArchiveService {
       byteTier: row.byteTier,
       converterVersion: row.converterVersion,
       fidelityVerified: row.fidelityVerified,
-      warnings: (row.warnings as string[]) || [],
-      error: (row.error as { code?: string; message?: string } | null) || null,
+      warnings: ensureStringArray(row.warnings),
+      error: ensureErrorObject(row.error),
       startedAt: row.startedAt,
       completedAt: row.completedAt,
       updatedAt: row.updatedAt,
@@ -105,8 +133,6 @@ export class ArchiveService {
     });
 
     try {
-      const meta = await headObject(doc.s3Key);
-
       if (
         !force &&
         existing?.status === 'COMPLETED' &&
@@ -120,39 +146,33 @@ export class ArchiveService {
         return { status: 'COMPLETED', archiveKey: existing.archiveKey, format: null };
       }
 
-      await prisma.documentArchive.update({
+      const archiveId = existing?.id ?? `pending-${documentId}`;
+
+      await prisma.documentArchive.upsert({
         where: { documentId },
-        data: {
+        create: {
+          id: archiveId,
+          documentId,
           status: 'PROCESSING',
+          converterVersion: CONVERTER_VERSION,
+          startedAt: new Date(),
+        },
+        update: {
+          status: 'PROCESSING',
+          converterVersion: CONVERTER_VERSION,
           startedAt: new Date(),
           updatedAt: new Date(),
         },
       });
 
+      const meta = await headObject(doc.s3Key);
       const getResult = await getObject(doc.s3Key);
-      const body = Buffer.isBuffer(getResult.body) ? getResult.body : Buffer.from(getResult.body as Uint8Array);
-      const sourceSha256 = await sha256(body);
-      const sourceSize = body.length;
-      const detectedContentType = getResult.contentType || doc.contentType;
+    const body = Buffer.isBuffer(getResult.body) ? getResult.body : Buffer.from(getResult.body as Uint8Array);
+    const sourceSha256 = await sha256(body);
+    const sourceSize = body.length;
+    const detectedContentType = getResult.contentType || doc.contentType;
 
-      if (force && existing) {
-        await prisma.documentArchive.update({
-          where: { documentId },
-          data: {
-            status: 'PROCESSING',
-            startedAt: new Date(),
-          },
-        });
-      } else if (!existing) {
-        await prisma.documentArchive.create({
-          data: {
-            documentId,
-            status: 'PROCESSING',
-            converterVersion: CONVERTER_VERSION,
-            startedAt: new Date(),
-          },
-        });
-      }
+    // force path is handled by upsert above; no separate create/update needed
 
       const ctx: ConvertContext = {
         documentId,
@@ -253,8 +273,8 @@ export class ArchiveService {
           sourceSize,
           byteTier,
           fidelityVerified: true,
-          warnings: JSON.stringify(warnings),
-          assets: JSON.stringify(build.assets),
+          warnings,
+          assets: build.assets,
           completedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -272,15 +292,28 @@ export class ArchiveService {
       return { status: 'COMPLETED', archiveKey, format: detectedContentType };
     } catch (err) {
       const isMissing = err instanceof Error && /NotFound|not found/i.test(err.message);
-      await prisma.documentArchive.update({
+      await prisma.documentArchive.upsert({
         where: { documentId },
-        data: {
+        create: {
+          id: `failed-${documentId}`,
+          documentId,
           status: 'FAILED',
-          error: JSON.stringify({
+          converterVersion: CONVERTER_VERSION,
+          error: {
             code: isMissing ? 'SOURCE_MISSING' : 'ARCHIVE_ERROR',
             message: err instanceof Error ? err.message : String(err),
-          }),
-          warnings: JSON.stringify([]),
+          },
+          warnings: [],
+          startedAt: new Date(),
+          updatedAt: new Date(),
+        },
+        update: {
+          status: 'FAILED',
+          error: {
+            code: isMissing ? 'SOURCE_MISSING' : 'ARCHIVE_ERROR',
+            message: err instanceof Error ? err.message : String(err),
+          },
+          warnings: [],
           updatedAt: new Date(),
         },
       });

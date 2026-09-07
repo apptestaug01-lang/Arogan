@@ -11,6 +11,8 @@ jest.mock('../../src/lib/prisma.js', () => ({
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      upsert: jest.fn(),
+      findMany: jest.fn(),
     },
   },
 }));
@@ -100,8 +102,7 @@ describe('ArchiveService', () => {
         contentType: 'application/pdf',
       });
       storage.putObject.mockResolvedValue(undefined);
-      prisma.documentArchive.create.mockResolvedValue({});
-      prisma.documentArchive.update.mockResolvedValue({});
+      prisma.documentArchive.upsert.mockResolvedValue({});
 
       const result = await service.createArchive({
         documentId: 'doc-1',
@@ -113,6 +114,48 @@ describe('ArchiveService', () => {
       expect(storage.getObject).toHaveBeenCalledWith(
         'borrowers/user-1/applications/app-1/documents/doc-1/test.pdf',
       );
+    });
+
+    it('uses upsert to create a first-time row when no archive exists (B2)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 'doc-1',
+        userId: 'user-1',
+        s3Key: 'borrowers/user-1/applications/app-1/documents/doc-1/test.pdf',
+        contentType: 'application/pdf',
+        size: 100,
+        checksum: 'etag123',
+        originalName: 'test.pdf',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      prisma.documentArchive.findUnique.mockResolvedValue(null);
+
+      storage.headObject.mockResolvedValue({ size: 100, checksum: 'etag123' });
+      storage.getObject.mockResolvedValue({
+        body: Buffer.from('%PDF-1.4 test'),
+        contentType: 'application/pdf',
+      });
+      storage.putObject.mockResolvedValue(undefined);
+      prisma.documentArchive.upsert.mockResolvedValue({});
+
+      const result = await service.createArchive({
+        documentId: 'doc-1',
+        userId: 'user-1',
+      });
+
+      expect(prisma.documentArchive.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { documentId: 'doc-1' },
+          create: expect.objectContaining({
+            documentId: 'doc-1',
+            status: 'PROCESSING',
+          }),
+          update: expect.objectContaining({
+            status: 'PROCESSING',
+          }),
+        }),
+      );
+      expect(result.status).toBe('COMPLETED');
     });
 
     it('skips when archive already COMPLETED with matching sha256', async () => {
@@ -173,8 +216,7 @@ describe('ArchiveService', () => {
         contentType: 'application/pdf',
       });
       storage.putObject.mockResolvedValue(undefined);
-      prisma.documentArchive.create.mockResolvedValue({});
-      prisma.documentArchive.update.mockResolvedValue({});
+      prisma.documentArchive.upsert.mockResolvedValue({});
 
       const result = await service.createArchive({
         documentId: 'doc-1',
@@ -227,8 +269,7 @@ describe('ArchiveService', () => {
         contentType: 'application/pdf',
       });
       storage.putObject.mockResolvedValue(undefined);
-      prisma.documentArchive.create.mockResolvedValue({});
-      prisma.documentArchive.update.mockResolvedValue({});
+      prisma.documentArchive.upsert.mockResolvedValue({});
 
       await service.createArchive({ documentId: 'doc-1', userId: 'user-1' });
 
