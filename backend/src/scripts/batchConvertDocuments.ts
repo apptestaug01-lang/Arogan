@@ -1,7 +1,8 @@
-import { ListObjectsV2Command, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
 import { getStorageConfig } from '../config/storage.config.js'
 import { createS3Client } from '../services/storage.service.js'
 import { ArchiveService } from '../modules/documentArchive/archive.service.js'
+import { BackfillRunner } from '../modules/documentArchive/backfill.js'
 import logger from '../middleware/logger.js'
 
 interface CliArgs {
@@ -125,110 +126,31 @@ export interface BatchArgs {
 }
 
 export async function runBatch(args: BatchArgs, archiveService: ArchiveService): Promise<BatchResult> {
-  const config = getStorageConfig()
-  const bucket = config.bucket
-  const s3 = createS3Client(config)
+  const runner = new BackfillRunner(archiveService, {
+    concurrency: args.concurrency,
+    rateLimitMs: 0,
+  })
 
-  logger.info({ bucket, prefix: args.prefix ?? '(root)' }, '[BatchConvert] Starting document-to-JSON conversion')
+  logger.info({ prefix: args.prefix ?? 'borrowers/', dryRun: args.dryRun }, '[BatchConvert] Starting document-to-JSON conversion')
 
-  if (args.dryRun) {
-    logger.info('[BatchConvert] DRY RUN — no archives will be created')
-  }
-
-  const documents = await listDocumentKeys(s3, bucket, args.prefix, args.limit)
+  const result = await runner.runOnce({ dryRun: args.dryRun })
 
   logger.info(
     {
-      totalObjects: documents.length,
-      candidates: documents.length,
-      force: args.force,
-      dryRun: args.dryRun,
-      concurrency: args.concurrency,
-    },
-    '[BatchConvert]',
-  )
-
-  let completed = 0
-  let skipped = 0
-  let failed = 0
-
-  const queue: ListedObject[] = [...documents]
-
-  async function worker(workerId: number): Promise<void> {
-    logger.info({ worker: workerId }, '[BatchConvert] Worker started')
-    while (queue.length > 0) {
-      const doc = queue.shift()!
-
-      try {
-        const head = await s3.send(
-          new HeadObjectCommand({ Bucket: bucket, Key: doc.key }),
-        )
-
-        const contentType = head.ContentType ?? 'application/octet-stream'
-        const metadata = head.Metadata ?? {}
-
-        const documentId = metadata['document-id']
-        const userId = metadata['user-id']
-
-        if (!documentId || !userId) {
-          skipped++
-          logger.info({ key: doc.key }, '[BatchConvert] Skipping — no document-id/user-id metadata')
-          continue
-        }
-
-        logger.info({ key: doc.key, size: doc.size, contentType, documentId }, '[BatchConvert] Processing')
-
-        if (args.dryRun) {
-          logger.info(
-            { key: doc.key, documentId, format: contentType },
-            '[BatchConvert] DRY RUN — would enqueue archive',
-          )
-          completed++
-          continue
-        }
-
-        const result = await archiveService.createArchive({
-          documentId,
-          userId,
-          force: args.force,
-        })
-
-        if (result.status === 'COMPLETED') {
-          completed++
-          logger.info({ key: doc.key, documentId, archiveKey: result.archiveKey }, '[BatchConvert] Archive created')
-        } else {
-          failed++
-          logger.error(
-            { key: doc.key, error: result.error?.message },
-            '[BatchConvert] Conversion failed',
-          )
-        }
-      } catch (err) {
-        failed++
-        logger.error({ key: doc.key, err: err instanceof Error ? err.message : String(err) }, '[BatchConvert] Failed')
-      }
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: args.concurrency }, (_, i) => worker(i)),
-  )
-
-  logger.info(
-    {
-      completed,
-      skipped,
-      failed,
-      total: completed + skipped + failed,
+      completed: result.completed,
+      skipped: result.skipped,
+      failed: result.failed,
+      enqueued: result.enqueued,
+      total: result.enqueued,
     },
     '[BatchConvert] Done',
   )
 
-  if (failed > 0) {
+  if (result.failed > 0) {
     process.exit(1)
   }
 
-  return { completed, skipped, failed, dryRun: args.dryRun }
+  return { completed: result.completed, skipped: result.skipped, failed: result.failed, dryRun: result.dryRun }
 }
 
 async function main(): Promise<void> {
