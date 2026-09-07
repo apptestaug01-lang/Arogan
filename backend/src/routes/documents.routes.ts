@@ -230,7 +230,18 @@ router.get(
   requireAuth,
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await archiveService.getArchiveView(req.params.documentId, req.user!.id)
+      const doc = await prisma.document.findUnique({
+        where: { id: req.params.documentId },
+      })
+      if (!doc) {
+        sendError(res, 'Document not found', 404)
+        return
+      }
+      if (doc.userId !== req.user!.id && !['ANALYST', 'APPROVER', 'ADMIN'].includes(req.user!.role)) {
+        sendError(res, 'Not authorized to view this archive', 403)
+        return
+      }
+      const result = await archiveService.getArchiveView(req.params.documentId, doc.userId)
       if (!result) {
         sendError(res, 'Archive not available', 404)
         return
