@@ -8,14 +8,13 @@ import {
   putObject,
   createPresignedDownloadUrl,
 } from '../../services/storage.service.js';
-import { buildArchiveKey } from '../../utils/documentKey.js';
+import { buildArchiveKey, buildArchiveOriginalKey } from '../../utils/documentKey.js';
 import {
   LOANFLOW_DERIVED_PREFIX,
-  ARCHIVE_EMBED_MAX_BYTES,
   ARCHIVE_CONVERT_TIMEOUT_MS,
   ARCHIVE_SCHEMA_VERSION,
 } from '../../utils/constants.js';
-import { sha256, gzipBuf, chooseByteTier } from './integrity.js';
+import { sha256, gzipBuf, b64Encode, chooseByteTier } from './integrity.js';
 import {
   ArchiveConverterRegistry,
   DEFAULT_CONVERTERS,
@@ -200,19 +199,30 @@ export class ArchiveService {
       const warnings = build.warnings;
 
       let byteArchive: unknown = null;
-      if (sourceSize <= ARCHIVE_EMBED_MAX_BYTES) {
+      let originalAvailable: 'embedded' | 'gz-object' | 'source-object';
+
+      if (byteTier === 'embedded') {
         const gz = await gzipBuf(body);
         byteArchive = {
           encoding: 'base64',
           compression: 'gzip',
           rawSize: sourceSize,
           archiveSize: gz.length,
-          data: gz.toString('base64'),
+          data: b64Encode(gz),
         };
+        originalAvailable = 'embedded';
+      } else if (byteTier === 'gz-object') {
+        const gz = await gzipBuf(body);
+        const originalKey = buildArchiveOriginalKey(documentId);
+        await putObject(originalKey, gz, 'application/gzip');
+        originalAvailable = 'gz-object';
+      } else {
+        originalAvailable = 'source-object';
       }
 
+      const roundTripVerified = byteTier === 'embedded';
+
       const archive = {
-        schemaVersion: ARCHIVE_SCHEMA_VERSION,
         archiveType: 'document-archive',
         id: documentId,
         generatedBy: {
@@ -230,8 +240,8 @@ export class ArchiveService {
           etag: existing?.sourceEtag ?? meta.checksum,
         },
         fidelity: {
-          roundTripVerified: true,
-          originalAvailable: byteTier === 'embedded' ? 'embedded' : byteTier === 'gz-object' ? 'gz-object' : 'source-object',
+          roundTripVerified,
+          originalAvailable,
           warnings,
         },
         format: build.format,
@@ -272,9 +282,9 @@ export class ArchiveService {
           sourceEtag: meta.checksum,
           sourceSize,
           byteTier,
-          fidelityVerified: true,
-          warnings,
-          assets: build.assets,
+          fidelityVerified: roundTripVerified,
+          warnings: warnings as any,
+          assets: build.assets as any,
           completedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -312,7 +322,7 @@ export class ArchiveService {
           error: {
             code: isMissing ? 'SOURCE_MISSING' : 'ARCHIVE_ERROR',
             message: err instanceof Error ? err.message : String(err),
-          },
+          } as any,
           warnings: [],
           updatedAt: new Date(),
         },

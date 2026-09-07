@@ -1,6 +1,4 @@
 import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
-import { getStorageConfig } from '../config/storage.config.js'
-import { createS3Client } from '../services/storage.service.js'
 import { ArchiveService } from '../modules/documentArchive/archive.service.js'
 import { BackfillRunner } from '../modules/documentArchive/backfill.js'
 import logger from '../middleware/logger.js'
@@ -112,7 +110,6 @@ async function listObjects(
 
 interface BatchResult {
   completed: number
-  skipped: number
   failed: number
   dryRun: boolean
 }
@@ -138,7 +135,6 @@ export async function runBatch(args: BatchArgs, archiveService: ArchiveService):
   logger.info(
     {
       completed: result.completed,
-      skipped: result.skipped,
       failed: result.failed,
       enqueued: result.enqueued,
       total: result.enqueued,
@@ -150,7 +146,7 @@ export async function runBatch(args: BatchArgs, archiveService: ArchiveService):
     process.exit(1)
   }
 
-  return { completed: result.completed, skipped: result.skipped, failed: result.failed, dryRun: result.dryRun }
+  return { completed: result.completed, failed: result.failed, dryRun: result.dryRun }
 }
 
 async function main(): Promise<void> {

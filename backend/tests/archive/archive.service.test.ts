@@ -282,5 +282,69 @@ describe('ArchiveService', () => {
         }),
       );
     });
+
+    it('sets fidelityVerified=true only for embedded tier, false for gz-object (B5)', async () => {
+      const largeBody = Buffer.alloc(30 * 1024 * 1024, 0);
+      prisma.document.findUnique.mockResolvedValue({
+        id: 'doc-1',
+        userId: 'user-1',
+        s3Key: 'borrowers/user-1/applications/app-1/documents/doc-1/test.pdf',
+        contentType: 'application/pdf',
+        size: largeBody.length,
+        checksum: 'etag123',
+        originalName: 'test.pdf',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      prisma.documentArchive.findUnique.mockResolvedValue(null);
+      storage.headObject.mockResolvedValue({ size: largeBody.length, checksum: 'etag123' });
+      storage.getObject.mockResolvedValue({
+        body: largeBody,
+        contentType: 'application/pdf',
+      });
+      storage.putObject.mockResolvedValue(undefined);
+      prisma.documentArchive.upsert.mockResolvedValue({});
+      prisma.documentArchive.update.mockResolvedValue({});
+
+      await service.createArchive({ documentId: 'doc-1', userId: 'user-1' });
+
+      const completedUpdate = prisma.documentArchive.update.mock.calls.find(
+        (c: any[]) => c[0]?.data?.status === 'COMPLETED',
+      );
+      expect(completedUpdate).toBeDefined();
+      expect(completedUpdate[0].data.fidelityVerified).toBe(false);
+      expect(completedUpdate[0].data.byteTier).toBe('gz-object');
+    });
+
+    it('sets fidelityVerified=true for embedded tier (small files, B5)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 'doc-1',
+        userId: 'user-1',
+        s3Key: 'borrowers/user-1/applications/app-1/documents/doc-1/test.pdf',
+        contentType: 'application/pdf',
+        size: 100,
+        checksum: 'etag123',
+        originalName: 'test.pdf',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      prisma.documentArchive.findUnique.mockResolvedValue(null);
+      storage.headObject.mockResolvedValue({ size: 100, checksum: 'etag123' });
+      storage.getObject.mockResolvedValue({
+        body: Buffer.from('%PDF-1.4 test'),
+        contentType: 'application/pdf',
+      });
+      storage.putObject.mockResolvedValue(undefined);
+      prisma.documentArchive.upsert.mockResolvedValue({});
+      prisma.documentArchive.update.mockResolvedValue({});
+
+      await service.createArchive({ documentId: 'doc-1', userId: 'user-1' });
+
+      const completedUpdate = prisma.documentArchive.update.mock.calls.find(
+        (c: any[]) => c[0]?.data?.status === 'COMPLETED',
+      );
+      expect(completedUpdate).toBeDefined();
+      expect(completedUpdate[0].data.fidelityVerified).toBe(true);
+    });
   });
 });
