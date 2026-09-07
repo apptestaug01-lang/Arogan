@@ -161,7 +161,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   const uploadSingle = React.useCallback(
     async (item: UploadItem) => {
       const { file, id } = item;
-      const contentType = file.type || getContentTypeForFile(file.name) || 'application/octet-stream';
+      const contentType = getContentTypeForFile(file.name) || file.type || 'application/octet-stream';
       try {
         updateItem(id, { status: 'presigning', message: 'Requesting upload URL…' });
 
@@ -224,7 +224,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   const uploadMultipart = React.useCallback(
     async (item: UploadItem) => {
       const { file, id } = item;
-      const contentType = file.type || getContentTypeForFile(file.name) || 'application/octet-stream';
+      const contentType = getContentTypeForFile(file.name) || file.type || 'application/octet-stream';
       let uploadId: string | undefined;
       let presignResult: PresignMultipartResult | undefined;
 
