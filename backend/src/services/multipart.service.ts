@@ -11,6 +11,7 @@ import { createPresignedUploadPartUrl, getStorageClient, headObject, ensureBucke
 import { getStorageConfig } from '../config/storage.config.js'
 import { logAuditEvent } from './audit.service.js'
 import { triggerExtraction } from '../utils/triggerExtraction.js'
+import { archiveWorker } from '../modules/documentArchive/worker.js'
 import {
   ALLOWED_DOCUMENT_CONTENT_TYPES,
   MAX_DOCUMENT_SIZE_BYTES,
@@ -220,8 +221,9 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       key,
       multipart: true,
     })
-    triggerExtraction(input.userId, input.documentId)
-    return document
+     triggerExtraction(input.userId, input.documentId)
+     void archiveWorker.enqueue(input.documentId, input.userId)
+     return document
   } catch (err) {
     if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {
       throw new ConflictError('A document with this name already exists. Please rename the file and try again.')
