@@ -176,9 +176,11 @@ describe('ArchiveService', () => {
         status: 'COMPLETED',
         converterVersion: '1.0.0',
         sourceSha256: 'abc123',
+        sourceEtag: 'etag123',
+        sourceSize: 100,
       });
 
-      storage.headObject.mockResolvedValue({ size: 100, checksum: 'etag123' });
+      storage.headObject.mockResolvedValue({ size: 100, checksum: 'etag123', etag: 'etag123', contentType: 'application/pdf' });
 
       const result = await service.createArchive({
         documentId: 'doc-1',
@@ -188,6 +190,42 @@ describe('ArchiveService', () => {
 
       expect(result.status).toBe('COMPLETED');
       expect(storage.getObject).not.toHaveBeenCalled();
+    });
+
+    it('re-archives when source ETag or size changed since last archive (H3)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        id: 'doc-1',
+        userId: 'user-1',
+        s3Key: 'borrowers/user-1/applications/app-1/documents/doc-1/test.pdf',
+        contentType: 'application/pdf',
+        size: 100,
+        checksum: 'etag123',
+        originalName: 'test.pdf',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      prisma.documentArchive.findUnique.mockResolvedValue({
+        id: 'arch-1',
+        documentId: 'doc-1',
+        status: 'COMPLETED',
+        converterVersion: '1.0.0',
+        sourceSha256: 'abc123',
+        sourceEtag: 'old-etag',
+        sourceSize: 50,
+      });
+
+      storage.headObject.mockResolvedValue({ size: 100, checksum: 'etag123', etag: 'etag123', contentType: 'application/pdf' });
+      storage.getObject.mockResolvedValue({ body: Buffer.from('test content'), contentType: 'application/pdf', etag: 'etag123' });
+      prisma.documentArchive.upsert.mockResolvedValue({ id: 'arch-1', documentId: 'doc-1', status: 'COMPLETED' });
+
+      const result = await service.createArchive({
+        documentId: 'doc-1',
+        userId: 'user-1',
+        force: false,
+      });
+
+      expect(result.status).toBe('COMPLETED');
+      expect(storage.getObject).toHaveBeenCalled();
     });
 
     it('re-archives when conversionVersion changed even if COMPLETED', async () => {

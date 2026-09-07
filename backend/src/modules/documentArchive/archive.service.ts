@@ -138,13 +138,26 @@ export class ArchiveService {
         existing.converterVersion === CONVERTER_VERSION &&
         existing.sourceSha256 !== null
       ) {
+        const meta = await headObject(doc.s3Key);
+        if (
+          existing.sourceEtag &&
+          existing.sourceSize &&
+          meta.etag === existing.sourceEtag &&
+          meta.size === existing.sourceSize
+        ) {
+          logger.info(
+            { documentId, sourceSha256: existing.sourceSha256 },
+            '[Archive] Skipping — already COMPLETED with matching converter version and unchanged source',
+          );
+          return { status: 'COMPLETED', archiveKey: existing.archiveKey, format: null };
+        }
         logger.info(
-          { documentId, sourceSha256: existing.sourceSha256 },
-          '[Archive] Skipping — already COMPLETED with matching converter version',
+          { documentId, reason: 'source-etag-or-size-mismatch' },
+          '[Archive] Skipping bypassed — source object has changed since last archive',
         );
-        return { status: 'COMPLETED', archiveKey: existing.archiveKey, format: null };
       }
 
+      const meta = await headObject(doc.s3Key);
       const archiveId = existing?.id ?? `pending-${documentId}`;
 
       await prisma.documentArchive.upsert({
@@ -164,7 +177,6 @@ export class ArchiveService {
         },
       });
 
-      const meta = await headObject(doc.s3Key);
       const getResult = await getObject(doc.s3Key);
     const body = Buffer.isBuffer(getResult.body) ? getResult.body : Buffer.from(getResult.body as Uint8Array);
     const sourceSha256 = await sha256(body);
