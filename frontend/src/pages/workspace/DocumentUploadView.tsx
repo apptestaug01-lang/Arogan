@@ -10,7 +10,6 @@ import {
   bulkDeleteDocuments,
   DocumentSummary,
 } from '@/services/documents';
-import { listApplications } from '@/services/applications';
 import { formatBytes } from '@/constants/documents';
 import { useToast } from '@/components/workspace/ToastProvider';
 import {
@@ -49,41 +48,10 @@ export default function DocumentUploadView() {
   const dropzoneRef = React.useRef<FileDropzoneHandle>(null);
   const [searchParams] = useSearchParams();
 
-  const [applicationId, setApplicationId] = React.useState<string | null>(
-    searchParams.get('applicationId'),
-  );
+  const applicationId = searchParams.get('applicationId') ?? undefined;
   const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = React.useState(false);
-  const [loadingApp, setLoadingApp] = React.useState(!applicationId);
-
-  React.useEffect(() => {
-    if (applicationId) return;
-    let cancelled = false;
-    listApplications()
-      .then(({ applications }) => {
-        if (cancelled) return;
-        const sorted = [...applications].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-        const mostRecent = sorted[0]?.applicationId;
-        if (mostRecent) {
-          setApplicationId(mostRecent);
-          toast(`Using application ${mostRecent}`, 'info');
-        } else {
-          toast('Create a new application first to upload documents', 'info');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) toast('Failed to load applications', 'error');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingApp(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [applicationId, toast]);
 
   const fetchDocuments = React.useCallback(async () => {
     try {
@@ -166,7 +134,7 @@ export default function DocumentUploadView() {
       <div className="space-y-1">
         <p className="page-eyebrow">Loan workspace / Document upload</p>
         <h1 className="page-title">Document upload</h1>
-        <p className="page-sub">Add files securely to application {applicationId}.</p>
+        <p className="page-sub">Add files securely to your loan workspace.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -175,22 +143,14 @@ export default function DocumentUploadView() {
             <CardHeader>
               <CardTitle>Upload documents</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
-              {applicationId ? (
-                <FileDropzone
-                  ref={dropzoneRef}
-                  applicationId={applicationId}
-                  existingDocs={existingDocs}
-                  onUploadComplete={handleUploadComplete}
-                />
-              ) : (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
-                  {loadingApp
-                    ? 'Loading your applications...'
-                    : 'No application available. Create a new application first, then return here to upload documents.'}
-                </div>
-              )}
-            </CardContent>
+    <CardContent className="space-y-5">
+      <FileDropzone
+        ref={dropzoneRef}
+        applicationId={applicationId}
+        existingDocs={existingDocs}
+        onUploadComplete={handleUploadComplete}
+      />
+    </CardContent>
           </Card>
 
           <Card>

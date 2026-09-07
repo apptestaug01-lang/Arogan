@@ -72,7 +72,7 @@ export async function linkDocument(
 // ---- Upload API (Chunk B: secure single-file) ----
 
 export interface PresignDocumentInput {
-  applicationId: string;
+  applicationId?: string;
   fileName: string;
   contentType: string;
   contentLength: number;
@@ -96,7 +96,7 @@ export async function presignDocument(
 
 export interface CompleteDocumentInput {
   documentId: string;
-  applicationId: string;
+  applicationId?: string;
   fileName: string;
   contentType: string;
 }
@@ -161,7 +161,7 @@ export async function presignMultipart(
 
 export interface CompleteMultipartInput {
   documentId: string;
-  applicationId: string;
+  applicationId?: string;
   fileName: string;
   contentType: string;
   uploadId: string;
@@ -186,7 +186,7 @@ export async function completeMultipart(
 
 export interface AbortMultipartInput {
   documentId: string;
-  applicationId: string;
+  applicationId?: string;
   fileName: string;
   uploadId: string;
 }

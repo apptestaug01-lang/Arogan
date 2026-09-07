@@ -14,7 +14,7 @@ import { archiveWorker } from '../modules/documentArchive/worker.js'
 
 export interface PresignDocumentInput {
   userId: string
-  applicationId: string
+  applicationId?: string
   fileName: string
   contentType: string
   contentLength: number
@@ -23,7 +23,7 @@ export interface PresignDocumentInput {
 export interface CompleteDocumentInput {
   userId: string
   documentId: string
-  applicationId: string
+  applicationId?: string
   fileName: string
   contentType: string
 }
@@ -80,7 +80,7 @@ export async function completeDocument(input: CompleteDocumentInput) {
   const existing = await prisma.document.findFirst({
     where: {
       userId: input.userId,
-      applicationId: input.applicationId,
+      applicationId: input.applicationId ?? 'standalone',
       originalName: input.fileName,
       status: { not: 'DELETED' },
     },
@@ -91,20 +91,20 @@ export async function completeDocument(input: CompleteDocumentInput) {
   }
 
   try {
-    const document = await prisma.document.create({
-      data: {
-        id: input.documentId,
-        userId: input.userId,
-        applicationId: input.applicationId,
-        category: 'Documents',
-        s3Key: key,
-        originalName: input.fileName,
-        contentType: input.contentType,
-        size: meta.size,
-        checksum: meta.checksum,
-        status: 'UPLOADED',
-      },
-    })
+      const document = await prisma.document.create({
+        data: {
+          id: input.documentId,
+          userId: input.userId,
+          applicationId: input.applicationId ?? 'standalone',
+          category: 'Documents',
+          s3Key: key,
+          originalName: input.fileName,
+          contentType: input.contentType,
+          size: meta.size,
+          checksum: meta.checksum,
+          status: 'UPLOADED',
+        },
+      })
   await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
     documentId: input.documentId,
     key,

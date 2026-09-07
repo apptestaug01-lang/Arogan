@@ -102,7 +102,7 @@ function getUploadErrorMessage(error: unknown, _fileName: string): string {
 
 export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzoneProps>(
   function FileDropzone(
-    { applicationId = 'LAP-2026-0184', onUploadComplete, className, existingDocs }: FileDropzoneProps,
+    { applicationId, onUploadComplete, className, existingDocs }: FileDropzoneProps,
     ref: React.ForwardedRef<FileDropzoneHandle>,
   ) {
   const [dragging, setDragging] = React.useState(false);

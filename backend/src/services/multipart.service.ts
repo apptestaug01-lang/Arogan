@@ -51,7 +51,7 @@ export function computeChunkPlan(size: number): ChunkPlan {
 
 export interface PresignMultipartInput {
   userId: string
-  applicationId: string
+  applicationId?: string
   fileName: string
   contentType: string
   contentLength: number
@@ -149,8 +149,8 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 
 export interface CompleteMultipartInput {
   userId: string
+  applicationId?: string
   documentId: string
-  applicationId: string
   fileName: string
   contentType: string
   uploadId: string
@@ -206,7 +206,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       data: {
         id: input.documentId,
         userId: input.userId,
-        applicationId: input.applicationId,
+        applicationId: input.applicationId ?? 'standalone',
         category: 'Documents',
         s3Key: key,
         originalName: input.fileName,
@@ -234,7 +234,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
 
 export interface MultipartKeyInput {
   userId: string
-  applicationId: string
+  applicationId?: string
   documentId: string
   fileName: string
 }
