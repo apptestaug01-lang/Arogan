@@ -8,6 +8,32 @@ const MAX_RAW_INPUT = MAX_RAW_CHARS - TRUNCATION_SUFFIX.length;
 
 type Tab = 'summary' | 'content' | 'raw';
 
+interface ArchiveBlock {
+  kind: 'text' | 'table' | 'image';
+  bbox?: [number, number, number, number];
+  runs?: Array<{ text: string; font?: string; size?: number; color?: string }>;
+  text?: string;
+  html?: string;
+  rows?: Array<Array<{ t: string; v: string | number }>>;
+  asset?: string;
+}
+
+interface ArchivePage {
+  pageNumber: number;
+  width?: number;
+  height?: number;
+  blocks: ArchiveBlock[];
+  ocr: unknown;
+}
+
+interface ParsedArchive {
+  format: string;
+  metadata: Record<string, unknown>;
+  pages: ArchivePage[];
+  text: { rawText: string; charCount: number; searchable: boolean };
+  fields: Record<string, unknown>;
+}
+
 interface ArchiveViewerProps {
   documentId: string;
   onClose: () => void;
@@ -19,6 +45,7 @@ export function ArchiveViewer({ documentId, onClose, onDownloadOriginal }: Archi
   const [summary, setSummary] = React.useState<ArchiveSummary | null>(null);
   const [contentLoading, setContentLoading] = React.useState(false);
   const [rawLoading, setRawLoading] = React.useState(false);
+  const [parsedContent, setParsedContent] = React.useState<ParsedArchive | null>(null);
   const [rawContent, setRawContent] = React.useState<string | null>(null);
   const [viewUrl, setViewUrl] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -34,8 +61,12 @@ export function ArchiveViewer({ documentId, onClose, onDownloadOriginal }: Archi
     if (tab === 'content' && !viewUrl && !contentLoading) {
       setContentLoading(true);
       getArchiveViewUrl(documentId)
-        .then((res) => setViewUrl(res.viewUrl))
-        .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load archive view'))
+        .then((res) => {
+          setViewUrl(res.viewUrl);
+          return fetch(res.viewUrl).then((r) => r.json());
+        })
+        .then((json: ParsedArchive) => setParsedContent(json))
+        .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load archive content'))
         .finally(() => setContentLoading(false));
     }
     if (tab === 'raw' && rawContent === null && !rawLoading) {
@@ -115,6 +146,45 @@ export function ArchiveViewer({ documentId, onClose, onDownloadOriginal }: Archi
     );
   };
 
+  const renderTextBlock = (block: ArchiveBlock) => {
+    if (block.html) {
+      return <div dangerouslySetInnerHTML={{ __html: block.html }} className="archive-html-block" />;
+    }
+    const runs = block.runs ?? [];
+    if (runs.length === 0) return null;
+    return (
+      <span>
+        {runs.map((run, i) => {
+          const style: React.CSSProperties = {};
+          if (run.font) style.fontFamily = run.font;
+          if (run.size) style.fontSize = `${run.size / 2}px`;
+          if (run.color) style.color = `#${run.color}`;
+          return <span key={i} style={style}>{run.text}</span>;
+        })}
+      </span>
+    );
+  };
+
+  const renderTableBlock = (block: ArchiveBlock) => {
+    const rows = block.rows ?? [];
+    if (rows.length === 0) return null;
+    return (
+      <table className="border-collapse text-sm">
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci} className="border px-2 py-1">
+                  <span className="text-muted-foreground">{cell.t}</span>: {cell.v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
   const renderContent = () => {
     if (contentLoading) {
       return <p className="p-8 text-center text-muted-foreground">Loading archive…</p>;
@@ -122,17 +192,47 @@ export function ArchiveViewer({ documentId, onClose, onDownloadOriginal }: Archi
     if (error) {
       return <p className="p-6 text-center text-danger-500">{error}</p>;
     }
-    if (viewUrl) {
-      const isPdf = true;
-      const isImage = false;
-      if (isPdf) {
-        return <iframe src={viewUrl} title="Archive content" className="h-[80vh] w-full border-0" />;
-      }
-      if (isImage) {
-        return <img src={viewUrl} alt="Archive content" className="max-w-full max-h-[80vh] object-contain" />;
-      }
+    if (!parsedContent) {
+      return <p className="p-8 text-center text-muted-foreground">Select "Content" tab to load structured view.</p>;
     }
-    return <p className="p-8 text-center text-muted-foreground">No preview available.</p>;
+
+    return (
+      <div className="p-6 space-y-6">
+        {parsedContent.pages.length === 0 ? (
+          <p className="text-muted-foreground">No pages in this archive.</p>
+        ) : (
+          parsedContent.pages.map((page) => (
+            <div key={page.pageNumber} className="border border-border rounded-lg p-4 bg-card">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Page {page.pageNumber}</h3>
+              <div className="prose prose-sm max-w-none space-y-3">
+                {page.blocks.map((block, bi) => {
+                  if (block.kind === 'table') {
+                    return <div key={bi}>{renderTableBlock(block)}</div>;
+                  }
+                  if (block.kind === 'image') {
+                    return (
+                      <div key={bi} className="text-xs text-muted-foreground">
+                        [Image asset: {block.asset}]
+                      </div>
+                    );
+                  }
+                  return <div key={bi}>{renderTextBlock(block)}</div>;
+                })}
+              </div>
+            </div>
+          ))
+        )}
+
+        {parsedContent.text && parsedContent.text.searchable && (
+          <details className="mt-4">
+            <summary className="text-sm font-medium text-muted-foreground cursor-pointer">Extracted text</summary>
+            <pre className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-zinc-950/30 p-3 rounded max-h-64 overflow-auto">
+              {parsedContent.text.rawText}
+            </pre>
+          </details>
+        )}
+      </div>
+    );
   };
 
   const renderRaw = () => {
