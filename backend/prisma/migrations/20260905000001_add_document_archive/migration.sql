@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE "Document" ADD COLUMN     "derivedAt" TIMESTAMP WITH TIME ZONE;
-
 -- CreateTable
 CREATE TABLE "DocumentArchive" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -17,6 +14,8 @@ CREATE TABLE "DocumentArchive" (
     "warnings" JSONB,
     "assets" JSONB,
     "error" JSONB,
+    "failureCode" TEXT,
+    "failureReason" TEXT,
     "startedAt" TIMESTAMP WITH TIME ZONE,
     "completedAt" TIMESTAMP WITH TIME ZONE,
     "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

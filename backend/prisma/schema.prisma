@@ -123,7 +123,7 @@ model DocumentExtraction {
 }
 
 model DocumentArchive {
-  id               String    @id @default(cuid())
+  id               String    @id @default(uuid())
   documentId       String    @unique
   document         Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   status           String    @default("PENDING") // PENDING|PROCESSING|COMPLETED|FAILED
@@ -138,6 +138,8 @@ model DocumentArchive {
   warnings         Json?
   assets           Json?     // [{name,key,sha256,size}]
   error            Json?
+  failureCode      String?   // STALE_LEASE|E2|etc.
+  failureReason    String?
   startedAt        DateTime?
   completedAt      DateTime?
   createdAt        DateTime  @default(now())

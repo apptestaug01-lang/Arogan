@@ -6,6 +6,7 @@ export interface WorkerMetrics {
   failed: number;
   deadLettered: number;
   retried: number;
+  recovered: number;
   perStatus: Record<string, number>;
   perFormat: Record<string, number>;
 }
@@ -17,11 +18,12 @@ export class MetricsCollector {
     failed: 0,
     deadLettered: 0,
     retried: 0,
+    recovered: 0,
     perStatus: {},
     perFormat: {},
   };
 
-  increment(key: 'enqueued' | 'completed' | 'failed' | 'deadLettered' | 'retried'): void {
+  increment(key: 'enqueued' | 'completed' | 'failed' | 'deadLettered' | 'retried' | 'recovered'): void {
     this.metrics[key]++;
   }
 
@@ -44,6 +46,7 @@ export class MetricsCollector {
       failed: 0,
       deadLettered: 0,
       retried: 0,
+      recovered: 0,
       perStatus: {},
       perFormat: {},
     };
