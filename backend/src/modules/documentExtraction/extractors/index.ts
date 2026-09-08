@@ -4,6 +4,8 @@ import { GstCertificateExtractor } from './gstExtractor.js';
 import { ItrExtractor } from './itrExtractor.js';
 import { BankStatementExtractor } from './bankStatementExtractor.js';
 import { BalanceSheetExtractor } from './balanceSheetExtractor.js';
+import { IncorporationCertExtractor } from './incorporationExtractor.js';
+import { SanctionLetterExtractor } from './sanctionLetterExtractor.js';
 import { DocumentType } from '../types.js';
 
 export class ExtractorRegistry {
@@ -16,6 +18,8 @@ export class ExtractorRegistry {
     this.register(new ItrExtractor());
     this.register(new BankStatementExtractor());
     this.register(new BalanceSheetExtractor());
+    this.register(new IncorporationCertExtractor());
+    this.register(new SanctionLetterExtractor());
   }
 
   register(extractor: Extractor): void {
@@ -31,4 +35,4 @@ export class ExtractorRegistry {
   }
 }
 
-export { PanCardExtractor, AadhaarExtractor, GstCertificateExtractor, ItrExtractor, BankStatementExtractor, BalanceSheetExtractor };
+export { PanCardExtractor, AadhaarExtractor, GstCertificateExtractor, ItrExtractor, BankStatementExtractor, BalanceSheetExtractor, IncorporationCertExtractor, SanctionLetterExtractor };

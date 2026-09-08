@@ -4,6 +4,7 @@ import { ParserRegistry } from './parsers/index.js';
 import { ExtractorRegistry } from './extractors/index.js';
 import { LlmExtractor } from './llmExtractor.js';
 import { classifyDocument } from './classifier.js';
+import { convertDocument } from '../../utils/documentConverter.js';
 import {
   DocumentType,
   ExtractedField,
@@ -111,6 +112,18 @@ export class ExtractionPipeline {
         },
       });
 
+      await this.prisma.document
+        .update({
+          where: { id: doc.id },
+          data: { documentType: classification.type },
+        })
+        .catch((err) => {
+          logger.warn(
+            { documentId: doc.id, err },
+            '[ExtractionPipeline] failed to write documentType back to Document',
+          );
+        });
+
       return {
         documentId: doc.id,
         fileName: doc.originalName,
@@ -210,14 +223,25 @@ export class ExtractionPipeline {
     }
 
     const contentType = response.ContentType ?? 'application/octet-stream';
-    const parser = this.parsers.getParser(contentType);
-    if (!parser) throw new Error(`No parser for content type: ${contentType}`);
 
-    const parsed = await parser.parse(body, doc.originalName, doc.id);
-    if (parsed.rawText.length > MAX_RAW_TEXT_CHARS) {
-      parsed.rawText = parsed.rawText.slice(0, MAX_RAW_TEXT_CHARS);
-    }
-    return parsed;
+    const converted = await convertDocument(body, contentType, doc.originalName, doc.s3Key, {
+      size: body.length,
+      checksum: '',
+    });
+
+    const rawText = converted.rawText ?? '';
+    const pages = (converted.pages ?? []).map((p, i) => ({
+      pageNumber: typeof p.pageNumber === 'number' ? p.pageNumber : i + 1,
+      text: typeof p.text === 'string' ? p.text : '',
+    }));
+
+    return {
+      documentId: doc.id,
+      fileName: doc.originalName,
+      contentType,
+      rawText: rawText.slice(0, MAX_RAW_TEXT_CHARS),
+      pages,
+    };
   }
 
   private async extract(

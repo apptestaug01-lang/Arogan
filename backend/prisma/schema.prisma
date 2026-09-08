@@ -84,15 +84,17 @@ enum DocumentStatus {
 }
 
 model Document {
-  id            String         @id
+  id            String          @id
   userId        String
-  user          User           @relation(fields: [userId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
   applicationId String
+  application   Application?    @relation(fields: [applicationId], references: [applicationId])
   category      String?
-  s3Key         String         @unique
+  documentType  String?
+  s3Key         String          @unique
   originalName  String
   contentType   String
-  size          Int
+  size          BigInt
   checksum      String
   status        DocumentStatus @default(PENDING)
   createdAt     DateTime       @default(now())
@@ -169,6 +171,8 @@ model Application {
   reviewedAt    DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+
+  documents     Document[]
 
   @@index([userId])
   @@index([applicationId])

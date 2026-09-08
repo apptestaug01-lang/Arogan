@@ -91,27 +91,30 @@ export async function completeDocument(input: CompleteDocumentInput) {
   }
 
   try {
-      const document = await prisma.document.create({
-        data: {
-          id: input.documentId,
-          userId: input.userId,
-          applicationId: input.applicationId ?? 'standalone',
-          category: 'Documents',
-          s3Key: key,
-          originalName: input.fileName,
-          contentType: input.contentType,
-          size: meta.size,
-          checksum: meta.checksum,
-          status: 'UPLOADED',
-        },
-      })
-  await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
-    documentId: input.documentId,
-    key,
-  })
-  triggerExtraction(input.userId, input.documentId)
-  void archiveWorker.enqueue(input.documentId, input.userId)
-  return document
+    const document = await prisma.document.create({
+      data: {
+        id: input.documentId,
+        userId: input.userId,
+        applicationId: input.applicationId ?? 'standalone',
+        category: 'Documents',
+        s3Key: key,
+        originalName: input.fileName,
+        contentType: input.contentType,
+        size: meta.size,
+        checksum: meta.checksum,
+        status: 'UPLOADED',
+      },
+    })
+
+    await logAuditEvent('DOCUMENT_UPLOADED', undefined, undefined, input.userId, {
+      documentId: input.documentId,
+      key,
+    })
+
+    void triggerExtraction(input.userId, input.documentId).catch(() => {})
+    void archiveWorker.enqueue(input.documentId, input.userId)
+
+    return document
   } catch (err) {
     if (err instanceof Error && 'code' in err && (err as any).code === 'P2002') {
       throw new ConflictError('A document with this name already exists. Please rename the file and try again.')
@@ -169,7 +172,7 @@ export async function listUserDocuments(input: ListUserDocumentsInput): Promise<
     category: d.category,
     originalName: d.originalName,
     contentType: d.contentType,
-    size: d.size,
+     size: typeof d.size === 'bigint' ? Number(d.size) : d.size,
     status: d.status,
     createdAt: d.createdAt.toISOString(),
     updatedAt: d.updatedAt.toISOString(),

@@ -1,30 +1,30 @@
-import { AutoFillService } from '../modules/documentExtraction/autoFillService.js';
+import { prisma } from '../lib/prisma.js';
 import logger from '../middleware/logger.js';
 
-const autoFillService = new AutoFillService();
-
-/**
- * Kick off document extraction in the background once an upload completes.
- * We do NOT block the upload response on this — extraction can take 10–30s
- * for OCR'd PDFs. The wizard will pick up the warm cache on the next
- * extract-all call (or directly via the status endpoint).
- */
-export function triggerExtraction(userId: string, documentId: string): void {
-  setImmediate(() => {
-    autoFillService
-      .extractFromDocument(userId, documentId)
-      .then((fields) => {
-        const count = fields ? Object.keys(fields).length : 0;
-        logger.info(
-          { documentId, count },
-          '[Extraction] background extraction complete',
-        );
-      })
-      .catch((err) => {
-        logger.warn(
-          { documentId, err: err instanceof Error ? err.message : String(err) },
-          '[Extraction] background extraction failed',
-        );
-      });
-  });
+export async function triggerExtraction(
+  userId: string,
+  documentId: string,
+  retries = 3,
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { AutoFillService } = await import('../modules/documentExtraction/autoFillService.js');
+      const svc = new AutoFillService();
+      await svc.extractFromDocument(userId, documentId);
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn({ documentId, attempt, err: msg }, '[triggerExtraction] attempt failed');
+      if (attempt === retries) {
+        await prisma.documentExtraction
+          .updateMany({
+            where: { documentId, status: 'processing' },
+            data: { status: 'failed', error: `All ${retries} attempts failed: ${msg}` },
+          })
+          .catch(() => {});
+      } else {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+  }
 }

@@ -60,7 +60,7 @@ describe('DocumentExplorer', () => {
     fireEvent.click(folder);
 
     await waitFor(() =>
-      expect(mockedGetExplorer).toHaveBeenLastCalledWith('borrowers/user-1/applications/', undefined),
+      expect(mockedGetExplorer).toHaveBeenLastCalledWith('borrowers/user-1/applications/', undefined, false),
     );
     expect(await screen.findByText('documents')).toBeInTheDocument();
   });

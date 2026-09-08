@@ -39,6 +39,20 @@ export const documentPresignSchema = z.object({
   contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024, 'File size exceeds the 5 GB limit'),
 });
 
+export const documentPresignBatchSchema = z.object({
+  applicationId: z.string().min(1).optional(),
+  files: z
+    .array(
+      z.object({
+        fileName: z.string().min(1).max(200),
+        contentType: z.string().min(1),
+        contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024),
+      }),
+    )
+    .min(1, 'At least one file is required')
+    .max(20, 'Batch size exceeds 20 files'),
+});
+
 export const documentCompleteSchema = z.object({
   applicationId: z.string().min(1).optional(),
   fileName: z.string().min(1).max(200),

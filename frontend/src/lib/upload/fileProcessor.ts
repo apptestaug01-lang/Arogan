@@ -15,6 +15,83 @@ export function isZipFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.zip');
 }
 
+export async function readEntryAsFile(entry: FileSystemFileEntry): Promise<File> {
+  return new Promise((resolve, reject) => entry.file(resolve, reject));
+}
+
+export async function traverseEntry(
+  entry: FileSystemEntry,
+  path = '',
+): Promise<ProcessedFile[]> {
+  if (entry.isFile) {
+    const file = await readEntryAsFile(entry as FileSystemFileEntry);
+    const relativePath = path ? `${path}/${file.name}` : file.name;
+    return [{ file, originalName: file.name, size: file.size, relativePath }];
+  }
+
+  if (entry.isDirectory) {
+    const dirEntry = entry as FileSystemDirectoryEntry;
+    const reader = dirEntry.createReader();
+    const results: ProcessedFile[] = [];
+
+    const readAll = (): Promise<FileSystemEntry[]> =>
+      new Promise((resolve, reject) => {
+        const all: FileSystemEntry[] = [];
+        const read = () => {
+          reader.readEntries(
+            (entries) => {
+              if (entries.length === 0) return resolve(all);
+              all.push(...entries);
+              read();
+            },
+            reject,
+          );
+        };
+        read();
+      });
+
+    const entries = await readAll();
+    const folderPath = path ? `${path}/${entry.name}` : entry.name;
+    for (const child of entries) {
+      const childFiles = await traverseEntry(child, folderPath);
+      results.push(...childFiles);
+    }
+    return results;
+  }
+
+  return [];
+}
+
+export async function processDroppedItems(
+  dataTransfer: DataTransfer,
+): Promise<ProcessedFile[]> {
+  const items = Array.from(dataTransfer.items);
+  const hasEntryAPI = items.length > 0 && typeof items[0].webkitGetAsEntry === 'function';
+
+  if (!hasEntryAPI) {
+    return processUploadInput(dataTransfer.files);
+  }
+
+  const results: ProcessedFile[] = [];
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry();
+    if (!entry) continue;
+    const files = await traverseEntry(entry);
+    results.push(...files);
+  }
+
+  const final: ProcessedFile[] = [];
+  for (const pf of results) {
+    if (isZipFile(pf.file)) {
+      const extracted = await extractZipFiles(pf.file);
+      final.push(...filterAllowedFiles(extracted));
+    } else {
+      final.push(pf);
+    }
+  }
+  return final;
+}
+
 export async function extractZipFiles(zipFile: File): Promise<ProcessedFile[]> {
   const arrayBuffer = await zipFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
@@ -108,7 +185,7 @@ export async function processUploadInput(
 
   for (const zipFile of zipFiles) {
     const extracted = await extractZipFiles(zipFile);
-    processed.push(...extracted);
+    processed.push(...filterAllowedFiles(extracted));
   }
 
   return processed;

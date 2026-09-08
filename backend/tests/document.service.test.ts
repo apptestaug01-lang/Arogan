@@ -36,6 +36,7 @@ jest.mock('../src/lib/prisma.js', () => ({
     },
     documentExtraction: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));

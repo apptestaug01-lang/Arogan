@@ -65,16 +65,24 @@ export class PanCardExtractor implements Extractor {
       }
     }
 
-    const fatherMatch = text.match(/Father'?s?\s*Name\s*\n+([A-Z][A-Za-z\s]+)/i);
-    if (fatherMatch && fatherMatch[1]) {
-      const cleaned = cleanValue(fatherMatch[1]);
-      if (cleaned.length > 3 && !NAME_BLOCKLIST.test(cleaned)) {
-        fields.father_name = {
-          value: cleaned,
-          confidence: 0.8,
-          source: fileName,
-          raw: fatherMatch[0],
-        };
+    const fatherPatterns = [
+      /Father'?s?\s*Name\s*[\s\n:]+([A-Z][A-Za-z\s]{2,40})/i,
+      /(?:S\/O|D\/O|W\/O)[:\s]+([A-Z][A-Za-z\s]{2,40})/i,
+    ];
+
+    for (const pattern of fatherPatterns) {
+      const fatherMatch = text.match(pattern);
+      if (fatherMatch && fatherMatch[1]) {
+        const cleaned = cleanValue(fatherMatch[1]);
+        if (cleaned.length > 3 && !NAME_BLOCKLIST.test(cleaned)) {
+          fields.father_name = {
+            value: cleaned,
+            confidence: 0.8,
+            source: fileName,
+            raw: fatherMatch[0],
+          };
+          break;
+        }
       }
     }
 

@@ -111,7 +111,7 @@ export async function getDocumentView(
     documentId: doc.id,
     fileName: doc.originalName,
     contentType: doc.contentType,
-    size: doc.size,
+    size: typeof doc.size === 'bigint' ? Number(doc.size) : doc.size,
     status: doc.status,
     viewUrl,
     expiresIn: PRESIGNED_DOWNLOAD_TTL_SECONDS,

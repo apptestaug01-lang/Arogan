@@ -18,6 +18,7 @@ import { linkDocument } from '../services/link.service.js'
 import { AutoFillService } from '../modules/documentExtraction/autoFillService.js'
 import {
   documentPresignSchema,
+  documentPresignBatchSchema,
   documentCompleteSchema,
   completeMultipartSchema,
   abortMultipartSchema,
@@ -49,6 +50,43 @@ router.post(
   },
 )
 
+router.post(
+  '/presign-batch',
+  authMiddleware,
+  requireAuth,
+  validate(documentPresignBatchSchema),
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const body = req.body as {
+        applicationId?: string
+        files: Array<{ fileName: string; contentType: string; contentLength: number }>
+      }
+
+      const results = await Promise.allSettled(
+        body.files.map((f) =>
+          presignDocument({
+            userId: req.user!.id,
+            applicationId: body.applicationId,
+            fileName: f.fileName,
+            contentType: f.contentType,
+            contentLength: f.contentLength,
+          }),
+        ),
+      )
+
+      const response = results.map((r, i) =>
+        r.status === 'fulfilled'
+          ? { ...r.value, fileName: body.files[i].fileName, error: null }
+          : { fileName: body.files[i].fileName, error: (r.reason as Error).message },
+      )
+
+      sendSuccess(res, 'Batch presign complete', { files: response }, 200)
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
 router.get(
   '/explorer',
   authMiddleware,
@@ -56,14 +94,16 @@ router.get(
   validate(explorerQuerySchema, 'query'),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { prefix, continuation } = req.query as {
+       const { prefix, continuation, showDerived } = req.query as {
         prefix?: string
         continuation?: string
+        showDerived?: string
       }
       const result = await listExplorer({
         userId: req.user!.id,
         prefix,
         continuationToken: continuation,
+        showDerived: showDerived === 'true',
       })
       sendSuccess(res, 'Explorer listing', result)
     } catch (err) {

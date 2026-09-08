@@ -17,11 +17,13 @@ import {
 import {
   formatFileSizeDisplay,
   getContentTypeForFile,
+  isAllowedFileType,
   MULTIPART_THRESHOLD_BYTES,
   MULTIPART_CONCURRENCY,
 } from '@/constants/documents';
 import {
   processUploadInput,
+  processDroppedItems,
   validateProcessedFile,
   deduplicateFiles,
   ProcessedFile,
@@ -380,16 +382,41 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
       if (!list || list.length === 0) return;
       const folderPrefix = firstFilePath
         ? (() => {
-            const firstSlash = firstFilePath.indexOf('/')
-            return firstSlash >= 0 ? firstFilePath.substring(0, firstSlash + 1) : ''
+            const firstSlash = firstFilePath.indexOf('/');
+            return firstSlash >= 0 ? firstFilePath.substring(0, firstSlash + 1) : '';
           })()
-        : undefined
-      const processed = await processUploadInput(list, folderPrefix)
-      const items = addUploadItems(processed)
-      items.forEach(startUpload)
+        : undefined;
+      const processed = await processUploadInput(list, folderPrefix);
+      const items = addUploadItems(processed);
+      items.forEach(startUpload);
     },
     [addUploadItems, startUpload],
-  )
+  );
+
+  const handleFileInput = React.useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      await handleFiles(e.target.files);
+      e.target.value = '';
+    },
+    [handleFiles],
+  );
+
+  const handleFolderInput = React.useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      const folderPrefix = (() => {
+        const first = e.target.files[0]?.webkitRelativePath ?? '';
+        const slash = first.indexOf('/');
+        return slash >= 0 ? first.substring(0, slash + 1) : '';
+      })();
+      const processed = await processUploadInput(e.target.files, folderPrefix);
+      const allowed = processed.filter(({ file }) => isAllowedFileType(file));
+      const items = addUploadItems(allowed);
+      items.forEach(startUpload);
+      e.target.value = '';
+    },
+    [addUploadItems, startUpload],
+  );
 
   const cancelUpload = React.useCallback(
     (item: UploadItem) => {
@@ -470,11 +497,16 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
     setDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragging(false);
-    handleFiles(e.dataTransfer.files);
-  };
+  const handleDrop = React.useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragging(false);
+      const processed = await processDroppedItems(e.dataTransfer);
+      const items = addUploadItems(processed);
+      items.forEach(startUpload);
+    },
+    [addUploadItems, startUpload],
+  );
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -517,14 +549,14 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           multiple
           accept={ACCEPTED_EXT}
           className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
+          onChange={handleFileInput}
         />
         <input
           ref={folderInputRef}
           type="file"
           multiple
           className="hidden"
-          onChange={(e) => handleFiles(e.target.files, e.target.files?.[0]?.webkitRelativePath)}
+          onChange={handleFolderInput}
         />
       </div>
 
