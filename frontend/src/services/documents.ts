@@ -21,10 +21,12 @@ export interface ExplorerResult {
 export async function getExplorer(
   prefix?: string,
   continuation?: string,
+  showDerived?: boolean,
 ): Promise<ExplorerResult> {
   const params: Record<string, string> = {};
   if (prefix) params.prefix = prefix;
   if (continuation) params.continuation = continuation;
+  if (showDerived) params.showDerived = 'true';
 
   const res = await api.get<{ data: ExplorerResult }>('/documents/explorer', { params });
   return res.data.data;
