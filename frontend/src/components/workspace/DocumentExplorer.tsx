@@ -43,6 +43,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<SortKey>('name');
+  const [showDerived, setShowDerived] = React.useState(false);
   const toast = useToast();
   const [deleteTarget, setDeleteTarget] = React.useState<ExplorerEntry | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -51,7 +52,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
     setLoading(true);
     setError(null);
     try {
-      const res = await getExplorer(p || undefined, token);
+      const res = await getExplorer(p || undefined, token, showDerived);
       setFolders(res.folders);
       setFiles(res.files);
       setNextToken(res.nextToken);
@@ -63,7 +64,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showDerived]);
 
   React.useEffect(() => {
     load(prefix, undefined);
@@ -128,7 +129,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
   const loadMore = () => {
     if (!nextToken) return;
     setLoading(true);
-    getExplorer(prefix || undefined, nextToken)
+    getExplorer(prefix || undefined, nextToken, showDerived)
       .then((res) => {
         setFolders((prev) => [...prev, ...res.folders]);
         setFiles((prev) => [...prev, ...res.files]);
@@ -182,6 +183,20 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
               <option value="modified">Modified</option>
             </select>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowDerived((v) => !v)}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm transition-colors',
+              showDerived
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-background hover:bg-muted',
+            )}
+            aria-pressed={showDerived}
+          >
+            <FileJson className="h-4 w-4" />
+            Show archives
+          </button>
         </div>
       </CardHeader>
       <CardContent className="p-0">

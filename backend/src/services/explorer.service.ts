@@ -21,6 +21,7 @@ export interface ListExplorerInput {
   userId: string
   prefix?: string
   continuationToken?: string
+  showDerived?: boolean
 }
 
 export interface ListExplorerResult {
@@ -80,7 +81,7 @@ export async function listExplorer(
   const folders: ExplorerEntry[] = (result.CommonPrefixes ?? [])
     .filter((cp) => {
       const key = cp.Prefix ?? ''
-      if (key.startsWith('.loanflow/')) return false
+      if (key.startsWith('.loanflow/') && !input.showDerived) return false
       return true
     })
     .map((cp) => {
@@ -89,7 +90,12 @@ export async function listExplorer(
       return { name, type: 'folder', key }
     })
 
-  const rawFiles = (result.Contents ?? []).filter((o) => (o.Key ?? '') !== base)
+  const rawFiles = (result.Contents ?? []).filter((o) => {
+      const key = o.Key ?? ''
+      if (key === base) return false
+      if (key.startsWith('.loanflow/') && !input.showDerived) return false
+      return true
+    })
 
   const documentIdByKey = new Map<string, { id: string; status: string }>()
   if (rawFiles.length > 0) {
