@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusinessLoanApp — Gaps Analysis</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --text: #e2e8f0;
+      --muted: #8892b0;
+      --accent: #7c6af7;
+      --accent2: #5eead4;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --orange: #fb923c;
+      --green: #34d399;
+      --code-bg: #141824;
+      --radius: 10px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 2rem;
+      margin-bottom: 2.5rem;
+    }
+    .header .eyebrow {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    .header .meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* Status box */
+    .status-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--green);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .status-box h2 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 0.75rem;
+    }
+    .status-box ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .status-box li::before {
+      content: '✓ ';
+      color: var(--green);
+      font-weight: 700;
+    }
+    .status-box li {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    /* Summary table */
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 2.5rem;
+    }
+    thead tr {
+      background: var(--surface2);
+    }
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:hover td { background: var(--surface); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-red    { background: rgba(248,113,113,0.15); color: var(--red); }
+    .badge-yellow { background: rgba(251,191,36,0.15);  color: var(--yellow); }
+    .badge-orange { background: rgba(251,146,60,0.15);  color: var(--orange); }
+    .badge-be     { background: rgba(124,106,247,0.15); color: var(--accent); }
+    .badge-fe     { background: rgba(94,234,212,0.15);  color: var(--accent2); }
+    .badge-db     { background: rgba(248,113,113,0.1);  color: #f9a8d4; }
+
+    /* Gap cards */
+    .gaps { display: flex; flex-direction: column; gap: 2rem; margin-bottom: 3rem; }
+
+    .gap-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .gap-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .gap-number {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .num-red    { background: rgba(248,113,113,0.2); color: var(--red); }
+    .num-yellow { background: rgba(251,191,36,0.2);  color: var(--yellow); }
+    .num-orange { background: rgba(251,146,60,0.2);  color: var(--orange); }
+
+    .gap-title-block { flex: 1; }
+    .gap-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.3rem;
+    }
+    .gap-file {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    .gap-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; }
+
+    .gap-body { padding: 1.25rem 1.5rem; }
+    .gap-body p {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .gap-body p:last-child { margin-bottom: 0; }
+
+    /* Code blocks */
+    .code-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      margin-top: 1rem;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: #cdd6f4;
+      margin-bottom: 0.75rem;
+    }
+    pre .kw  { color: #cba6f7; }
+    pre .str { color: #a6e3a1; }
+    pre .cm  { color: #6c7086; font-style: italic; }
+    pre .fn  { color: #89b4fa; }
+    pre .num { color: #fab387; }
+    pre .type{ color: #f38ba8; }
+
+    /* Files table */
+    .files-table { margin-top: 2rem; }
+    .files-table td:first-child {
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: var(--accent2);
+    }
+    .action-create { color: var(--green); font-weight: 700; }
+    .action-modify { color: var(--yellow); font-weight: 700; }
+
+    /* Divider */
+    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="eyebrow">BusinessLoanApp · Internal Docs</div>
+    <h1>Gaps Analysis</h1>
+    <div class="meta">
+      Generated: 2026-09-08 &nbsp;·&nbsp;
+      Scope: B2/S3 storage · document upload pipeline · document-to-JSON extraction &nbsp;·&nbsp;
+      Bucket: <code>loanflow-documents / borrowers</code>
+    </div>
+  </div>
+
+  <!-- What is correct -->
+  <div class="status-box">
+    <h2>✅ Storage &amp; B2 Integration — What Is Correct</h2>
+    <ul>
+      <li><code>storage.config.ts</code> auto-detects B2 credentials and builds the correct S3-compatible endpoint</li>
+      <li>S3 client uses <code>forcePathStyle: true</code> and <code>requestChecksumCalculation: 'WHEN_REQUIRED'</code> — both required for B2</li>
+      <li>Bucket key layout <code>borrowers/{userId}/applications/{appId}/documents/{docId}/{fileName}</code> matches target path</li>
+      <li>Presign → Upload → Complete flow is correct; multipart is also implemented</li>
+      <li>Archive keys go to <code>.loanflow/{docId}/document.json</code> — separate from borrower docs</li>
+    </ul>
+  </div>
+
+  <!-- Summary table -->
+  <div class="section-title">Gap Summary</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Gap</th>
+        <th>Area</th>
+        <th>Severity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><code>Document.size</code> typed as <code>Int</code> — overflows for files &gt;2.1 GB</td><td><span class="badge badge-db">DB</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>2</td><td><code>documentType</code> not written back to <code>Document</code> row after extraction</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>3</td><td><code>INCORPORATION_CERT</code> regex extractor missing</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>4</td><td><code>SANCTION_LETTER</code> regex extractor missing</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>5</td><td>Archive worker queue never processed — no scheduler trigger</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>6</td><td>Folder drag-drop broken — <code>DataTransfer.files</code> does not traverse directories</td><td><span class="badge badge-fe">Frontend</span></td><td><span class="badge badge-red">🔴 High</span></td></tr>
+      <tr><td>7</td><td>No batch presign endpoint — 10 docs = 10 serial API calls</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>8</td><td>Extraction stuck in <code>processing</code> on failure — no retry or timeout recovery</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>9</td><td><code>documentConverter.ts</code> OCR fallback not used by extraction pipeline</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>10</td><td>PAN <code>father_name</code> regex too strict — requires newline, fails on OCR output</td><td><span class="badge badge-be">Backend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>11</td><td>Folder picker: disallowed files show error toasts instead of silent skip</td><td><span class="badge badge-fe">Frontend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>12</td><td><code>filterAllowedFiles</code> is dead code — ZIP-extracted files bypass silent filtering</td><td><span class="badge badge-fe">Frontend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>13</td><td>File input does not reset — same file cannot be re-selected after error or cancel</td><td><span class="badge badge-fe">Frontend</span></td><td><span class="badge badge-yellow">🟡 Medium</span></td></tr>
+      <tr><td>14</td><td><code>applicationId</code> has no FK constraint — silent orphan document risk</td><td><span class="badge badge-db">DB</span></td><td><span class="badge badge-orange">🟠 Low</span></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Gap cards -->
+  <div class="section-title">Implementation Chunks</div>
+  <div class="gaps">
+
+    <!-- Gap 1 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">1</div>
+        <div class="gap-title-block">
+          <div class="gap-title">Document.size Int overflow</div>
+          <div class="gap-file">backend/prisma/schema.prisma</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-db">DB</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>PostgreSQL <code>Int</code> is 32-bit (max ~2.1 GB). The upload limit is 5 GB. A file between 2.1 GB and 5 GB will silently overflow or throw a Prisma error at the <code>completeDocument</code> step. Also add <code>documentType String?</code> here for Gap 2.</p>
+        <div class="code-label">schema.prisma — Document model patch</div>
+        <pre><span class="kw">model</span> <span class="type">Document</span> {
+  id            String         @id
+  userId        String
+  applicationId String
+  category      String?
+  <span class="cm">// ADD ↓</span>
+  documentType  String?
+  s3Key         String         @unique
+  originalName  String
+  contentType   String
+  <span class="cm">// CHANGE ↓  was: size Int</span>
+  size          <span class="type">BigInt</span>
+  checksum      String
+  status        DocumentStatus @default(PENDING)
+  ...
+}</pre>
+        <div class="code-label">Migration</div>
+        <pre>npx prisma migrate dev --name add-document-type-bigint</pre>
+      </div>
+    </div>
+
+    <!-- Gap 2 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">2</div>
+        <div class="gap-title-block">
+          <div class="gap-title">documentType not written back after extraction</div>
+          <div class="gap-file">backend/src/modules/documentExtraction/extractionPipeline.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>category</code> is hardcoded to <code>'Documents'</code> at upload time. The actual document type (PAN_CARD, AADHAAR, etc.) is only known after extraction but is never written back to the <code>Document</code> table — only stored in <code>DocumentExtraction.documentType</code>.</p>
+        <div class="code-label">extractionPipeline.ts — add after prisma.documentExtraction.update() succeeds</div>
+        <pre><span class="cm">// Write documentType back to the Document row so it's queryable</span>
+<span class="kw">await</span> <span class="kw">this</span>.prisma.document.<span class="fn">update</span>({
+  where: { id: doc.id },
+  data: { documentType: classification.type },
+}).<span class="fn">catch</span>((err) => {
+  logger.<span class="fn">warn</span>(
+    { documentId: doc.id, err },
+    <span class="str">'[ExtractionPipeline] failed to write documentType back to Document'</span>,
+  );
+});</pre>
+      </div>
+    </div>
+
+    <!-- Gap 3 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">3</div>
+        <div class="gap-title-block">
+          <div class="gap-title">INCORPORATION_CERT extractor missing</div>
+          <div class="gap-file">backend/src/modules/documentExtraction/extractors/incorporationExtractor.ts  ← CREATE</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>The classifier detects <code>INCORPORATION_CERT</code> but no regex extractor exists. Only LLM (if configured) extracts fields — regex fallback returns zero fields for CIN, company name, date of incorporation, business type, and signatory.</p>
+        <div class="code-label">incorporationExtractor.ts</div>
+        <pre><span class="kw">import</span> { ExtractedField } <span class="kw">from</span> <span class="str">'../types.js'</span>;
+<span class="kw">import</span> { Extractor } <span class="kw">from</span> <span class="str">'./panExtractor.js'</span>;
+
+<span class="kw">const</span> <span class="fn">clean</span> = (v: <span class="type">string</span>) => v.<span class="fn">replace</span>(/\s+/g, <span class="str">' '</span>).<span class="fn">trim</span>();
+
+<span class="kw">export class</span> <span class="type">IncorporationCertExtractor</span> <span class="kw">implements</span> <span class="type">Extractor</span> {
+  <span class="kw">readonly</span> documentType = <span class="str">'INCORPORATION_CERT'</span>;
+
+  <span class="fn">extract</span>(text: <span class="type">string</span>, fileName: <span class="type">string</span>): Record&lt;<span class="type">string</span>, <span class="type">ExtractedField</span>&gt; {
+    <span class="kw">const</span> fields: Record&lt;<span class="type">string</span>, <span class="type">ExtractedField</span>&gt; = {};
+
+    <span class="cm">// CIN: U/L + 5 digits + 2 alpha + 4 digits + 3 alpha + 6 digits</span>
+    <span class="kw">const</span> cinMatch = text.<span class="fn">match</span>(/([UL]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6})/);
+    <span class="kw">if</span> (cinMatch) {
+      fields.cin = { value: cinMatch[<span class="num">1</span>], confidence: <span class="num">0.99</span>, source: fileName, raw: cinMatch[<span class="num">0</span>] };
+    }
+
+    <span class="kw">const</span> namePatterns = [
+      /(?:Name\s*of\s*(?:the\s*)?Company|Company\s*Name)\s*[:\n]\s*([A-Z][A-Za-z0-9\s&amp;.,()-]+(?:LIMITED|LLP|PRIVATE|PVT\.?\s*LTD\.?))/i,
+      /certify\s+that\s+([A-Z][A-Za-z0-9\s&amp;.,()-]+(?:LIMITED|LLP|PRIVATE|PVT\.?\s*LTD\.?))/i,
+    ];
+    <span class="kw">for</span> (<span class="kw">const</span> p <span class="kw">of</span> namePatterns) {
+      <span class="kw">const</span> m = text.<span class="fn">match</span>(p);
+      <span class="kw">if</span> (m?.[<span class="num">1</span>]) {
+        <span class="kw">const</span> name = <span class="fn">clean</span>(m[<span class="num">1</span>]);
+        <span class="kw">if</span> (name.length > <span class="num">3</span>) {
+          fields.companyName = { value: name, confidence: <span class="num">0.9</span>, source: fileName, raw: m[<span class="num">0</span>] };
+          <span class="kw">break</span>;
+        }
+      }
+    }
+
+    <span class="kw">const</span> doiPatterns = [
+      /(?:Date\s*of\s*Incorporation|Incorporated\s*on)\s*[:\n]?\s*(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      /(\d{2}[/-]\d{2}[/-]\d{4})/,
+    ];
+    <span class="kw">for</span> (<span class="kw">const</span> p <span class="kw">of</span> doiPatterns) {
+      <span class="kw">const</span> m = text.<span class="fn">match</span>(p);
+      <span class="kw">if</span> (m) {
+        fields.dateOfIncorporation = { value: m[<span class="num">1</span>], confidence: <span class="num">0.85</span>, source: fileName, raw: m[<span class="num">0</span>] };
+        <span class="kw">break</span>;
+      }
+    }
+
+    <span class="kw">const</span> bizMatch = text.<span class="fn">match</span>(
+      /(Private\s*Limited|Public\s*Limited|LLP|One\s*Person\s*Company|Proprietorship|Partnership)/i,
+    );
+    <span class="kw">if</span> (bizMatch) {
+      fields.businessType = { value: <span class="fn">clean</span>(bizMatch[<span class="num">1</span>]), confidence: <span class="num">0.9</span>, source: fileName, raw: bizMatch[<span class="num">0</span>] };
+    }
+
+    <span class="kw">const</span> sigMatch = text.<span class="fn">match</span>(
+      /(?:Registrar|Authorized\s*Signatory|Signed\s*by)\s*[:\n]?\s*([A-Z][A-Za-z\s.]+)/i,
+    );
+    <span class="kw">if</span> (sigMatch?.[<span class="num">1</span>]) {
+      <span class="kw">const</span> sig = <span class="fn">clean</span>(sigMatch[<span class="num">1</span>]);
+      <span class="kw">if</span> (sig.length > <span class="num">3</span>) {
+        fields.signatory = { value: sig, confidence: <span class="num">0.75</span>, source: fileName, raw: sigMatch[<span class="num">0</span>] };
+      }
+    }
+
+    <span class="kw">return</span> fields;
+  }
+}</pre>
+        <div class="code-label">Register in extractors/index.ts</div>
+        <pre><span class="kw">import</span> { IncorporationCertExtractor } <span class="kw">from</span> <span class="str">'./incorporationExtractor.js'</span>;
+<span class="cm">// add to registry array:</span>
+<span class="kw">new</span> <span class="fn">IncorporationCertExtractor</span>(),</pre>
+      </div>
+    </div>
+
+    <!-- Gap 4 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">4</div>
+        <div class="gap-title-block">
+          <div class="gap-title">SANCTION_LETTER extractor missing</div>
+          <div class="gap-file">backend/src/modules/documentExtraction/extractors/sanctionLetterExtractor.ts  ← CREATE</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>Same issue as Gap 3 — classified but no regex extractor. Fields <code>loanAmount</code>, <code>tenor</code>, <code>interestRate</code>, <code>productType</code>, <code>purpose</code>, <code>collateral</code> are never extracted by regex. Normalizes lakhs/crores to absolute numbers.</p>
+        <div class="code-label">sanctionLetterExtractor.ts</div>
+        <pre><span class="kw">import</span> { ExtractedField } <span class="kw">from</span> <span class="str">'../types.js'</span>;
+<span class="kw">import</span> { Extractor } <span class="kw">from</span> <span class="str">'./panExtractor.js'</span>;
+
+<span class="kw">const</span> <span class="fn">parseNum</span> = (v: <span class="type">string</span>) => {
+  <span class="kw">const</span> n = <span class="fn">parseFloat</span>(v.<span class="fn">replace</span>(/[₹,\s]/g, <span class="str">''</span>));
+  <span class="kw">return</span> <span class="fn">isNaN</span>(n) ? <span class="kw">null</span> : n;
+};
+
+<span class="kw">export class</span> <span class="type">SanctionLetterExtractor</span> <span class="kw">implements</span> <span class="type">Extractor</span> {
+  <span class="kw">readonly</span> documentType = <span class="str">'SANCTION_LETTER'</span>;
+
+  <span class="fn">extract</span>(text: <span class="type">string</span>, fileName: <span class="type">string</span>): Record&lt;<span class="type">string</span>, <span class="type">ExtractedField</span>&gt; {
+    <span class="kw">const</span> fields: Record&lt;<span class="type">string</span>, <span class="type">ExtractedField</span>&gt; = {};
+
+    <span class="cm">// Loan amount — normalize lakhs/crores</span>
+    <span class="kw">const</span> amtPatterns = [
+      /(?:Loan\s*Amount|Sanctioned\s*Amount|Credit\s*Limit|Facility\s*Amount)\s*[:\n]?\s*₹?\s*([\d,.\s]+(?:Lakhs?|Crores?|Cr\.?)?)/i,
+      /(?:Amount\s*of\s*(?:Loan|Facility))\s*[:\n]?\s*₹?\s*([\d,.\s]+)/i,
+    ];
+    <span class="kw">for</span> (<span class="kw">const</span> p <span class="kw">of</span> amtPatterns) {
+      <span class="kw">const</span> m = text.<span class="fn">match</span>(p);
+      <span class="kw">if</span> (m) {
+        <span class="kw">const</span> raw = m[<span class="num">1</span>].<span class="fn">trim</span>();
+        <span class="kw">let</span> val = <span class="fn">parseNum</span>(raw.<span class="fn">replace</span>(/Lakhs?/i, <span class="str">''</span>).<span class="fn">replace</span>(/Crores?|Cr\.?/i, <span class="str">''</span>));
+        <span class="kw">if</span> (val !== <span class="kw">null</span>) {
+          <span class="kw">if</span> (/Crore/i.<span class="fn">test</span>(raw)) val *= <span class="num">10_000_000</span>;
+          <span class="kw">else if</span> (/Lakh/i.<span class="fn">test</span>(raw)) val *= <span class="num">100_000</span>;
+          fields.loanAmount = { value: val, confidence: <span class="num">0.9</span>, source: fileName, raw: m[<span class="num">0</span>] };
+          <span class="kw">break</span>;
+        }
+      }
+    }
+
+    <span class="cm">// Tenor (months)</span>
+    <span class="kw">const</span> tenorMatch = text.<span class="fn">match</span>(
+      /(?:Tenor|Tenure|Repayment\s*Period)\s*[:\n]?\s*(\d+)\s*(?:Months?|Years?)/i,
+    );
+    <span class="kw">if</span> (tenorMatch) {
+      <span class="kw">let</span> months = <span class="fn">parseInt</span>(tenorMatch[<span class="num">1</span>], <span class="num">10</span>);
+      <span class="kw">if</span> (/Year/i.<span class="fn">test</span>(tenorMatch[<span class="num">0</span>])) months *= <span class="num">12</span>;
+      fields.tenor = { value: months, confidence: <span class="num">0.88</span>, source: fileName, raw: tenorMatch[<span class="num">0</span>] };
+    }
+
+    <span class="cm">// Interest rate</span>
+    <span class="kw">const</span> rateMatch = text.<span class="fn">match</span>(
+      /(?:Interest\s*Rate|Rate\s*of\s*Interest|ROI)\s*[:\n]?\s*([\d.]+)\s*%?\s*(?:p\.?a\.?|per\s*annum)?/i,
+    );
+    <span class="kw">if</span> (rateMatch) {
+      <span class="kw">const</span> rate = <span class="fn">parseNum</span>(rateMatch[<span class="num">1</span>]);
+      <span class="kw">if</span> (rate !== <span class="kw">null</span>)
+        fields.interestRate = { value: rate, confidence: <span class="num">0.9</span>, source: fileName, raw: rateMatch[<span class="num">0</span>] };
+    }
+
+    <span class="kw">const</span> productMatch = text.<span class="fn">match</span>(
+      /(Term\s*Loan|Working\s*Capital|Project\s*Finance|LC\/BG|Cash\s*Credit|Overdraft)/i,
+    );
+    <span class="kw">if</span> (productMatch)
+      fields.productType = { value: productMatch[<span class="num">1</span>], confidence: <span class="num">0.85</span>, source: fileName, raw: productMatch[<span class="num">0</span>] };
+
+    <span class="kw">const</span> purposeMatch = text.<span class="fn">match</span>(/(?:Purpose|End\s*Use)\s*[:\n]\s*([^\n.]+)/i);
+    <span class="kw">if</span> (purposeMatch?.[<span class="num">1</span>])
+      fields.purpose = { value: purposeMatch[<span class="num">1</span>].<span class="fn">trim</span>(), confidence: <span class="num">0.8</span>, source: fileName, raw: purposeMatch[<span class="num">0</span>] };
+
+    <span class="kw">const</span> collateralMatch = text.<span class="fn">match</span>(/(?:Collateral|Security|Mortgage)\s*[:\n]\s*([^\n.]+)/i);
+    <span class="kw">if</span> (collateralMatch?.[<span class="num">1</span>])
+      fields.collateral = { value: collateralMatch[<span class="num">1</span>].<span class="fn">trim</span>(), confidence: <span class="num">0.75</span>, source: fileName, raw: collateralMatch[<span class="num">0</span>] };
+
+    <span class="kw">return</span> fields;
+  }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Gap 5 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">5</div>
+        <div class="gap-title-block">
+          <div class="gap-title">Archive worker queue never processed</div>
+          <div class="gap-file">backend/src/modules/documentArchive/scheduler.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>archiveWorker.enqueue()</code> is called in <code>completeDocument()</code> but <code>archiveWorker.process()</code> is never triggered. The queue grows indefinitely and no documents are ever archived.</p>
+        <div class="code-label">scheduler.ts — replace</div>
+        <pre><span class="kw">import</span> { archiveWorker } <span class="kw">from</span> <span class="str">'./worker.js'</span>;
+<span class="kw">import</span> logger <span class="kw">from</span> <span class="str">'../../middleware/logger.js'</span>;
+
+<span class="kw">const</span> POLL_INTERVAL_MS = <span class="num">5_000</span>;
+<span class="kw">let</span> timer: NodeJS.Timeout | <span class="kw">null</span> = <span class="kw">null</span>;
+
+<span class="kw">export function</span> <span class="fn">startArchiveScheduler</span>(): <span class="type">void</span> {
+  <span class="kw">if</span> (timer) <span class="kw">return</span>;
+  logger.<span class="fn">info</span>(<span class="str">'[ArchiveScheduler] Starting — polling every 5 s'</span>);
+  <span class="kw">const</span> tick = <span class="kw">async</span> () => {
+    <span class="kw">try</span> {
+      <span class="kw">await</span> archiveWorker.<span class="fn">process</span>();
+    } <span class="kw">catch</span> (err) {
+      logger.<span class="fn">error</span>({ err }, <span class="str">'[ArchiveScheduler] tick error'</span>);
+    } <span class="kw">finally</span> {
+      timer = <span class="fn">setTimeout</span>(tick, POLL_INTERVAL_MS);
+    }
+  };
+  timer = <span class="fn">setTimeout</span>(tick, POLL_INTERVAL_MS);
+}
+
+<span class="kw">export function</span> <span class="fn">stopArchiveScheduler</span>(): <span class="type">void</span> {
+  <span class="kw">if</span> (timer) { <span class="fn">clearTimeout</span>(timer); timer = <span class="kw">null</span>; }
+}</pre>
+        <div class="code-label">server.ts — wire up after app.listen()</div>
+        <pre><span class="kw">import</span> { startArchiveScheduler } <span class="kw">from</span> <span class="str">'./modules/documentArchive/scheduler.js'</span>;
+<span class="fn">startArchiveScheduler</span>();</pre>
+      </div>
+    </div>
+
+    <!-- Gap 6 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-red">6</div>
+        <div class="gap-title-block">
+          <div class="gap-title">Folder drag-drop broken</div>
+          <div class="gap-file">frontend/src/lib/upload/fileProcessor.ts &amp; FileDropzone.tsx</div>
+          <div class="gap-badges">
+            <span class="badge badge-red">🔴 High</span>
+            <span class="badge badge-fe">Frontend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>handleDrop</code> calls <code>handleFiles(e.dataTransfer.files)</code> but <code>DataTransfer.files</code> from a folder drop only contains the folder object itself (zero-byte) in most browsers. The fix uses the <code>FileSystemEntry</code> / <code>webkitGetAsEntry()</code> API to recursively traverse dropped directories.</p>
+        <div class="code-label">fileProcessor.ts — add traversal helpers</div>
+        <pre><span class="kw">export async function</span> <span class="fn">traverseEntry</span>(
+  entry: <span class="type">FileSystemEntry</span>,
+  path = <span class="str">''</span>,
+): Promise&lt;<span class="type">ProcessedFile</span>[]&gt; {
+  <span class="kw">if</span> (entry.isFile) {
+    <span class="kw">const</span> file = <span class="kw">await new</span> <span class="fn">Promise</span>&lt;<span class="type">File</span>&gt;((res, rej) =>
+      (entry <span class="kw">as</span> <span class="type">FileSystemFileEntry</span>).<span class="fn">file</span>(res, rej),
+    );
+    <span class="kw">const</span> relativePath = path ? <span class="str">`${path}/${file.name}`</span> : file.name;
+    <span class="kw">return</span> [{ file, originalName: file.name, size: file.size, relativePath }];
+  }
+  <span class="kw">if</span> (entry.isDirectory) {
+    <span class="kw">const</span> reader = (entry <span class="kw">as</span> <span class="type">FileSystemDirectoryEntry</span>).<span class="fn">createReader</span>();
+    <span class="kw">const</span> all: <span class="type">FileSystemEntry</span>[] = [];
+    <span class="kw">await new</span> <span class="fn">Promise</span>&lt;<span class="type">void</span>&gt;((res, rej) => {
+      <span class="kw">const</span> read = () =>
+        reader.<span class="fn">readEntries</span>((entries) => {
+          <span class="kw">if</span> (!entries.length) <span class="kw">return</span> <span class="fn">res</span>();
+          all.<span class="fn">push</span>(...entries); <span class="fn">read</span>();
+        }, rej);
+      <span class="fn">read</span>();
+    });
+    <span class="kw">const</span> folderPath = path ? <span class="str">`${path}/${entry.name}`</span> : entry.name;
+    <span class="kw">const</span> results: <span class="type">ProcessedFile</span>[] = [];
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> all)
+      results.<span class="fn">push</span>(...<span class="kw">await</span> <span class="fn">traverseEntry</span>(child, folderPath));
+    <span class="kw">return</span> results;
+  }
+  <span class="kw">return</span> [];
+}
+
+<span class="kw">export async function</span> <span class="fn">processDroppedItems</span>(dt: <span class="type">DataTransfer</span>): Promise&lt;<span class="type">ProcessedFile</span>[]&gt; {
+  <span class="kw">const</span> items = Array.<span class="fn">from</span>(dt.items);
+  <span class="kw">if</span> (!items.length || <span class="kw">typeof</span> items[<span class="num">0</span>].webkitGetAsEntry !== <span class="str">'function'</span>)
+    <span class="kw">return</span> <span class="fn">processUploadInput</span>(dt.files);
+
+  <span class="kw">const</span> results: <span class="type">ProcessedFile</span>[] = [];
+  <span class="kw">for</span> (<span class="kw">const</span> item <span class="kw">of</span> items) {
+    <span class="kw">const</span> entry = item.<span class="fn">webkitGetAsEntry</span>();
+    <span class="kw">if</span> (entry) results.<span class="fn">push</span>(...<span class="kw">await</span> <span class="fn">traverseEntry</span>(entry));
+  }
+  <span class="cm">// Expand ZIPs found inside dropped folders</span>
+  <span class="kw">const</span> final: <span class="type">ProcessedFile</span>[] = [];
+  <span class="kw">for</span> (<span class="kw">const</span> pf <span class="kw">of</span> results)
+    final.<span class="fn">push</span>(...(<span class="fn">isZipFile</span>(pf.file) ? <span class="kw">await</span> <span class="fn">extractZipFiles</span>(pf.file) : [pf]));
+  <span class="kw">return</span> final;
+}</pre>
+        <div class="code-label">FileDropzone.tsx — replace handleDrop</div>
+        <pre><span class="kw">import</span> { processDroppedItems } <span class="kw">from</span> <span class="str">'@/lib/upload/fileProcessor'</span>;
+
+<span class="kw">const</span> handleDrop = React.<span class="fn">useCallback</span>(
+  <span class="kw">async</span> (e: React.DragEvent&lt;<span class="type">HTMLDivElement</span>&gt;) => {
+    e.<span class="fn">preventDefault</span>();
+    <span class="fn">setDragging</span>(<span class="kw">false</span>);
+    <span class="kw">const</span> processed = <span class="kw">await</span> <span class="fn">processDroppedItems</span>(e.dataTransfer);
+    <span class="kw">const</span> items = <span class="fn">addUploadItems</span>(processed);
+    items.<span class="fn">forEach</span>(startUpload);
+  },
+  [addUploadItems, startUpload],
+);</pre>
+      </div>
+    </div>
+
+    <!-- Gap 7 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">7</div>
+        <div class="gap-title-block">
+          <div class="gap-title">No batch presign endpoint</div>
+          <div class="gap-file">backend/src/routes/documents.routes.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>Uploading 10 documents requires 10 sequential presign API calls from the frontend. A batch endpoint lets the frontend presign all files in one round-trip.</p>
+        <div class="code-label">documents.routes.ts — add after /presign route</div>
+        <pre>router.<span class="fn">post</span>(
+  <span class="str">'/presign-batch'</span>,
+  authMiddleware, requireAuth,
+  <span class="kw">async</span> (req, res, next) => {
+    <span class="kw">try</span> {
+      <span class="kw">const</span> { files, applicationId } = req.body <span class="kw">as</span> {
+        files: Array&lt;{ fileName: <span class="type">string</span>; contentType: <span class="type">string</span>; contentLength: <span class="type">number</span> }&gt;;
+        applicationId?: <span class="type">string</span>;
+      };
+      <span class="kw">if</span> (!Array.<span class="fn">isArray</span>(files) || !files.length || files.length > <span class="num">20</span>) {
+        <span class="fn">sendError</span>(res, <span class="str">'files must be a non-empty array of up to 20 items'</span>, <span class="num">400</span>);
+        <span class="kw">return</span>;
+      }
+      <span class="kw">const</span> results = <span class="kw">await</span> Promise.<span class="fn">allSettled</span>(
+        files.<span class="fn">map</span>((f) => <span class="fn">presignDocument</span>({ userId: req.user!.id, applicationId, ...f })),
+      );
+      <span class="fn">sendSuccess</span>(res, <span class="str">'Batch presign complete'</span>, {
+        files: results.<span class="fn">map</span>((r, i) =>
+          r.status === <span class="str">'fulfilled'</span>
+            ? { ...r.value, fileName: files[i].fileName, error: <span class="kw">null</span> }
+            : { fileName: files[i].fileName, error: (r.reason <span class="kw">as</span> Error).message },
+        ),
+      });
+    } <span class="kw">catch</span> (err) { <span class="fn">next</span>(err); }
+  },
+);</pre>
+      </div>
+    </div>
+
+    <!-- Gap 8 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">8</div>
+        <div class="gap-title-block">
+          <div class="gap-title">Extraction stuck in processing on failure</div>
+          <div class="gap-file">backend/src/utils/triggerExtraction.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>triggerExtraction</code> is fire-and-forget. If it fails (LLM timeout, S3 error), the <code>DocumentExtraction</code> row stays in <code>processing</code> status forever with no retry and no recovery path.</p>
+        <div class="code-label">triggerExtraction.ts — replace</div>
+        <pre><span class="kw">import</span> { prisma } <span class="kw">from</span> <span class="str">'../lib/prisma.js'</span>;
+<span class="kw">import</span> logger <span class="kw">from</span> <span class="str">'../middleware/logger.js'</span>;
+
+<span class="kw">export async function</span> <span class="fn">triggerExtraction</span>(
+  userId: <span class="type">string</span>,
+  documentId: <span class="type">string</span>,
+  retries = <span class="num">3</span>,
+): Promise&lt;<span class="type">void</span>&gt; {
+  <span class="kw">for</span> (<span class="kw">let</span> attempt = <span class="num">1</span>; attempt &lt;= retries; attempt++) {
+    <span class="kw">try</span> {
+      <span class="kw">const</span> { AutoFillService } = <span class="kw">await import</span>(<span class="str">'../modules/documentExtraction/autoFillService.js'</span>);
+      <span class="kw">await new</span> <span class="fn">AutoFillService</span>().<span class="fn">extractFromDocument</span>(userId, documentId);
+      <span class="kw">return</span>;
+    } <span class="kw">catch</span> (err) {
+      <span class="kw">const</span> msg = err <span class="kw">instanceof</span> Error ? err.message : <span class="fn">String</span>(err);
+      logger.<span class="fn">warn</span>({ documentId, attempt, err: msg }, <span class="str">'[triggerExtraction] attempt failed'</span>);
+      <span class="kw">if</span> (attempt === retries) {
+        <span class="kw">await</span> prisma.documentExtraction
+          .<span class="fn">updateMany</span>({
+            where: { documentId, status: <span class="str">'processing'</span> },
+            data: { status: <span class="str">'failed'</span>, error: <span class="str">`All ${retries} attempts failed: ${msg}`</span> },
+          })
+          .<span class="fn">catch</span>(() => {});
+      } <span class="kw">else</span> {
+        <span class="kw">await new</span> <span class="fn">Promise</span>((r) => <span class="fn">setTimeout</span>(r, <span class="num">1000</span> * attempt));
+      }
+    }
+  }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Gap 9 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">9</div>
+        <div class="gap-title-block">
+          <div class="gap-title">documentConverter.ts OCR fallback not used by extraction pipeline</div>
+          <div class="gap-file">backend/src/modules/documentExtraction/extractionPipeline.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>documentConverter.ts</code> has OCR fallback via Tesseract + sharp preprocessing for scanned PDFs and images. The extraction pipeline uses its own <code>ParserRegistry</code> which duplicates this logic but without the same quality. Delegate <code>fetchAndParse</code> to the converter.</p>
+        <div class="code-label">extractionPipeline.ts — replace fetchAndParse body</div>
+        <pre><span class="kw">import</span> { convertDocument } <span class="kw">from</span> <span class="str">'../../utils/documentConverter.js'</span>;
+
+<span class="kw">private async</span> <span class="fn">fetchAndParse</span>(doc: <span class="type">PipelineDocumentInput</span>): Promise&lt;<span class="type">ParsedDocument</span>&gt; {
+  <span class="cm">// ... existing S3 fetch + size check ...</span>
+
+  <span class="kw">const</span> converted = <span class="kw">await</span> <span class="fn">convertDocument</span>(
+    body, contentType, doc.originalName, doc.s3Key,
+    { size: body.length, checksum: <span class="str">''</span> },
+  );
+
+  <span class="kw">const</span> rawText = (converted.rawText ?? <span class="str">''</span>).<span class="fn">slice</span>(<span class="num">0</span>, MAX_RAW_TEXT_CHARS);
+  <span class="kw">const</span> pages = (converted.pages ?? []).<span class="fn">map</span>((p, i) => ({
+    pageNumber: <span class="kw">typeof</span> p.pageNumber === <span class="str">'number'</span> ? p.pageNumber : i + <span class="num">1</span>,
+    text: <span class="kw">typeof</span> p.text === <span class="str">'string'</span> ? p.text : <span class="str">''</span>,
+  }));
+
+  <span class="kw">return</span> { documentId: doc.id, fileName: doc.originalName, contentType, rawText, pages };
+}</pre>
+      </div>
+    </div>
+
+    <!-- Gap 10 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">10</div>
+        <div class="gap-title-block">
+          <div class="gap-title">PAN father_name regex too strict</div>
+          <div class="gap-file">backend/src/modules/documentExtraction/extractors/panExtractor.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-be">Backend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>The pattern requires one or more newlines after "Father's Name". Real OCR output often has spaces or mixed whitespace. Also add <code>S/O</code>, <code>D/O</code>, <code>W/O</code> as fallback patterns.</p>
+        <div class="code-label">panExtractor.ts — replace father_name block</div>
+        <pre><span class="kw">const</span> fatherPatterns = [
+  /Father'?s?\s*Name\s*[\s\n:]+([A-Z][A-Za-z\s]{2,40})/i,
+  /(?:S\/O|D\/O|W\/O)[:\s]+([A-Z][A-Za-z\s]{2,40})/i,
+];
+
+<span class="kw">for</span> (<span class="kw">const</span> pattern <span class="kw">of</span> fatherPatterns) {
+  <span class="kw">const</span> fatherMatch = text.<span class="fn">match</span>(pattern);
+  <span class="kw">if</span> (fatherMatch?.[<span class="num">1</span>]) {
+    <span class="kw">const</span> cleaned = <span class="fn">cleanValue</span>(fatherMatch[<span class="num">1</span>]);
+    <span class="kw">if</span> (cleaned.length > <span class="num">3</span> &amp;&amp; !NAME_BLOCKLIST.<span class="fn">test</span>(cleaned)) {
+      fields.father_name = { value: cleaned, confidence: <span class="num">0.8</span>, source: fileName, raw: fatherMatch[<span class="num">0</span>] };
+      <span class="kw">break</span>;
+    }
+  }
+}</pre>
+      </div>
+    </div>
+
+    <!-- Gap 11 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">11</div>
+        <div class="gap-title-block">
+          <div class="gap-title">Folder picker: disallowed files show error toasts</div>
+          <div class="gap-file">frontend/src/components/workspace/FileDropzone.tsx</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-fe">Frontend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>When a user picks a folder, files with unsupported types (<code>.DS_Store</code>, <code>Thumbs.db</code>, etc.) trigger error toasts via <code>validateProcessedFile</code>. These should be silently filtered — the user didn't explicitly choose them.</p>
+        <div class="code-label">FileDropzone.tsx — add handleFolderInput + update folder input JSX</div>
+        <pre><span class="kw">import</span> { isAllowedFileType } <span class="kw">from</span> <span class="str">'@/constants/documents'</span>;
+
+<span class="kw">const</span> handleFolderInput = React.<span class="fn">useCallback</span>(
+  <span class="kw">async</span> (e: React.ChangeEvent&lt;<span class="type">HTMLInputElement</span>&gt;) => {
+    <span class="kw">if</span> (!e.target.files?.length) <span class="kw">return</span>;
+    <span class="kw">const</span> first = e.target.files[<span class="num">0</span>]?.webkitRelativePath ?? <span class="str">''</span>;
+    <span class="kw">const</span> slash = first.<span class="fn">indexOf</span>(<span class="str">'/'</span>);
+    <span class="kw">const</span> folderPrefix = slash >= <span class="num">0</span> ? first.<span class="fn">substring</span>(<span class="num">0</span>, slash + <span class="num">1</span>) : <span class="str">''</span>;
+    <span class="kw">const</span> processed = <span class="kw">await</span> <span class="fn">processUploadInput</span>(e.target.files, folderPrefix);
+    <span class="cm">// Silent filter — no error toasts for unsupported types from folder picks</span>
+    <span class="kw">const</span> allowed = processed.<span class="fn">filter</span>(({ file }) => <span class="fn">isAllowedFileType</span>(file));
+    <span class="kw">const</span> items = <span class="fn">addUploadItems</span>(allowed);
+    items.<span class="fn">forEach</span>(startUpload);
+    e.target.value = <span class="str">''</span>;
+  },
+  [addUploadItems, startUpload],
+);
+
+<span class="cm">// JSX — folder input: no accept attr, use handleFolderInput</span>
+&lt;input ref={folderInputRef} type=<span class="str">"file"</span> multiple className=<span class="str">"hidden"</span> onChange={handleFolderInput} /&gt;</pre>
+      </div>
+    </div>
+
+    <!-- Gap 12 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">12</div>
+        <div class="gap-title-block">
+          <div class="gap-title">filterAllowedFiles is dead code</div>
+          <div class="gap-file">frontend/src/lib/upload/fileProcessor.ts</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-fe">Frontend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>filterAllowedFiles</code> is exported but never called inside <code>processUploadInput</code>. ZIP-extracted files skip the type check entirely until <code>validateProcessedFile</code> runs later, which shows an error toast per file.</p>
+        <div class="code-label">fileProcessor.ts — fix processUploadInput ZIP handling</div>
+        <pre><span class="kw">for</span> (<span class="kw">const</span> zipFile <span class="kw">of</span> zipFiles) {
+  <span class="kw">const</span> extracted = <span class="kw">await</span> <span class="fn">extractZipFiles</span>(zipFile);
+  <span class="cm">// Silent filter for ZIP contents — user didn't explicitly pick each file</span>
+  processed.<span class="fn">push</span>(...<span class="fn">filterAllowedFiles</span>(extracted));
+}</pre>
+      </div>
+    </div>
+
+    <!-- Gap 13 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-yellow">13</div>
+        <div class="gap-title-block">
+          <div class="gap-title">File input does not reset after error or cancel</div>
+          <div class="gap-file">frontend/src/components/workspace/FileDropzone.tsx</div>
+          <div class="gap-badges">
+            <span class="badge badge-yellow">🟡 Medium</span>
+            <span class="badge badge-fe">Frontend</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p>After a failed upload, if the user tries to pick the same file again via "Choose files", the <code>onChange</code> event does not fire because the input value has not changed. Reset the input value after processing.</p>
+        <div class="code-label">FileDropzone.tsx — add handleFileInput + update file input JSX</div>
+        <pre><span class="kw">const</span> handleFileInput = React.<span class="fn">useCallback</span>(
+  <span class="kw">async</span> (e: React.ChangeEvent&lt;<span class="type">HTMLInputElement</span>&gt;) => {
+    <span class="kw">await</span> <span class="fn">handleFiles</span>(e.target.files);
+    e.target.value = <span class="str">''</span>; <span class="cm">// reset so same file can be re-selected</span>
+  },
+  [handleFiles],
+);
+
+<span class="cm">// JSX — file input: keep accept, use handleFileInput</span>
+&lt;input ref={fileInputRef} type=<span class="str">"file"</span> multiple accept={ACCEPTED_EXT}
+  className=<span class="str">"hidden"</span> onChange={handleFileInput} /&gt;</pre>
+      </div>
+    </div>
+
+    <!-- Gap 14 -->
+    <div class="gap-card">
+      <div class="gap-header">
+        <div class="gap-number num-orange">14</div>
+        <div class="gap-title-block">
+          <div class="gap-title">applicationId has no FK constraint</div>
+          <div class="gap-file">backend/prisma/schema.prisma</div>
+          <div class="gap-badges">
+            <span class="badge badge-orange">🟠 Low</span>
+            <span class="badge badge-db">DB</span>
+          </div>
+        </div>
+      </div>
+      <div class="gap-body">
+        <p><code>Document.applicationId</code> is a plain <code>String</code> with no foreign key to <code>Application</code>. A document uploaded with a real <code>applicationId</code> that does not exist yet will not fail — creating silent orphan documents.</p>
+        <div class="code-label">schema.prisma — add optional relation</div>
+        <pre><span class="kw">model</span> <span class="type">Document</span> {
+  <span class="cm">// ...</span>
+  applicationId String
+  application   Application? @relation(fields: [applicationId], references: [applicationId])
+  <span class="cm">// ...</span>
+}
+
+<span class="kw">model</span> <span class="type">Application</span> {
+  <span class="cm">// ...</span>
+  documents     Document[]
+  <span class="cm">// ...</span>
+}</pre>
+        <p>Note: the <code>'standalone'</code> sentinel value will not match any <code>Application</code> row. To enforce strictly, replace the sentinel with <code>null</code> and make <code>applicationId</code> optional (<code>String?</code>).</p>
+      </div>
+    </div>
+
+  </div><!-- /gaps -->
+
+  <!-- Files to modify -->
+  <div class="section-title">Files to Create / Modify</div>
+  <table class="files-table">
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th>File</th>
+        <th>Gap(s)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/prisma/schema.prisma</td><td>1, 14</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/modules/documentExtraction/extractionPipeline.ts</td><td>2, 9</td></tr>
+      <tr><td><span class="action-create">Create</span></td><td>backend/src/modules/documentExtraction/extractors/incorporationExtractor.ts</td><td>3</td></tr>
+      <tr><td><span class="action-create">Create</span></td><td>backend/src/modules/documentExtraction/extractors/sanctionLetterExtractor.ts</td><td>4</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/modules/documentExtraction/extractors/index.ts</td><td>3, 4</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/modules/documentArchive/scheduler.ts</td><td>5</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/server.ts</td><td>5</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/utils/triggerExtraction.ts</td><td>8</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/routes/documents.routes.ts</td><td>7</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>backend/src/modules/documentExtraction/extractors/panExtractor.ts</td><td>10</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>frontend/src/lib/upload/fileProcessor.ts</td><td>6, 12</td></tr>
+      <tr><td><span class="action-modify">Modify</span></td><td>frontend/src/components/workspace/FileDropzone.tsx</td><td>6, 11, 13</td></tr>
+    </tbody>
+  </table>
+
+</div><!-- /container -->
+</body>
+</html>

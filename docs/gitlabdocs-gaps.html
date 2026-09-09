@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arogan — S3/B2 Upload & JSON Conversion Gap Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+
+    header { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; padding: 30px 40px; }
+    header h1 { font-size: 24px; margin-bottom: 6px; }
+    header p { font-size: 13px; opacity: 0.85; }
+
+    nav { background: #fff; border-bottom: 2px solid #e0e0e0; display: flex; overflow-x: auto; }
+    nav button { padding: 14px 18px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; white-space: nowrap; transition: all 0.2s; }
+    nav button:hover { color: #1a73e8; background: #f5f8ff; }
+    nav button.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+    main { max-width: 1100px; margin: 30px auto; padding: 0 20px 40px; }
+    .chunk { display: none; }
+    .chunk.active { display: block; }
+
+    .summary-bar { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat { background: #fff; border-radius: 10px; padding: 16px 20px; flex: 1; min-width: 130px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .stat .num { font-size: 30px; font-weight: bold; }
+    .stat .lbl { font-size: 12px; color: #888; margin-top: 4px; }
+    .stat.red .num { color: #e53935; }
+    .stat.orange .num { color: #fb8c00; }
+    .stat.blue .num { color: #1a73e8; }
+    .stat.green .num { color: #43a047; }
+
+    .card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 5px solid #ccc; }
+    .card.high { border-left-color: #e53935; }
+    .card.medium { border-left-color: #fb8c00; }
+    .card.low { border-left-color: #43a047; }
+    .card h3 { font-size: 15px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .card p { font-size: 14px; color: #555; margin-bottom: 8px; line-height: 1.6; }
+    .card .fix { background: #f0f7ff; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #1565c0; margin-top: 8px; }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .badge.high { background: #fdecea; color: #e53935; }
+    .badge.medium { background: #fff3e0; color: #fb8c00; }
+    .badge.low { background: #e8f5e9; color: #43a047; }
+
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-top: 10px; }
+    th { background: #1a73e8; color: #fff; padding: 12px 14px; text-align: left; font-size: 13px; }
+    td { padding: 11px 14px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f5f8ff; }
+    td code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+
+    .field-table { width: 100%; border-collapse: collapse; margin-top: 10px; border-radius: 8px; overflow: hidden; }
+    .field-table th { background: #37474f; color: #fff; padding: 10px 14px; font-size: 13px; }
+    .field-table td { padding: 9px 14px; border-bottom: 1px solid #eee; font-size: 13px; }
+    .field-table tr:last-child td { border-bottom: none; }
+    .field-table tr:nth-child(even) td { background: #fafafa; }
+    .ok { color: #43a047; font-weight: bold; }
+    .missing { color: #e53935; font-weight: bold; }
+
+    .impl-chunk { background: #fff; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; }
+    .impl-header { background: linear-gradient(90deg, #1a73e8, #1565c0); color: #fff; padding: 14px 20px; font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .impl-body { padding: 20px; }
+    .impl-body pre { background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px; line-height: 1.7; margin-top: 12px; }
+    .step { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start; }
+    .step-num { background: #1a73e8; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0; margin-top: 2px; }
+    .step-text { font-size: 14px; color: #444; line-height: 1.6; }
+
+    .doc-section { margin-bottom: 24px; }
+    .doc-title { font-size: 15px; font-weight: bold; color: #1a73e8; margin-bottom: 10px; padding: 8px 14px; background: #e8f0fe; border-radius: 6px; }
+
+    .download-btn { display: inline-flex; align-items: center; gap: 8px; background: #1a73e8; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; margin-bottom: 20px; cursor: pointer; border: none; }
+    .download-btn:hover { background: #0d47a1; }
+
+    .progress-bar { background: #e0e0e0; border-radius: 10px; height: 12px; margin-top: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #1a73e8, #43a047); }
+
+    footer { text-align: center; padding: 24px; color: #aaa; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📄 Arogan — S3/B2 Upload & JSON Conversion Gap Report</h1>
+  <p>Goal: Upload all documents to S3/B2 (10GB) → Convert to JSON with exact field mapping (no data loss) &nbsp;|&nbsp; argoan-group/Arogan &nbsp;|&nbsp; September 2026</p>
+</header>
+
+<nav>
+  <button class="active" onclick="show('overview',this)">📊 Overview</button>
+  <button onclick="show('chunk1',this)">☁️ Chunk 1: S3/B2 Upload</button>
+  <button onclick="show('chunk2',this)">🗂 Chunk 2: Field Mapping</button>
+  <button onclick="show('chunk3',this)">🛡 Chunk 3: Data Loss</button>
+  <button onclick="show('chunk4',this)">💾 Chunk 4: JSON Storage</button>
+  <button onclick="show('chunk5',this)">⚙️ Chunk 5: Pipeline</button>
+  <button onclick="show('impl',this)">🛠 Implementation</button>
+  <button onclick="show('summary',this)">📋 Summary</button>
+</nav>
+
+<main>
+
+  <!-- OVERVIEW -->
+  <div id="overview" class="chunk active">
+    <br/>
+    <button class="download-btn" onclick="downloadReport()">⬇️ Download This Report</button>
+
+    <div class="summary-bar">
+      <div class="stat red"><div class="num">10</div><div class="lbl">High Priority Gaps</div></div>
+      <div class="stat orange"><div class="num">7</div><div class="lbl">Medium Priority Gaps</div></div>
+      <div class="stat green"><div class="num">3</div><div class="lbl">Low Priority Gaps</div></div>
+      <div class="stat blue"><div class="num">20</div><div class="lbl">Total Gaps</div></div>
+      <div class="stat blue"><div class="num">5</div><div class="lbl">Chunks</div></div>
+    </div>
+
+    <div style="background:#fff;border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.07);margin-bottom:20px;">
+      <h3 style="margin-bottom:14px;color:#333;">📦 10GB Bucket Usage Estimate</h3>
+      <div style="margin-bottom:10px;font-size:13px;color:#555;">Current estimated usage: <strong>0GB / 10GB</strong> (no tracking implemented)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+      <div style="margin-top:12px;font-size:13px;color:#e53935;">⚠️ No bucket capacity tracking found — overflow risk!</div>
+    </div>
+
+    <table>
+      <tr><th>#</th><th>Gap</th><th>Chunk</th><th>Priority</th><th>Impact</th></tr>
+      <tr><td>1</td><td>No S3/B2 Storage Integration</td><td>Chunk 1</td><td><span class="badge high">HIGH</span></td><td>Files not reaching bucket</td></tr>
+      <tr><td>2</td><td>No Bucket Capacity Management</td><td>Chunk 1</td><td><span class="badge high">HIGH</span></td><td>10GB overflow risk</td></tr>
+      <tr><td>3</td><td>No Secure Pre-signed URLs</td><td>Chunk 1</td><td><span class="badge high">HIGH</span></td><td>Security vulnerability</td></tr>
+      <tr><td>4</td><td>No Organized Folder Structure</td><td>Chunk 1</td><td><span class="badge medium">MEDIUM</span></td><td>Unmanageable bucket</td></tr>
+      <tr><td>5</td><td>PAN — Missing field mappings</td><td>Chunk 2</td><td><span class="badge high">HIGH</span></td><td>Data loss in JSON</td></tr>
+      <tr><td>6</td><td>Aadhaar — Missing field mappings</td><td>Chunk 2</td><td><span class="badge high">HIGH</span></td><td>Data loss in JSON</td></tr>
+      <tr><td>7</td><td>GST — Missing field mappings</td><td>Chunk 2</td><td><span class="badge high">HIGH</span></td><td>Data loss in JSON</td></tr>
+      <tr><td>8</td><td>ITR — Missing field mappings</td><td>Chunk 2</td><td><span class="badge high">HIGH</span></td><td>Data loss in JSON</td></tr>
+      <tr><td>9</td><td>Bank Statement — Missing fields</td><td>Chunk 2</td><td><span class="badge high">HIGH</span></td><td>Data loss in JSON</td></tr>
+      <tr><td>10</td><td>No Field Completeness Check</td><td>Chunk 3</td><td><span class="badge high">HIGH</span></td><td>Silent data loss</td></tr>
+      <tr><td>11</td><td>No Raw Text Preservation</td><td>Chunk 3</td><td><span class="badge high">HIGH</span></td><td>Unrecoverable data loss</td></tr>
+      <tr><td>12</td><td>No Per-field Confidence Score</td><td>Chunk 3</td><td><span class="badge medium">MEDIUM</span></td><td>Can't detect bad extractions</td></tr>
+      <tr><td>13</td><td>Multi-page Document Data Loss</td><td>Chunk 3</td><td><span class="badge high">HIGH</span></td><td>Bank statement pages lost</td></tr>
+      <tr><td>14</td><td>No Versioned JSON Output</td><td>Chunk 4</td><td><span class="badge medium">MEDIUM</span></td><td>Re-processing overwrites data</td></tr>
+      <tr><td>15</td><td>JSON Not Stored in S3/B2</td><td>Chunk 4</td><td><span class="badge medium">MEDIUM</span></td><td>JSON only in DB, not bucket</td></tr>
+      <tr><td>16</td><td>No Checksum Validation</td><td>Chunk 4</td><td><span class="badge medium">MEDIUM</span></td><td>Corrupted JSON undetected</td></tr>
+      <tr><td>17</td><td>No Structured Error JSON</td><td>Chunk 4</td><td><span class="badge low">LOW</span></td><td>Failed extractions return nothing</td></tr>
+      <tr><td>18</td><td>No Queue for Large Uploads</td><td>Chunk 5</td><td><span class="badge medium">MEDIUM</span></td><td>Sync processing crashes</td></tr>
+      <tr><td>19</td><td>No Storage Cost Tracking</td><td>Chunk 5</td><td><span class="badge low">LOW</span></td><td>Unexpected B2 charges</td></tr>
+      <tr><td>20</td><td>No Lifecycle Policy</td><td>Chunk 5</td><td><span class="badge low">LOW</span></td><td>Bucket fills up over time</td></tr>
+    </table>
+  </div>
+
+  <!-- CHUNK 1: S3/B2 UPLOAD -->
+  <div id="chunk1" class="chunk">
+    <br/>
+    <div class="card high">
+      <h3>Gap 1.1 — No S3/B2 Storage Integration <span class="badge high">HIGH</span></h3>
+      <p>Files are likely stored locally or in DB blobs. No S3 or Backblaze B2 SDK is configured. Documents never reach the 10GB bucket.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Integrate <code>@aws-sdk/client-s3</code> for S3 or <code>backblaze-b2</code> for B2. Stream file directly to bucket on upload — never write to local disk.</div>
+    </div>
+    <div class="card high">
+      <h3>Gap 1.2 — No Bucket Capacity Management <span class="badge high">HIGH</span></h3>
+      <p>The 10GB bucket limit is not tracked anywhere. A single large batch upload can silently overflow the bucket causing all subsequent uploads to fail.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Track cumulative file sizes in DB. Before each upload, check: <code>usedBytes + fileSize &lt;= 10GB</code>. Alert at 80% (8GB). Reject at 95% (9.5GB).</div>
+    </div>
+    <div class="card high">
+      <h3>Gap 1.3 — No Secure Pre-signed URLs <span class="badge high">HIGH</span></h3>
+      <p>Documents (PAN, Aadhaar, Bank Statements) are highly sensitive. Without pre-signed URLs, files may be publicly accessible or require permanent credentials to access.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Generate pre-signed URLs with 15-minute expiry for every file access. Never expose permanent bucket URLs.</div>
+    </div>
+    <div class="card medium">
+      <h3>Gap 1.4 — No Organized Folder Structure <span class="badge medium">MEDIUM</span></h3>
+      <p>Files dumped flat into bucket root — impossible to manage at scale. No way to find documents by user, type, or date.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Use path: <code>/{userId}/{documentType}/{year}/{month}/{fileHash}.pdf</code><br/>Example: <code>/user123/pan/2026/09/abc123.pdf</code></div>
+    </div>
+  </div>
+
+  <!-- CHUNK 2: FIELD MAPPING -->
+  <div id="chunk2" class="chunk">
+    <br/>
+
+    <div class="doc-section">
+      <div class="doc-title">🪪 PAN Card — Field Mapping Gaps</div>
+      <table class="field-table">
+        <tr><th>Field on Document</th><th>JSON Key</th><th>Status</th><th>Risk if Missing</th></tr>
+        <tr><td>Full Name</td><td><code>name</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Identity mismatch</td></tr>
+        <tr><td>Father's Name</td><td><code>fatherName</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>KYC failure</td></tr>
+        <tr><td>Date of Birth</td><td><code>dateOfBirth</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Age verification fails</td></tr>
+        <tr><td>PAN Number</td><td><code>panNumber</code></td><td><span class="ok">✓ Likely Present</span></td><td>—</td></tr>
+        <tr><td>Signature Present</td><td><code>hasSignature</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Document validity unknown</td></tr>
+        <tr><td>Photo Present</td><td><code>hasPhoto</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Document validity unknown</td></tr>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-title">🪪 Aadhaar Card — Field Mapping Gaps</div>
+      <table class="field-table">
+        <tr><th>Field on Document</th><th>JSON Key</th><th>Status</th><th>Risk if Missing</th></tr>
+        <tr><td>Full Name</td><td><code>name</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Identity mismatch</td></tr>
+        <tr><td>Date of Birth</td><td><code>dateOfBirth</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Age verification fails</td></tr>
+        <tr><td>Gender</td><td><code>gender</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Profile incomplete</td></tr>
+        <tr><td>Full Address</td><td><code>address</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Address verification fails</td></tr>
+        <tr><td>Aadhaar Number (masked)</td><td><code>aadhaarNumber</code></td><td><span class="ok">✓ Likely Present</span></td><td>—</td></tr>
+        <tr><td>Mobile Hint (last 2)</td><td><code>mobileHint</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Contact verification fails</td></tr>
+        <tr><td>VID (Virtual ID)</td><td><code>vid</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>eKYC incomplete</td></tr>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-title">📋 GST Certificate — Field Mapping Gaps</div>
+      <table class="field-table">
+        <tr><th>Field on Document</th><th>JSON Key</th><th>Status</th><th>Risk if Missing</th></tr>
+        <tr><td>GSTIN Number</td><td><code>gstin</code></td><td><span class="ok">✓ Likely Present</span></td><td>—</td></tr>
+        <tr><td>Legal Business Name</td><td><code>legalName</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Business identity mismatch</td></tr>
+        <tr><td>Trade Name</td><td><code>tradeName</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Incomplete business profile</td></tr>
+        <tr><td>Registration Date</td><td><code>registrationDate</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Business age unknown</td></tr>
+        <tr><td>Business Type</td><td><code>businessType</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Entity classification fails</td></tr>
+        <tr><td>State / Jurisdiction</td><td><code>state</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Tax jurisdiction unknown</td></tr>
+        <tr><td>HSN/SAC Codes</td><td><code>hsnCodes[]</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Product/service classification lost</td></tr>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-title">📊 ITR (Income Tax Return) — Field Mapping Gaps</div>
+      <table class="field-table">
+        <tr><th>Field on Document</th><th>JSON Key</th><th>Status</th><th>Risk if Missing</th></tr>
+        <tr><td>Assessment Year</td><td><code>assessmentYear</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Wrong year data used</td></tr>
+        <tr><td>PAN Number</td><td><code>pan</code></td><td><span class="ok">✓ Likely Present</span></td><td>—</td></tr>
+        <tr><td>Gross Total Income</td><td><code>grossTotalIncome</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Income assessment fails</td></tr>
+        <tr><td>Total Tax Paid</td><td><code>taxPaid</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Tax compliance unknown</td></tr>
+        <tr><td>Refund Amount</td><td><code>refundAmount</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Financial profile incomplete</td></tr>
+        <tr><td>Filing Date</td><td><code>filingDate</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Compliance timeline lost</td></tr>
+        <tr><td>ITR Form Type</td><td><code>itrFormType</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Wrong form processing</td></tr>
+        <tr><td>Acknowledgement Number</td><td><code>ackNumber</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Cannot verify filing</td></tr>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <div class="doc-title">🏦 Bank Statement — Field Mapping Gaps</div>
+      <table class="field-table">
+        <tr><th>Field on Document</th><th>JSON Key</th><th>Status</th><th>Risk if Missing</th></tr>
+        <tr><td>Account Number</td><td><code>accountNumber</code></td><td><span class="ok">✓ Likely Present</span></td><td>—</td></tr>
+        <tr><td>Account Holder Name</td><td><code>accountHolder</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Identity mismatch</td></tr>
+        <tr><td>IFSC Code</td><td><code>ifscCode</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Bank branch unknown</td></tr>
+        <tr><td>Opening Balance</td><td><code>openingBalance</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Financial analysis broken</td></tr>
+        <tr><td>Closing Balance</td><td><code>closingBalance</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Financial analysis broken</td></tr>
+        <tr><td>Statement Period</td><td><code>statementPeriod</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Date range unknown</td></tr>
+        <tr><td>All Transactions (array)</td><td><code>transactions[]</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Complete data loss</td></tr>
+        <tr><td>Transaction: Date</td><td><code>transactions[].date</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Timeline lost</td></tr>
+        <tr><td>Transaction: Description</td><td><code>transactions[].description</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Context lost</td></tr>
+        <tr><td>Transaction: Debit</td><td><code>transactions[].debit</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Expense tracking fails</td></tr>
+        <tr><td>Transaction: Credit</td><td><code>transactions[].credit</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Income tracking fails</td></tr>
+        <tr><td>Transaction: Balance</td><td><code>transactions[].balance</code></td><td><span class="missing">⚠ Likely Missing</span></td><td>Running balance lost</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- CHUNK 3: DATA LOSS -->
+  <div id="chunk3" class="chunk">
+    <br/>
+    <div class="card high">
+      <h3>Gap 3.1 — No Field Completeness Check <span class="badge high">HIGH</span></h3>
+      <p>After extraction, there is no check to verify all expected fields are present. Missing fields are silently dropped — the JSON looks complete but has holes.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Define required fields per document type. After extraction, compare against schema. Output <code>missingFields: ["fatherName", "dateOfBirth"]</code> in JSON — never drop silently.</div>
+    </div>
+    <div class="card high">
+      <h3>Gap 3.2 — No Raw Text Preservation <span class="badge high">HIGH</span></h3>
+      <p>If a field extraction fails, the raw OCR text is discarded. The original data is permanently lost with no way to recover or re-process.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Always store <code>rawText</code> (full OCR output) alongside structured JSON in S3/B2. This ensures data is never truly lost even if parsing fails.</div>
+    </div>
+    <div class="card medium">
+      <h3>Gap 3.3 — No Per-field Confidence Score <span class="badge medium">MEDIUM</span></h3>
+      <p>A single document-level confidence score doesn't reveal which specific fields were extracted poorly. Bad field values are indistinguishable from good ones.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Add per-field confidence: <code>&#123; "name": &#123; "value": "John", "confidence": 0.98 &#125; &#125;</code>. Flag fields below 0.7 for manual review.</div>
+    </div>
+    <div class="card high">
+      <h3>Gap 3.4 — Multi-page Document Data Loss <span class="badge high">HIGH</span></h3>
+      <p>Bank statements with 50+ pages may only process the first page. All transactions from subsequent pages are silently lost.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Process all pages in sequence. Merge <code>transactions[]</code> arrays across pages. Store <code>totalPages</code> and <code>processedPages</code> in JSON to verify completeness.</div>
+    </div>
+  </div>
+
+  <!-- CHUNK 4: JSON STORAGE -->
+  <div id="chunk4" class="chunk">
+    <br/>
+    <div class="card medium">
+      <h3>Gap 4.1 — No Versioned JSON Output <span class="badge medium">MEDIUM</span></h3>
+      <p>When a document is re-processed (e.g., better model available), the old JSON is overwritten. Historical extraction data is permanently lost.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Store JSON with version suffix in S3/B2: <code>/user123/pan/abc123_v1.json</code>, <code>abc123_v2.json</code>. Keep latest pointer in DB.</div>
+    </div>
+    <div class="card medium">
+      <h3>Gap 4.2 — JSON Not Stored Back to S3/B2 <span class="badge medium">MEDIUM</span></h3>
+      <p>Extracted JSON is only saved to the database. It is not written back to the S3/B2 bucket alongside the original document, making the bucket incomplete.</p>
+      <div class="fix">✅ <strong>Fix:</strong> After extraction, write <code>{fileHash}.json</code> to same S3/B2 path as original PDF. Bucket should contain both: <code>abc123.pdf</code> and <code>abc123.json</code>.</div>
+    </div>
+    <div class="card medium">
+      <h3>Gap 4.3 — No Checksum Validation <span class="badge medium">MEDIUM</span></h3>
+      <p>No way to verify JSON integrity after storage. A corrupted or truncated JSON file in S3/B2 would be read and used without detection.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Compute SHA-256 of JSON string before upload. Store checksum in DB. Verify checksum on every read from S3/B2.</div>
+    </div>
+    <div class="card low">
+      <h3>Gap 4.4 — No Structured Error JSON <span class="badge low">LOW</span></h3>
+      <p>When extraction fails, no JSON is produced at all. Downstream systems get null/undefined instead of a structured error they can handle.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Always return a JSON even on failure: <code>&#123; "status": "FAILED", "reason": "OCR timeout", "rawText": "...", "missingFields": ["all"] &#125;</code></div>
+    </div>
+  </div>
+
+  <!-- CHUNK 5: PIPELINE -->
+  <div id="chunk5" class="chunk">
+    <br/>
+    <div class="card medium">
+      <h3>Gap 5.1 — No Queue for Large Uploads <span class="badge medium">MEDIUM</span></h3>
+      <p>With a 10GB bucket, large batches of documents are processed synchronously. A single large PDF can block the entire pipeline and timeout the HTTP request.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Upload to S3/B2 first (fast), then push extraction job to a queue (BullMQ/Redis). Return job ID immediately. Client polls for status.</div>
+    </div>
+    <div class="card low">
+      <h3>Gap 5.2 — No Storage Cost Tracking <span class="badge low">LOW</span></h3>
+      <p>Backblaze B2 charges per GB stored and per GB downloaded. Without tracking, costs can spike unexpectedly especially with large bank statements.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Track file sizes in DB. Calculate monthly storage usage. Show dashboard with GB used, estimated cost, and per-document-type breakdown.</div>
+    </div>
+    <div class="card low">
+      <h3>Gap 5.3 — No Lifecycle Policy <span class="badge low">LOW</span></h3>
+      <p>Old documents, failed uploads, and temp files accumulate in the bucket forever. The 10GB limit will be hit faster than expected.</p>
+      <div class="fix">✅ <strong>Fix:</strong> Set lifecycle rules — archive originals after 90 days, delete failed/temp uploads after 30 days, compress JSONs older than 1 year.</div>
+    </div>
+  </div>
+
+  <!-- IMPLEMENTATION -->
+  <div id="impl" class="chunk">
+    <br/>
+
+    <div class="impl-chunk">
+      <div class="impl-header">🛠 Impl Chunk 1 — S3/B2 Upload with Capacity Check <span>Gaps 1.1, 1.2, 1.3, 1.4</span></div>
+      <div class="impl-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Install S3 SDK and configure bucket credentials in environment</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Check bucket capacity before every upload</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Upload to structured path with pre-signed URL generation</div></div>
+        <pre>// backend/src/services/storageService.ts
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+const s3 = new S3Client({
+  region: process.env.S3_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY!,
+    secretAccessKey: process.env.S3_SECRET_KEY!,
+  },
+  // For Backblaze B2, add endpoint:
+  endpoint: process.env.B2_ENDPOINT, // e.g. https://s3.us-west-004.backblazeb2.com
+});
+
+const BUCKET = process.env.S3_BUCKET!;
+const MAX_BYTES = 10 * 1024 * 1024 * 1024; // 10GB
+const ALERT_THRESHOLD = 0.8; // 80%
+
+export async function uploadDocument(
+  userId: string, docType: string,
+  fileHash: string, fileBuffer: Buffer,
+  mimeType: string
+): Promise&lt;string&gt; {
+  // 1. Check capacity
+  const usedBytes = await getUsedStorageBytes(); // from DB
+  if (usedBytes + fileBuffer.length > MAX_BYTES * 0.95) {
+    throw new Error('Storage limit reached. Cannot upload.');
+  }
+  if (usedBytes + fileBuffer.length > MAX_BYTES * ALERT_THRESHOLD) {
+    await sendStorageAlert(usedBytes); // notify admin
+  }
+
+  // 2. Structured path
+  const now = new Date();
+  const key = `${userId}/${docType}/${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${fileHash}.pdf`;
+
+  // 3. Upload
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET, Key: key,
+    Body: fileBuffer, ContentType: mimeType,
+    ServerSideEncryption: 'AES256',
+  }));
+
+  // 4. Track in DB
+  await updateStorageUsage(fileBuffer.length);
+  return key;
+}
+
+export async function getPresignedUrl(key: string): Promise&lt;string&gt; {
+  const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  return getSignedUrl(s3, cmd, { expiresIn: 900 }); // 15 min
+}</pre>
+      </div>
+    </div>
+
+    <div class="impl-chunk">
+      <div class="impl-header">🛠 Impl Chunk 2 — Exact Field Mapping per Document Type <span>Gaps 2.1–2.5</span></div>
+      <div class="impl-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Define strict JSON schema for each document type</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Map every field from document to exact JSON key</div></div>
+        <pre>// backend/src/types/documentSchemas.ts
+export interface PANJson {
+  documentType: 'PAN';
+  panNumber: string | null;
+  name: string | null;
+  fatherName: string | null;
+  dateOfBirth: string | null; // ISO format
+  hasSignature: boolean;
+  hasPhoto: boolean;
+  missingFields: string[];
+  rawText: string;
+  confidence: Record&lt;string, number&gt;;
+}
+
+export interface AadhaarJson {
+  documentType: 'AADHAAR';
+  aadhaarNumber: string | null; // masked XXXX-XXXX-1234
+  name: string | null;
+  dateOfBirth: string | null;
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  address: string | null;
+  mobileHint: string | null;
+  vid: string | null;
+  missingFields: string[];
+  rawText: string;
+  confidence: Record&lt;string, number&gt;;
+}
+
+export interface BankStatementJson {
+  documentType: 'BANK_STATEMENT';
+  accountNumber: string | null;
+  accountHolder: string | null;
+  ifscCode: string | null;
+  bankName: string | null;
+  openingBalance: number | null;
+  closingBalance: number | null;
+  statementPeriod: { from: string; to: string } | null;
+  totalPages: number;
+  processedPages: number;
+  transactions: Array&lt;{
+    date: string | null;
+    description: string | null;
+    debit: number | null;
+    credit: number | null;
+    balance: number | null;
+    reference: string | null;
+  }&gt;;
+  missingFields: string[];
+  rawText: string;
+  confidence: Record&lt;string, number&gt;;
+}</pre>
+      </div>
+    </div>
+
+    <div class="impl-chunk">
+      <div class="impl-header">🛠 Impl Chunk 3 — Data Loss Prevention <span>Gaps 3.1–3.4</span></div>
+      <div class="impl-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Add field completeness validator after every extraction</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Preserve raw OCR text always</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Process all pages for multi-page documents</div></div>
+        <pre>// backend/src/modules/documentExtraction/fieldValidator.ts
+const REQUIRED_FIELDS: Record&lt;string, string[]&gt; = {
+  PAN: ['panNumber', 'name', 'fatherName', 'dateOfBirth'],
+  AADHAAR: ['aadhaarNumber', 'name', 'dateOfBirth', 'gender', 'address'],
+  GST: ['gstin', 'legalName', 'registrationDate', 'businessType', 'state'],
+  ITR: ['assessmentYear', 'pan', 'grossTotalIncome', 'taxPaid', 'filingDate'],
+  BANK_STATEMENT: ['accountNumber', 'accountHolder', 'ifscCode', 'openingBalance', 'closingBalance', 'transactions'],
+};
+
+export function validateExtraction(docType: string, extracted: Record&lt;string, any&gt;) {
+  const required = REQUIRED_FIELDS[docType] || [];
+  const missingFields = required.filter(f => extracted[f] === null || extracted[f] === undefined);
+  return {
+    ...extracted,
+    missingFields,
+    extractionStatus: missingFields.length === 0 ? 'COMPLETE' : 'PARTIAL',
+  };
+}
+
+// Per-field confidence wrapper
+export function wrapWithConfidence(fields: Record&lt;string, any&gt;, scores: Record&lt;string, number&gt;) {
+  return Object.fromEntries(
+    Object.entries(fields).map(([k, v]) => [k, { value: v, confidence: scores[k] ?? 0 }])
+  );
+}</pre>
+      </div>
+    </div>
+
+    <div class="impl-chunk">
+      <div class="impl-header">🛠 Impl Chunk 4 — JSON Versioning & Storage in S3/B2 <span>Gaps 4.1–4.4</span></div>
+      <div class="impl-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Write JSON to S3/B2 alongside original document</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Version JSON files and validate with checksum</div></div>
+        <pre>// backend/src/services/jsonStorageService.ts
+import crypto from 'crypto';
+
+export async function storeExtractionJson(
+  s3Key: string, jsonData: object, version: number
+): Promise&lt;string&gt; {
+  const jsonStr = JSON.stringify(jsonData, null, 2);
+  const checksum = crypto.createHash('sha256').update(jsonStr).digest('hex');
+
+  // Store versioned JSON next to original
+  const jsonKey = s3Key.replace('.pdf', `_v${version}.json`);
+
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET, Key: jsonKey,
+    Body: jsonStr, ContentType: 'application/json',
+    Metadata: { checksum, version: String(version) },
+  }));
+
+  // Save checksum to DB for integrity verification
+  await saveChecksumToDB(jsonKey, checksum, version);
+  return jsonKey;
+}
+
+// Always return structured JSON even on failure
+export function buildErrorJson(docType: string, reason: string, rawText: string) {
+  return {
+    documentType: docType,
+    status: 'FAILED',
+    reason,
+    rawText,
+    missingFields: ['all'],
+    extractedAt: new Date().toISOString(),
+  };
+}</pre>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SUMMARY -->
+  <div id="summary" class="chunk">
+    <br/>
+    <table>
+      <tr><th>#</th><th>Gap</th><th>Chunk</th><th>Priority</th><th>Files to Change</th></tr>
+      <tr><td>1</td><td>No S3/B2 Integration</td><td>1</td><td><span class="badge high">HIGH</span></td><td>storageService.ts (new)</td></tr>
+      <tr><td>2</td><td>No Capacity Management</td><td>1</td><td><span class="badge high">HIGH</span></td><td>storageService.ts, prisma schema</td></tr>
+      <tr><td>3</td><td>No Pre-signed URLs</td><td>1</td><td><span class="badge high">HIGH</span></td><td>storageService.ts, routes</td></tr>
+      <tr><td>4</td><td>No Folder Structure</td><td>1</td><td><span class="badge medium">MEDIUM</span></td><td>storageService.ts</td></tr>
+      <tr><td>5</td><td>PAN Missing Fields</td><td>2</td><td><span class="badge high">HIGH</span></td><td>panExtractor.ts, documentSchemas.ts</td></tr>
+      <tr><td>6</td><td>Aadhaar Missing Fields</td><td>2</td><td><span class="badge high">HIGH</span></td><td>aadhaarExtractor.ts, documentSchemas.ts</td></tr>
+      <tr><td>7</td><td>GST Missing Fields</td><td>2</td><td><span class="badge high">HIGH</span></td><td>gstExtractor.ts, documentSchemas.ts</td></tr>
+      <tr><td>8</td><td>ITR Missing Fields</td><td>2</td><td><span class="badge high">HIGH</span></td><td>itrExtractor.ts, documentSchemas.ts</td></tr>
+      <tr><td>9</td><td>Bank Statement Missing Fields</td><td>2</td><td><span class="badge high">HIGH</span></td><td>bankStatementExtractor.ts, documentSchemas.ts</td></tr>
+      <tr><td>10</td><td>No Field Completeness Check</td><td>3</td><td><span class="badge high">HIGH</span></td><td>fieldValidator.ts (new)</td></tr>
+      <tr><td>11</td><td>No Raw Text Preservation</td><td>3</td><td><span class="badge high">HIGH</span></td><td>all extractors, jsonStorageService.ts</td></tr>
+      <tr><td>12</td><td>No Per-field Confidence</td><td>3</td><td><span class="badge medium">MEDIUM</span></td><td>fieldValidator.ts, llmExtractor.ts</td></tr>
+      <tr><td>13</td><td>Multi-page Data Loss</td><td>3</td><td><span class="badge high">HIGH</span></td><td>bankStatementExtractor.ts, pdfParser.ts</td></tr>
+      <tr><td>14</td><td>No Versioned JSON</td><td>4</td><td><span class="badge medium">MEDIUM</span></td><td>jsonStorageService.ts (new)</td></tr>
+      <tr><td>15</td><td>JSON Not in S3/B2</td><td>4</td><td><span class="badge medium">MEDIUM</span></td><td>jsonStorageService.ts, extractionPipeline.ts</td></tr>
+      <tr><td>16</td><td>No Checksum Validation</td><td>4</td><td><span class="badge medium">MEDIUM</span></td><td>jsonStorageService.ts, prisma schema</td></tr>
+      <tr><td>17</td><td>No Structured Error JSON</td><td>4</td><td><span class="badge low">LOW</span></td><td>jsonStorageService.ts</td></tr>
+      <tr><td>18</td><td>No Upload Queue</td><td>5</td><td><span class="badge medium">MEDIUM</span></td><td>worker.ts, scheduler.ts</td></tr>
+      <tr><td>19</td><td>No Cost Tracking</td><td>5</td><td><span class="badge low">LOW</span></td><td>storageService.ts, prisma schema</td></tr>
+      <tr><td>20</td><td>No Lifecycle Policy</td><td>5</td><td><span class="badge low">LOW</span></td><td>S3/B2 bucket config</td></tr>
+    </table>
+  </div>
+
+</main>
+
+<footer>Arogan S3/B2 Gap Report &mdash; September 2026 &mdash; argoan-group/Arogan</footer>
+
+<script>
+  function show(id, btn) {
+    document.querySelectorAll('.chunk').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function downloadReport() {
+    const html = '<!DOCTYPE html>' + document.documentElement.outerHTML;
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'arogan-s3-gap-report.html';
+    a.click();
+  }
+</script>
+
+</body>
+</html>

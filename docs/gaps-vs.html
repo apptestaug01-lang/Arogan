@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arogan - Gap Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
+
+    /* Header */
+    header { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; padding: 30px 40px; }
+    header h1 { font-size: 26px; margin-bottom: 6px; }
+    header p { font-size: 14px; opacity: 0.85; }
+
+    /* Nav Tabs */
+    nav { background: #fff; border-bottom: 2px solid #e0e0e0; display: flex; gap: 0; overflow-x: auto; }
+    nav button { padding: 14px 22px; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; white-space: nowrap; transition: all 0.2s; }
+    nav button:hover { color: #1a73e8; background: #f5f8ff; }
+    nav button.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+    /* Content */
+    main { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+    .chunk { display: none; }
+    .chunk.active { display: block; }
+
+    /* Summary bar */
+    .summary-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat { background: #fff; border-radius: 10px; padding: 16px 24px; flex: 1; min-width: 140px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .stat .num { font-size: 32px; font-weight: bold; }
+    .stat .label { font-size: 13px; color: #888; margin-top: 4px; }
+    .stat.red .num { color: #e53935; }
+    .stat.orange .num { color: #fb8c00; }
+    .stat.green .num { color: #43a047; }
+
+    /* Cards */
+    .card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-left: 5px solid #ccc; }
+    .card.high { border-left-color: #e53935; }
+    .card.medium { border-left-color: #fb8c00; }
+    .card.low { border-left-color: #43a047; }
+    .card h3 { font-size: 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+    .card p { font-size: 14px; color: #555; margin-bottom: 8px; line-height: 1.6; }
+    .card .fix { background: #f0f7ff; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #1a73e8; margin-top: 8px; }
+    .card .fix strong { color: #0d47a1; }
+
+    /* Implementation chunks */
+    .impl-chunk { background: #fff; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden; }
+    .impl-chunk .chunk-header { background: #1a73e8; color: #fff; padding: 14px 20px; font-size: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+    .impl-chunk .chunk-body { padding: 20px; }
+    .impl-chunk pre { background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin-top: 10px; }
+    .impl-chunk .step { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+    .impl-chunk .step-num { background: #1a73e8; color: #fff; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; flex-shrink: 0; }
+    .impl-chunk .step-text { font-size: 14px; color: #444; line-height: 1.6; }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .badge.high { background: #fdecea; color: #e53935; }
+    .badge.medium { background: #fff3e0; color: #fb8c00; }
+    .badge.low { background: #e8f5e9; color: #43a047; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    th { background: #1a73e8; color: #fff; padding: 12px 16px; text-align: left; font-size: 14px; }
+    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f5f8ff; }
+
+    /* Download btn */
+    .download-btn { display: inline-block; background: #1a73e8; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; margin-bottom: 24px; }
+    .download-btn:hover { background: #0d47a1; }
+
+    footer { text-align: center; padding: 30px; color: #aaa; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📄 Arogan — Document Upload & JSON Conversion</h1>
+  <p>Gap Analysis Report with Implementation Chunks &nbsp;|&nbsp; argoan-group/Arogan &nbsp;|&nbsp; September 2026</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showChunk('overview', this)">📊 Overview</button>
+  <button onclick="showChunk('upload', this)">📤 Upload Gaps</button>
+  <button onclick="showChunk('conversion', this)">🔄 Conversion Gaps</button>
+  <button onclick="showChunk('pipeline', this)">⚙️ Pipeline Gaps</button>
+  <button onclick="showChunk('impl1', this)">🛠 Impl: Chunk 1</button>
+  <button onclick="showChunk('impl2', this)">🛠 Impl: Chunk 2</button>
+  <button onclick="showChunk('impl3', this)">🛠 Impl: Chunk 3</button>
+  <button onclick="showChunk('impl4', this)">🛠 Impl: Chunk 4</button>
+  <button onclick="showChunk('summary', this)">📋 Full Summary</button>
+</nav>
+
+<main>
+
+  <!-- OVERVIEW -->
+  <div id="overview" class="chunk active">
+    <br/>
+    <a class="download-btn" href="#" onclick="downloadReport()">⬇️ Download This Report</a>
+    <div class="summary-bar">
+      <div class="stat red"><div class="num">5</div><div class="label">High Priority</div></div>
+      <div class="stat orange"><div class="num">4</div><div class="label">Medium Priority</div></div>
+      <div class="stat green"><div class="num">2</div><div class="label">Low Priority</div></div>
+      <div class="stat"><div class="num">11</div><div class="label">Total Gaps</div></div>
+      <div class="stat"><div class="num">4</div><div class="label">Impl Chunks</div></div>
+    </div>
+    <table>
+      <tr><th>#</th><th>Gap</th><th>Area</th><th>Priority</th><th>Impl Chunk</th></tr>
+      <tr><td>1</td><td>No File Type Validation</td><td>Upload</td><td><span class="badge high">HIGH</span></td><td>Chunk 1</td></tr>
+      <tr><td>2</td><td>No File Size Limit</td><td>Upload</td><td><span class="badge high">HIGH</span></td><td>Chunk 1</td></tr>
+      <tr><td>3</td><td>No Upload Progress Feedback</td><td>Upload</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 2</td></tr>
+      <tr><td>4</td><td>No Duplicate File Detection</td><td>Upload</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 2</td></tr>
+      <tr><td>5</td><td>Incomplete Converter Coverage</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 2</td></tr>
+      <tr><td>6</td><td>No JSON Schema Validation</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 3</td></tr>
+      <tr><td>7</td><td>No Fallback for Partial LLM Extraction</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 3</td></tr>
+      <tr><td>8</td><td>Inconsistent JSON Structure</td><td>Conversion</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 3</td></tr>
+      <tr><td>9</td><td>No Extraction Status Tracking</td><td>Pipeline</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 4</td></tr>
+      <tr><td>10</td><td>No Retry Mechanism</td><td>Pipeline</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 4</td></tr>
+      <tr><td>11</td><td>No Audit Log</td><td>Pipeline</td><td><span class="badge low">LOW</span></td><td>Chunk 4</td></tr>
+    </table>
+  </div>
+
+  <!-- UPLOAD GAPS -->
+  <div id="upload" class="chunk">
+    <br/>
+    <div class="card high">
+      <h3>1. No File Type Validation <span class="badge high">HIGH</span></h3>
+      <p>Frontend <code>fileProcessor.ts</code> lacks strict MIME type and extension checks before upload. Invalid files can enter the pipeline and cause unexpected errors.</p>
+      <div class="fix"><strong>Fix:</strong> Add allowlist validation — accept only PDF, DOCX, XLSX, PNG, JPG. Reject all others with a clear error message before upload starts.</div>
+    </div>
+    <div class="card high">
+      <h3>2. No File Size Limit <span class="badge high">HIGH</span></h3>
+      <p>Large files (e.g., 100MB PDFs) can crash the extraction pipeline, cause memory issues, or timeout the server.</p>
+      <div class="fix"><strong>Fix:</strong> Enforce a max file size of 20MB on both frontend (before upload) and backend (in middleware). Return HTTP 413 for oversized files.</div>
+    </div>
+    <div class="card medium">
+      <h3>3. No Upload Progress Feedback <span class="badge medium">MEDIUM</span></h3>
+      <p>Users receive no real-time feedback during file upload. For large files this creates a poor UX — users don't know if the upload is working.</p>
+      <div class="fix"><strong>Fix:</strong> Implement a progress bar using XHR <code>onprogress</code> events or fetch with ReadableStream. Show percentage and estimated time.</div>
+    </div>
+    <div class="card medium">
+      <h3>4. No Duplicate File Detection <span class="badge medium">MEDIUM</span></h3>
+      <p>The same document can be uploaded multiple times, causing redundant processing, wasted storage, and duplicate JSON records.</p>
+      <div class="fix"><strong>Fix:</strong> Hash file content using SHA-256 on the frontend before upload. Check the hash against existing records in the DB. Warn user if duplicate found.</div>
+    </div>
+  </div>
+
+  <!-- CONVERSION GAPS -->
+  <div id="conversion" class="chunk">
+    <br/>
+    <div class="card high">
+      <h3>5. Incomplete Converter Coverage <span class="badge high">HIGH</span></h3>
+      <p><code>unknown.ts</code> fallback converter silently fails for unsupported formats with no user notification. Users don't know their file wasn't processed.</p>
+      <div class="fix"><strong>Fix:</strong> Return a clear error response listing supported formats when an unknown type is detected. Log the unsupported MIME type for monitoring.</div>
+    </div>
+    <div class="card high">
+      <h3>6. No JSON Schema Validation <span class="badge high">HIGH</span></h3>
+      <p>Extracted JSON is not validated against a defined schema before saving to the database. Malformed or incomplete data can corrupt downstream processes.</p>
+      <div class="fix"><strong>Fix:</strong> Define JSON schemas per document type (Aadhaar, PAN, GST, etc.) using Zod or Ajv. Validate every extraction output before persisting.</div>
+    </div>
+    <div class="card high">
+      <h3>7. No Fallback for Partial LLM Extraction <span class="badge high">HIGH</span></h3>
+      <p><code>llmExtractor.ts</code> has no fallback if LLM partially fails. Partial data may be saved as complete, leading to silent data quality issues.</p>
+      <div class="fix"><strong>Fix:</strong> Add confidence scoring per field. Flag extractions below threshold as <code>PARTIAL</code>. Implement retry with a different prompt or fallback to regex extractor.</div>
+    </div>
+    <div class="card medium">
+      <h3>8. Inconsistent JSON Structure Across Extractors <span class="badge medium">MEDIUM</span></h3>
+      <p>Extractors (Aadhaar, PAN, GST, ITR, Bank Statement) may return different JSON shapes, making downstream consumption unreliable.</p>
+      <div class="fix"><strong>Fix:</strong> Define a common base schema with document-specific extensions. All extractors must conform to the base schema.</div>
+    </div>
+  </div>
+
+  <!-- PIPELINE GAPS -->
+  <div id="pipeline" class="chunk">
+    <br/>
+    <div class="card medium">
+      <h3>9. No Extraction Status Tracking <span class="badge medium">MEDIUM</span></h3>
+      <p>No way to know if a document is <em>pending</em>, <em>processing</em>, or <em>failed</em> after upload. Users and admins are blind to pipeline state.</p>
+      <div class="fix"><strong>Fix:</strong> Add a <code>status</code> field (PENDING / PROCESSING / COMPLETED / FAILED) in the DB. Expose a <code>GET /documents/:id/status</code> API endpoint.</div>
+    </div>
+    <div class="card medium">
+      <h3>10. No Retry Mechanism <span class="badge medium">MEDIUM</span></h3>
+      <p>Failed conversions are not retried automatically, requiring manual intervention. Transient errors (network, LLM timeout) cause permanent failures.</p>
+      <div class="fix"><strong>Fix:</strong> Implement exponential backoff retry (max 3 attempts) in <code>worker.ts</code> and <code>scheduler.ts</code>. Dead-letter queue for permanently failed jobs.</div>
+    </div>
+    <div class="card low">
+      <h3>11. No Audit Log <span class="badge low">LOW</span></h3>
+      <p>No record of who uploaded what document and when, making compliance and debugging difficult.</p>
+      <div class="fix"><strong>Fix:</strong> Log upload events with user ID, timestamp, file hash, file name, and extraction result status. Store in a separate audit table.</div>
+    </div>
+  </div>
+
+  <!-- IMPL CHUNK 1 -->
+  <div id="impl1" class="chunk">
+    <br/>
+    <div class="impl-chunk">
+      <div class="chunk-header">🛠 Chunk 1 — File Validation & Size Limit <span>Gaps #1 & #2 | HIGH Priority</span></div>
+      <div class="chunk-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Add MIME type + extension allowlist in <code>frontend/src/lib/upload/fileProcessor.ts</code></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Enforce 20MB max file size check before upload starts</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Add backend middleware to reject oversized files with HTTP 413</div></div>
+        <pre>// frontend/src/lib/upload/fileProcessor.ts
+
+const ALLOWED_TYPES = ['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','image/png','image/jpeg'];
+const MAX_SIZE_MB = 20;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+export function validateFile(file: File): { valid: boolean; error?: string } {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { valid: false, error: `Unsupported file type: ${file.type}. Allowed: PDF, DOCX, XLSX, PNG, JPG` };
+  }
+  if (file.size > MAX_SIZE_BYTES) {
+    return { valid: false, error: `File too large: ${(file.size/1024/1024).toFixed(1)}MB. Max allowed: ${MAX_SIZE_MB}MB` };
+  }
+  return { valid: true };
+}
+
+// backend/src/middleware/uploadLimits.ts
+import multer from 'multer';
+export const uploadMiddleware = multer({
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['application/pdf','image/png','image/jpeg',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    cb(null, allowed.includes(file.mimetype));
+  }
+});</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPL CHUNK 2 -->
+  <div id="impl2" class="chunk">
+    <br/>
+    <div class="impl-chunk">
+      <div class="chunk-header">🛠 Chunk 2 — Progress Feedback, Dedup & Converter Coverage <span>Gaps #3, #4 & #5 | MEDIUM-HIGH</span></div>
+      <div class="chunk-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Add SHA-256 hash check before upload to detect duplicates</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Implement upload progress using XHR <code>onprogress</code></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Update <code>unknown.ts</code> converter to return a clear error</div></div>
+        <pre>// Duplicate detection — hash file before upload
+async function hashFile(file: File): Promise&lt;string&gt; {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Upload with progress
+function uploadWithProgress(file: File, url: string, onProgress: (pct: number) => void) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*100)); };
+    xhr.onload = () => resolve(xhr.response);
+    xhr.onerror = reject;
+    xhr.open('POST', url);
+    const form = new FormData();
+    form.append('file', file);
+    xhr.send(form);
+  });
+}
+
+// backend/src/modules/documentArchive/converters/unknown.ts
+export function convertUnknown(mimeType: string) {
+  const supported = ['application/pdf','image/png','image/jpeg',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+  throw new Error(`Unsupported file type: "${mimeType}". Supported: ${supported.join(', ')}`);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPL CHUNK 3 -->
+  <div id="impl3" class="chunk">
+    <br/>
+    <div class="impl-chunk">
+      <div class="chunk-header">🛠 Chunk 3 — JSON Schema Validation & LLM Fallback <span>Gaps #6, #7 & #8 | HIGH Priority</span></div>
+      <div class="chunk-body">
+        <div class="step"><div class="step-num">1</div><div class="step-num">1</div><div class="step-text">Define base JSON schema using Zod for all document types</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Add confidence scoring to LLM extractor with PARTIAL flag</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Standardize all extractor output shapes to base schema</div></div>
+        <pre>// backend/src/types/extractionSchema.ts
+import { z } from 'zod';
+
+export const BaseExtractionSchema = z.object({
+  documentType: z.string(),
+  extractedAt: z.string().datetime(),
+  confidence: z.number().min(0).max(1),
+  status: z.enum(['COMPLETE', 'PARTIAL', 'FAILED']),
+  fields: z.record(z.string(), z.union([z.string(), z.number(), z.null()]))
+});
+
+export const AadhaarSchema = BaseExtractionSchema.extend({
+  fields: z.object({
+    name: z.string().nullable(),
+    dob: z.string().nullable(),
+    aadhaarNumber: z.string().nullable(),
+    address: z.string().nullable()
+  })
+});
+
+// In llmExtractor.ts — add confidence + fallback
+async function extractWithFallback(text: string, docType: string) {
+  try {
+    const result = await llmExtract(text, docType);
+    const confidence = calculateConfidence(result);
+    if (confidence < 0.7) {
+      return { ...result, status: 'PARTIAL', confidence };
+    }
+    return { ...result, status: 'COMPLETE', confidence };
+  } catch {
+    return { status: 'FAILED', confidence: 0, fields: {} };
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPL CHUNK 4 -->
+  <div id="impl4" class="chunk">
+    <br/>
+    <div class="impl-chunk">
+      <div class="chunk-header">🛠 Chunk 4 — Status Tracking, Retry & Audit Log <span>Gaps #9, #10 & #11 | MEDIUM-LOW</span></div>
+      <div class="chunk-body">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Add <code>status</code> field to document DB model and expose status API</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Implement exponential backoff retry in <code>worker.ts</code></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Create audit log table and log all upload + extraction events</div></div>
+        <pre>// Prisma schema addition
+model Document {
+  id         String   @id @default(cuid())
+  status     String   @default("PENDING") // PENDING|PROCESSING|COMPLETED|FAILED
+  retryCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // UPLOAD | EXTRACT | RETRY | FAIL
+  documentId String
+  fileHash   String
+  result     String?
+  createdAt  DateTime @default(now())
+}
+
+// backend/src/modules/documentArchive/worker.ts
+async function processWithRetry(docId: string, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await updateStatus(docId, 'PROCESSING');
+      const result = await extractDocument(docId);
+      await updateStatus(docId, 'COMPLETED');
+      await writeAuditLog(docId, 'EXTRACT', 'SUCCESS');
+      return result;
+    } catch (err) {
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      if (attempt === maxRetries) {
+        await updateStatus(docId, 'FAILED');
+        await writeAuditLog(docId, 'FAIL', String(err));
+        throw err;
+      }
+      await sleep(delay);
+    }
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULL SUMMARY -->
+  <div id="summary" class="chunk">
+    <br/>
+    <table>
+      <tr><th>#</th><th>Gap</th><th>Area</th><th>Priority</th><th>Impl Chunk</th><th>Files to Change</th></tr>
+      <tr><td>1</td><td>No File Type Validation</td><td>Upload</td><td><span class="badge high">HIGH</span></td><td>Chunk 1</td><td>fileProcessor.ts, uploadLimits.ts</td></tr>
+      <tr><td>2</td><td>No File Size Limit</td><td>Upload</td><td><span class="badge high">HIGH</span></td><td>Chunk 1</td><td>fileProcessor.ts, uploadLimits.ts</td></tr>
+      <tr><td>3</td><td>No Upload Progress Feedback</td><td>Upload</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 2</td><td>fileProcessor.ts</td></tr>
+      <tr><td>4</td><td>No Duplicate File Detection</td><td>Upload</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 2</td><td>fileProcessor.ts, archive.service.ts</td></tr>
+      <tr><td>5</td><td>Incomplete Converter Coverage</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 2</td><td>converters/unknown.ts</td></tr>
+      <tr><td>6</td><td>No JSON Schema Validation</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 3</td><td>types/extractionSchema.ts (new)</td></tr>
+      <tr><td>7</td><td>No Fallback for Partial LLM Extraction</td><td>Conversion</td><td><span class="badge high">HIGH</span></td><td>Chunk 3</td><td>llmExtractor.ts</td></tr>
+      <tr><td>8</td><td>Inconsistent JSON Structure</td><td>Conversion</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 3</td><td>extractors/index.ts, all extractors</td></tr>
+      <tr><td>9</td><td>No Extraction Status Tracking</td><td>Pipeline</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 4</td><td>prisma/schema.prisma, routes</td></tr>
+      <tr><td>10</td><td>No Retry Mechanism</td><td>Pipeline</td><td><span class="badge medium">MEDIUM</span></td><td>Chunk 4</td><td>worker.ts, scheduler.ts</td></tr>
+      <tr><td>11</td><td>No Audit Log</td><td>Pipeline</td><td><span class="badge low">LOW</span></td><td>Chunk 4</td><td>prisma/schema.prisma, worker.ts</td></tr>
+    </table>
+  </div>
+
+</main>
+
+<footer>Arogan Gap Report &mdash; Generated September 2026 &mdash; argoan-group/Arogan</footer>
+
+<script>
+  function showChunk(id, btn) {
+    document.querySelectorAll('.chunk').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function downloadReport() {
+    const html = document.documentElement.outerHTML;
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'arogan-gap-report.html';
+    a.click();
+  }
+</script>
+
+</body>
+</html>
