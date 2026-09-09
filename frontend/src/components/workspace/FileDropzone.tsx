@@ -415,7 +415,10 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         return slash >= 0 ? first.substring(0, slash + 1) : '';
       })();
       const processed = await processUploadInput(e.target.files, folderPrefix);
-      const allowed = processed.filter(({ file }) => isAllowedFileType(file));
+      const allowed = processed.filter(({ relativePath }) => {
+        if (!relativePath) return true;
+        return !relativePath.includes('/');
+      });
       const items = addUploadItems(allowed);
       items.forEach(startUpload);
       e.target.value = '';
