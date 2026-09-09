@@ -22,6 +22,20 @@ async function connectDB(): Promise<void> {
 
 await connectDB();
 
+async function migrateApplicationIdNullability(): Promise<void> {
+  try {
+    const result = await prisma.$queryRawUnsafe(`UPDATE "Document" SET "applicationId" = NULL WHERE "applicationId" = 'standalone'`);
+    logger.info({ count: (result as any).count ?? 'unknown' }, 'Migrated standalone applicationId to null');
+  } catch (err) {
+    logger.warn(
+      { err: { message: err instanceof Error ? err.message : String(err) } },
+      'Failed to migrate standalone applicationId',
+    );
+  }
+}
+
+await migrateApplicationIdNullability();
+
 async function bootstrapStorage(): Promise<void> {
   try {
     await ensureBucket();

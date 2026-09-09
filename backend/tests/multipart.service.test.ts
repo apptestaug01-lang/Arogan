@@ -116,6 +116,7 @@ describe('presignMultipart', () => {
     const totalParts = Math.ceil((250 * MB) / (64 * MB))
 
     expect(result.uploadId).toBe('upload-1')
+    expect(result.sessionUploadId).toBeDefined()
     expect(result.key).toBe(expectedKey)
     expect(result.partUrls).toHaveLength(totalParts)
     expect(result.partUrls.every((u) => u === 'https://part.url')).toBe(true)
@@ -141,7 +142,7 @@ describe('presignMultipart', () => {
       undefined,
       undefined,
       'user-1',
-      expect.objectContaining({ uploadId: 'upload-1', totalParts }),
+      expect.objectContaining({ uploadId: 'upload-1', sessionUploadId: expect.any(String), totalParts }),
     )
   })
 
@@ -185,6 +186,7 @@ describe('completeMultipart', () => {
         id: 'doc-1',
         userId: 'user-1',
         applicationId: 'app-1',
+        uploadId: 'upload-1',
         category: 'Documents',
         s3Key: expectedKey,
         originalName: 'big.pdf',
@@ -242,7 +244,8 @@ describe('abortMultipart / listUploadedParts', () => {
       applicationId: 'app-1',
       documentId: 'doc-1',
       fileName: 'big.pdf',
-      uploadId: 'upload-1',
+      uploadId: 'session-1',
+      uploadIdS3: 'upload-1',
     })
     const abortCall = (new S3Client() as any).send.mock.calls.find(
       (c: any) => c[0] instanceof AbortMultipartUploadCommand,
@@ -257,7 +260,8 @@ describe('abortMultipart / listUploadedParts', () => {
       applicationId: 'app-1',
       documentId: 'doc-1',
       fileName: 'big.pdf',
-      uploadId: 'upload-1',
+      uploadId: 'session-1',
+      uploadIdS3: 'upload-1',
     })
     expect(parts).toEqual([1])
   })

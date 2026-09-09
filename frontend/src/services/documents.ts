@@ -75,6 +75,7 @@ export async function linkDocument(
 
 export interface PresignDocumentInput {
   applicationId?: string;
+  uploadId?: string;
   fileName: string;
   contentType: string;
   contentLength: number;
@@ -84,6 +85,7 @@ export interface PresignDocumentResult {
   documentId: string;
   key: string;
   uploadUrl: string;
+  uploadId: string;
   expiresIn: number;
 }
 
@@ -101,11 +103,13 @@ export interface CompleteDocumentInput {
   applicationId?: string;
   fileName: string;
   contentType: string;
+  uploadId?: string;
 }
 
 export interface CompleteDocumentResult {
   id: string;
   applicationId: string;
+  uploadId: string;
   originalName: string;
   contentType: string;
   size: number;
@@ -123,6 +127,7 @@ export async function completeDocument(
       applicationId: input.applicationId,
       fileName: input.fileName,
       contentType: input.contentType,
+      uploadId: input.uploadId,
     },
   );
   return res.data.data.document;
@@ -143,6 +148,7 @@ export interface PresignMultipartResult {
   documentId: string;
   key: string;
   uploadId: string;
+  sessionUploadId: string;
   partUrls: string[];
   partSize: number;
   totalParts: number;
@@ -167,6 +173,7 @@ export interface CompleteMultipartInput {
   fileName: string;
   contentType: string;
   uploadId: string;
+  sessionUploadId: string;
   parts: MultipartPart[];
 }
 
@@ -180,6 +187,7 @@ export async function completeMultipart(
       fileName: input.fileName,
       contentType: input.contentType,
       uploadId: input.uploadId,
+      sessionUploadId: input.sessionUploadId,
       parts: input.parts,
     },
   );
@@ -191,6 +199,7 @@ export interface AbortMultipartInput {
   applicationId?: string;
   fileName: string;
   uploadId: string;
+  sessionUploadId: string;
 }
 
 export async function abortMultipart(input: AbortMultipartInput): Promise<void> {
@@ -198,7 +207,7 @@ export async function abortMultipart(input: AbortMultipartInput): Promise<void> 
     applicationId: input.applicationId,
     documentId: input.documentId,
     fileName: input.fileName,
-    uploadId: input.uploadId,
+    uploadId: input.sessionUploadId,
   });
 }
 

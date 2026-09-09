@@ -15,6 +15,7 @@ import { archiveWorker } from '../modules/documentArchive/worker.js'
 export interface PresignDocumentInput {
   userId: string
   applicationId?: string
+  uploadId?: string
   fileName: string
   contentType: string
   contentLength: number
@@ -24,6 +25,7 @@ export interface CompleteDocumentInput {
   userId: string
   documentId: string
   applicationId?: string
+  uploadId?: string
   fileName: string
   contentType: string
 }
@@ -40,7 +42,8 @@ export async function presignDocument(input: PresignDocumentInput) {
   }
 
   const documentId = randomUUID()
-  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName)
+  const uploadId = input.uploadId ?? randomUUID()
+  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName, uploadId)
   let uploadUrl: string
   try {
     await ensureBucket()
@@ -60,10 +63,11 @@ export async function presignDocument(input: PresignDocumentInput) {
 
   await logAuditEvent('DOCUMENT_PRESIGN', undefined, undefined, input.userId, {
     applicationId: input.applicationId,
+    uploadId,
     key,
   })
 
-  return { documentId, key, uploadUrl, expiresIn: PRESIGNED_UPLOAD_TTL_SECONDS }
+  return { documentId, key, uploadUrl, uploadId, expiresIn: PRESIGNED_UPLOAD_TTL_SECONDS }
 }
 
 export async function completeDocument(input: CompleteDocumentInput) {
@@ -80,7 +84,7 @@ export async function completeDocument(input: CompleteDocumentInput) {
   const existing = await prisma.document.findFirst({
     where: {
       userId: input.userId,
-      applicationId: input.applicationId ?? 'standalone',
+      applicationId: input.applicationId ?? undefined,
       originalName: input.fileName,
       status: { not: 'DELETED' },
     },
@@ -95,7 +99,8 @@ export async function completeDocument(input: CompleteDocumentInput) {
       data: {
         id: input.documentId,
         userId: input.userId,
-        applicationId: input.applicationId ?? 'standalone',
+        applicationId: input.applicationId ?? undefined,
+        uploadId: input.uploadId ?? undefined,
         category: 'Documents',
         s3Key: key,
         originalName: input.fileName,
@@ -146,7 +151,8 @@ export interface ListUserDocumentsInput {
 
 export interface DocumentSummary {
   id: string
-  applicationId: string
+  applicationId: string | null
+  uploadId: string | null
   category: string | null
   originalName: string
   contentType: string
@@ -169,6 +175,7 @@ export async function listUserDocuments(input: ListUserDocumentsInput): Promise<
   return docs.map((d) => ({
     id: d.id,
     applicationId: d.applicationId,
+    uploadId: d.uploadId,
     category: d.category,
     originalName: d.originalName,
     contentType: d.contentType,

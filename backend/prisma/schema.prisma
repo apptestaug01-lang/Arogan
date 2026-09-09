@@ -87,8 +87,9 @@ model Document {
   id            String          @id
   userId        String
   user          User            @relation(fields: [userId], references: [id])
-  applicationId String
+  applicationId String?
   application   Application?    @relation(fields: [applicationId], references: [applicationId])
+  uploadId      String?
   category      String?
   documentType  String?
   s3Key         String          @unique
@@ -104,6 +105,7 @@ model Document {
 
   @@index([userId])
   @@index([applicationId])
+  @@index([uploadId])
 }
 
 model DocumentExtraction {

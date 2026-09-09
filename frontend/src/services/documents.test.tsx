@@ -133,6 +133,7 @@ describe('documents service', () => {
             document: {
               id: 'doc-1',
               applicationId: 'app-1',
+              uploadId: 'session-123',
               originalName: 'large.pdf',
               contentType: 'application/pdf',
               size: 16777216,
@@ -150,6 +151,7 @@ describe('documents service', () => {
         fileName: 'large.pdf',
         contentType: 'application/pdf',
         uploadId: 'upload-123',
+        sessionUploadId: 'session-123',
         parts: [
           { partNumber: 1, etag: 'etag-1' },
           { partNumber: 2, etag: 'etag-2' },
@@ -163,6 +165,7 @@ describe('documents service', () => {
           fileName: 'large.pdf',
           contentType: 'application/pdf',
           uploadId: 'upload-123',
+          sessionUploadId: 'session-123',
           parts: [
             { partNumber: 1, etag: 'etag-1' },
             { partNumber: 2, etag: 'etag-2' },
@@ -182,6 +185,7 @@ describe('documents service', () => {
         applicationId: 'app-1',
         fileName: 'large.pdf',
         uploadId: 'upload-123',
+        sessionUploadId: 'session-123',
       });
 
       expect(mockedApi.post).toHaveBeenCalledWith(
@@ -190,7 +194,7 @@ describe('documents service', () => {
           applicationId: 'app-1',
           documentId: 'doc-1',
           fileName: 'large.pdf',
-          uploadId: 'upload-123',
+          uploadId: 'session-123',
         },
       );
     });

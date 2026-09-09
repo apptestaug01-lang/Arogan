@@ -52,6 +52,7 @@ export function computeChunkPlan(size: number): ChunkPlan {
 export interface PresignMultipartInput {
   userId: string
   applicationId?: string
+  uploadId?: string
   fileName: string
   contentType: string
   contentLength: number
@@ -61,6 +62,7 @@ export interface PresignMultipartResult {
   documentId: string
   key: string
   uploadId: string
+  sessionUploadId?: string
   partUrls: string[]
   partSize: number
   totalParts: number
@@ -84,7 +86,8 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
   }
 
   const documentId = randomUUID()
-  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName)
+  const sessionUploadId = input.uploadId ?? randomUUID()
+  const key = buildDocumentKey(input.userId, input.applicationId, documentId, input.fileName, sessionUploadId)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
@@ -129,6 +132,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 
   await logAuditEvent('DOCUMENT_MULTIPART_PRESIGN', undefined, undefined, input.userId, {
     applicationId: input.applicationId,
+    sessionUploadId,
     key,
     uploadId,
     totalParts,
@@ -138,6 +142,7 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
     documentId,
     key,
     uploadId,
+    sessionUploadId,
     partUrls,
     partSize,
     totalParts,
@@ -150,10 +155,11 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
 export interface CompleteMultipartInput {
   userId: string
   applicationId?: string
+  uploadId?: string
   documentId: string
   fileName: string
   contentType: string
-  uploadId: string
+  uploadIdS3: string
   parts: { partNumber: number; etag: string }[]
 }
 
@@ -168,7 +174,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       new CompleteMultipartUploadCommand({
         Bucket: config.bucket,
         Key: key,
-        UploadId: input.uploadId,
+        UploadId: input.uploadIdS3,
         MultipartUpload: {
           Parts: ordered.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
         },
@@ -206,7 +212,8 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       data: {
         id: input.documentId,
         userId: input.userId,
-        applicationId: input.applicationId ?? 'standalone',
+        applicationId: input.applicationId ?? undefined,
+        uploadId: input.uploadId ?? undefined,
         category: 'Documents',
         s3Key: key,
         originalName: input.fileName,
@@ -235,18 +242,19 @@ export async function completeMultipart(input: CompleteMultipartInput) {
 export interface MultipartKeyInput {
   userId: string
   applicationId?: string
+  uploadId?: string
   documentId: string
   fileName: string
 }
 
-export async function abortMultipart(input: MultipartKeyInput & { uploadId: string }): Promise<void> {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
+export async function abortMultipart(input: MultipartKeyInput & { uploadIdS3: string }): Promise<void> {
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName, input.uploadId)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
   try {
     await s3.send(
-      new AbortMultipartUploadCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
+      new AbortMultipartUploadCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadIdS3 }),
     )
   } catch {
     // Best-effort abort; log but don't fail the request
@@ -254,21 +262,21 @@ export async function abortMultipart(input: MultipartKeyInput & { uploadId: stri
 
   await logAuditEvent('DOCUMENT_MULTIPART_ABORT', undefined, undefined, input.userId, {
     key,
-    uploadId: input.uploadId,
+    uploadId: input.uploadIdS3,
   })
 }
 
 export async function listUploadedParts(
-  input: MultipartKeyInput & { uploadId: string },
+  input: MultipartKeyInput & { uploadIdS3: string },
 ): Promise<number[]> {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName, input.uploadId)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 
   let res
   try {
     res = await s3.send(
-      new ListPartsCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadId }),
+      new ListPartsCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadIdS3 }),
     )
   } catch (err) {
     throw new StorageError(

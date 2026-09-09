@@ -43,11 +43,13 @@ describe('FileDropzone', () => {
       documentId: 'doc-uploaded',
       key: 'borrowers/u1/applications/app-1/documents/doc-uploaded/report.pdf',
       uploadUrl: 'https://s3/upload/doc-1',
+      uploadId: 'upload-session-1',
       expiresIn: 300,
     });
     mockedComplete.mockResolvedValue({
       id: 'doc-uploaded',
       applicationId: 'app-1',
+      uploadId: 'upload-session-1',
       originalName: 'report.pdf',
       contentType: 'application/pdf',
       size: 1024,
@@ -144,6 +146,7 @@ describe('FileDropzone', () => {
         applicationId: 'app-1',
         fileName: 'report.pdf',
         contentType: 'application/pdf',
+        uploadId: 'upload-session-1',
       });
     });
 
@@ -173,6 +176,7 @@ describe('FileDropzone', () => {
       documentId: 'doc-mpu',
       key: 'borrowers/u1/documents/doc-mpu/large.pdf',
       uploadId: 'vp-123',
+      sessionUploadId: 'session-123',
       partUrls: ['https://s3/part/1', 'https://s3/part/2'],
       partSize: 64 * 1024 * 1024,
       totalParts: 2,
@@ -183,6 +187,7 @@ describe('FileDropzone', () => {
     mockedCompleteMulti.mockResolvedValue({
       id: 'doc-mpu',
       applicationId: 'app-1',
+      uploadId: 'session-123',
       originalName: 'large.pdf',
       contentType: 'application/pdf',
       size: hundredMbPlus,

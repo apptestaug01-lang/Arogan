@@ -7,16 +7,21 @@ function sanitizeFileName(name: string): string {
 }
 
 // Layout: borrowers/{clientId}/applications/{applicationId}/documents/{documentId}/{fileName}
-// If applicationId is omitted, documents are stored under 'standalone' so uploads work
-// without an application being created first.
+// If applicationId is omitted and uploadId is provided, documents are stored under
+// 'uploads/{uploadId}' so uploads work without an application being created first.
 export function buildDocumentKey(
   userId: string,
   applicationId: string | undefined,
   documentId: string,
   fileName: string,
+  uploadId?: string,
 ): string {
   const user = sanitizeSegment(userId)
-  const app = sanitizeSegment(applicationId ?? 'standalone')
+  const app = applicationId
+    ? sanitizeSegment(applicationId)
+    : uploadId
+      ? `uploads/${sanitizeSegment(uploadId)}`
+      : 'standalone'
   const doc = sanitizeSegment(documentId)
   const file = sanitizeFileName(fileName)
   return `borrowers/${user}/applications/${app}/documents/${doc}/${file}`

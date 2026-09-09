@@ -34,6 +34,7 @@ export const signupSchema = z.object({
 
 export const documentPresignSchema = z.object({
   applicationId: z.string().min(1).optional(),
+  uploadId: z.string().min(1).optional(),
   fileName: z.string().min(1).max(200),
   contentType: z.string().min(1),
   contentLength: z.number().int().positive().max(5 * 1024 * 1024 * 1024, 'File size exceeds the 5 GB limit'),
@@ -41,6 +42,7 @@ export const documentPresignSchema = z.object({
 
 export const documentPresignBatchSchema = z.object({
   applicationId: z.string().min(1).optional(),
+  uploadId: z.string().min(1).optional(),
   files: z
     .array(
       z.object({
@@ -55,6 +57,7 @@ export const documentPresignBatchSchema = z.object({
 
 export const documentCompleteSchema = z.object({
   applicationId: z.string().min(1).optional(),
+  uploadId: z.string().min(1).optional(),
   fileName: z.string().min(1).max(200),
   contentType: z.string().min(1),
 });
@@ -64,6 +67,7 @@ export const completeMultipartSchema = z.object({
   fileName: z.string().min(1).max(200),
   contentType: z.string().min(1),
   uploadId: z.string().min(1),
+  sessionUploadId: z.string().min(1).optional(),
   parts: z
     .array(z.object({ partNumber: z.number().int().positive(), etag: z.string().min(1) }))
     .min(1),
@@ -74,6 +78,7 @@ export const abortMultipartSchema = z.object({
   documentId: z.string().min(1),
   fileName: z.string().min(1).max(200),
   uploadId: z.string().min(1),
+  sessionUploadId: z.string().min(1).optional(),
 });
 
 export const linkDocumentSchema = z.object({

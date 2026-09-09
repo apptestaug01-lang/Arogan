@@ -58,6 +58,7 @@ interface UploadItem {
   error?: string;
   isMultipart: boolean;
   uploadId?: string;
+  sessionUploadId?: string;
   documentId?: string;
   totalParts: number;
   uploadedParts: number;
@@ -201,6 +202,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           applicationId,
           fileName: file.name,
           contentType,
+          uploadId: presign.uploadId,
         });
 
         updateItem(id, {
@@ -240,12 +242,13 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           contentLength: file.size,
         });
 
-        uploadId = presignResult.uploadId;
+        const sessionUploadId = presignResult.sessionUploadId;
         updateItem(id, {
           status: 'uploading',
           message: `Uploading ${presignResult.totalParts} parts…`,
           isMultipart: true,
-          uploadId,
+          uploadId: presignResult.uploadId,
+          sessionUploadId,
           documentId: presignResult.documentId,
           totalParts: presignResult.totalParts,
           uploadedParts: 0,
@@ -323,6 +326,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           fileName: file.name,
           contentType,
           uploadId: presignResult.uploadId,
+          sessionUploadId: presignResult.sessionUploadId,
           parts: sortedParts,
         });
 
@@ -345,6 +349,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
               applicationId,
               fileName: item.file.name,
               uploadId,
+              sessionUploadId: presignResult?.sessionUploadId || item.sessionUploadId || '',
             });
           } catch {
             // best-effort abort
@@ -427,6 +432,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           applicationId,
           fileName: item.file.name,
           uploadId: item.uploadId,
+          sessionUploadId: item.sessionUploadId || '',
         }).catch(() => {});
       }
       updateItem(item.id, { status: 'idle', message: 'Cancelled' });
@@ -453,6 +459,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
               applicationId,
               fileName: u.file.name,
               uploadId: u.uploadId,
+              sessionUploadId: u.sessionUploadId || '',
             }).catch(() => {});
           }
         }

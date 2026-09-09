@@ -39,6 +39,7 @@ router.post(
       const result = await presignDocument({
         userId: req.user!.id,
         applicationId: body.applicationId,
+        uploadId: body.uploadId,
         fileName: body.fileName,
         contentType: body.contentType,
         contentLength: body.contentLength,
@@ -59,6 +60,7 @@ router.post(
     try {
       const body = req.body as {
         applicationId?: string
+        uploadId?: string
         files: Array<{ fileName: string; contentType: string; contentLength: number }>
       }
 
@@ -67,6 +69,7 @@ router.post(
           presignDocument({
             userId: req.user!.id,
             applicationId: body.applicationId,
+            uploadId: body.uploadId,
             fileName: f.fileName,
             contentType: f.contentType,
             contentLength: f.contentLength,
@@ -140,6 +143,7 @@ router.post(
         userId: req.user!.id,
         documentId: req.params.documentId,
         applicationId: body.applicationId,
+        uploadId: body.uploadId,
         fileName: body.fileName,
         contentType: body.contentType,
       })
@@ -186,7 +190,8 @@ router.post(
         applicationId: body.applicationId,
         fileName: body.fileName,
         contentType: body.contentType,
-        uploadId: body.uploadId,
+        uploadId: body.sessionUploadId,
+        uploadIdS3: body.uploadId,
         parts: body.parts,
       })
       sendSuccess(res, 'Document recorded', { document }, 201)
@@ -385,8 +390,9 @@ router.post(
         userId: req.user!.id,
         documentId: body.documentId,
         applicationId: body.applicationId,
+        uploadId: body.sessionUploadId,
         fileName: body.fileName,
-        uploadId: body.uploadId,
+        uploadIdS3: req.params.uploadId,
       })
       sendSuccess(res, 'Multipart upload aborted')
     } catch (err) {
@@ -415,7 +421,7 @@ router.get(
         applicationId,
         documentId,
         fileName,
-        uploadId: req.params.uploadId,
+        uploadIdS3: req.params.uploadId,
       })
       sendSuccess(res, 'Uploaded parts', { partNumbers })
     } catch (err) {
