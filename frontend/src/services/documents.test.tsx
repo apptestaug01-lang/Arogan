@@ -164,8 +164,9 @@ describe('documents service', () => {
           applicationId: 'app-1',
           fileName: 'large.pdf',
           contentType: 'application/pdf',
-          uploadId: 'upload-123',
-          sessionUploadId: 'session-123',
+          uploadId: 'session-123',
+          uploadIdS3: 'upload-123',
+          sessionUploadId: 'upload-123',
           parts: [
             { partNumber: 1, etag: 'etag-1' },
             { partNumber: 2, etag: 'etag-2' },

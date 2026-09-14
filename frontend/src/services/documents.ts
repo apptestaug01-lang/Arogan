@@ -1,4 +1,5 @@
 import api from './api';
+import { uploadTracker } from '@/lib/upload/fileProcessor';
 
 export interface ExplorerEntry {
   name: string;
@@ -167,6 +168,24 @@ export async function presignMultipart(
   return res.data.data;
 }
 
+/**
+ * Simulate progress tracking for multipart uploads.
+ * This function can be used in the frontend to track upload progress.
+ * @param uploadId - Unique identifier for the upload.
+ * @param partNumber - Current part being uploaded.
+ * @param totalParts - Total number of parts in the upload.
+ */
+export const trackMultipartProgress = (
+  uploadId: string,
+  partNumber: number,
+  totalParts: number,
+): number => {
+  const progressPercentage = Math.round((partNumber / totalParts) * 100)
+  uploadTracker.updateProgress(uploadId, progressPercentage)
+  uploadTracker.updateStatus(uploadId, 'Uploading...')
+  return progressPercentage
+}
+
 export interface CompleteMultipartInput {
   documentId: string;
   applicationId?: string;
@@ -186,8 +205,8 @@ export async function completeMultipart(
       applicationId: input.applicationId,
       fileName: input.fileName,
       contentType: input.contentType,
-      uploadId: input.uploadId,
-      sessionUploadId: input.sessionUploadId,
+      uploadId: input.sessionUploadId,
+      uploadIdS3: input.uploadId,
       parts: input.parts,
     },
   );
