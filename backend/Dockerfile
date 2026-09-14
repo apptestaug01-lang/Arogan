@@ -33,4 +33,4 @@ COPY --from=builder /app/package.json ./package.json
 # (e.g. Document) exist in production. Render injects DATABASE_URL at runtime,
 # which is why this runs here rather than at build time. `db push` is additive
 # and non-destructive for existing tables.
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --skip-generate && node dist/server.js"]
+CMD ["sh", "-c", "node_modules/.bin/prisma db push --skip-generate --accept-data-loss && node dist/server.js"]
