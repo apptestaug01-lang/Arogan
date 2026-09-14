@@ -4,7 +4,7 @@ import { validate } from '../middleware/validateRequest.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { prisma } from '../lib/prisma.js'
 import { PRESIGNED_DOWNLOAD_TTL_SECONDS } from '../utils/constants.js'
-import { presignDocument, completeDocument, deleteDocument, listUserDocuments, bulkDeleteDocuments } from '../services/document.service.js'
+import { presignDocument, completeDocument, deleteDocument, listUserDocuments, verifyDocumentsExist, bulkDeleteDocuments } from '../services/document.service.js'
 import {
   presignMultipart,
   completeMultipart,
@@ -124,7 +124,8 @@ router.get(
       const documents = await listUserDocuments({
         userId: req.user!.id,
       })
-      sendSuccess(res, 'Documents listed', { documents })
+      const visible = await verifyDocumentsExist(documents, req.user!.id)
+      sendSuccess(res, 'Documents listed', { documents: visible })
     } catch (err) {
       next(err)
     }
