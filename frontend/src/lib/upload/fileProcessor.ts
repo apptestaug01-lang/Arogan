@@ -64,12 +64,13 @@ export async function traverseEntry(
 
 export async function processDroppedItems(
   dataTransfer: DataTransfer,
+  isFolderUpload = false,
 ): Promise<ProcessedFile[]> {
   const items = Array.from(dataTransfer.items);
   const hasEntryAPI = items.length > 0 && typeof items[0].webkitGetAsEntry === 'function';
 
   if (!hasEntryAPI) {
-    return processUploadInput(dataTransfer.files);
+    return processUploadInput(dataTransfer.files, undefined, isFolderUpload);
   }
 
   const results: ProcessedFile[] = [];
@@ -86,7 +87,10 @@ export async function processDroppedItems(
       const extracted = await extractZipFiles(pf.file);
       final.push(...filterAllowedFiles(extracted));
     } else {
-      final.push(pf);
+      final.push({
+        ...pf,
+        relativePath: isFolderUpload ? `${pf.relativePath || ''}` : pf.relativePath,
+      });
     }
   }
   return final;
@@ -144,10 +148,10 @@ export function validateProcessedFile(item: ProcessedFile): string | null {
   return null;
 }
 
-export function deduplicateFiles(files: ProcessedFile[]): ProcessedFile[] {
+export function deduplicateFiles(files: ProcessedFile[], isFolderUpload = false): ProcessedFile[] {
   const seen = new Set<string>();
-  return files.filter(({ file, size }) => {
-    const key = `${file.name}-${size}`;
+  return files.filter(({ file, size, relativePath }) => {
+    const key = isFolderUpload ? `${relativePath || ''}-${file.name}-${size}` : `${file.name}-${size}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -157,35 +161,25 @@ export function deduplicateFiles(files: ProcessedFile[]): ProcessedFile[] {
 export async function processUploadInput(
   input: FileList | null,
   folderPrefix?: string,
+  isFolderUpload = false,
 ): Promise<ProcessedFile[]> {
   if (!input || input.length === 0) return [];
 
-  const rawFiles: File[] = [];
-  const zipFiles: File[] = [];
+  const processed: ProcessedFile[] = [];
 
   for (let i = 0; i < input.length; i++) {
     const file = input[i];
     if (isZipFile(file)) {
-      zipFiles.push(file);
+      const extracted = await extractZipFiles(file);
+      processed.push(...filterAllowedFiles(extracted));
     } else {
-      rawFiles.push(file);
+      processed.push({
+        file,
+        originalName: file.name,
+        size: file.size,
+        relativePath: isFolderUpload ? `${folderPrefix || ''}/${file.name}` : getRelativePath(file, folderPrefix),
+      });
     }
-  }
-
-  const processed: ProcessedFile[] = [];
-
-  for (const file of rawFiles) {
-    processed.push({
-      file,
-      originalName: file.name,
-      size: file.size,
-      relativePath: getRelativePath(file, folderPrefix),
-    });
-  }
-
-  for (const zipFile of zipFiles) {
-    const extracted = await extractZipFiles(zipFile);
-    processed.push(...filterAllowedFiles(extracted));
   }
 
   return processed;

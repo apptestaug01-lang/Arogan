@@ -98,16 +98,27 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
     }
   }, [deleteTarget, toast, onDocumentDeleted, load, prefix]);
 
-  const segments = React.useMemo(() => {
-    const parts = prefix.split('/').filter(Boolean);
-    const acc: { name: string; prefix: string }[] = [];
-    let cur = '';
-    for (const part of parts) {
-      cur = cur ? `${cur}${part}/` : `${part}/`;
-      acc.push({ name: part, prefix: cur });
-    }
-    return acc;
-  }, [prefix]);
+const segments = React.useMemo(() => {
+  const parts = prefix.split('/').filter(Boolean);
+  const acc: { name: string; prefix: string; displayName: string }[] = [];
+  let cur = '';
+  
+  // Define meaningful display names for each segment
+  const segmentDisplayNames: Record<string, string> = {
+    'borrowers': 'Borrowers Vault',
+    'cmttkkj850000pnapmj5lvmwo': 'Borrower Documents',
+    'applications': 'Applications',
+    'uploads': 'Uploads',
+    'documents': 'All Documents',
+  };
+
+  for (const part of parts) {
+    cur = cur ? `${cur}${part}/` : `${part}/`;
+    const displayName = segmentDisplayNames[part] || part;
+    acc.push({ name: part, prefix: cur, displayName });
+  }
+  return acc;
+}, [prefix]);
 
   const visibleFolders = React.useMemo(
     () =>
@@ -154,7 +165,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
             <React.Fragment key={s.prefix}>
               <ChevronRight className="h-3.5 w-3.5" />
               <button type="button" className="hover:text-foreground" onClick={() => setPrefix(s.prefix)}>
-                {s.name}
+                {s.displayName || s.name}
               </button>
             </React.Fragment>
           ))}

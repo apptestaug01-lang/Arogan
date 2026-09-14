@@ -240,29 +240,59 @@ export async function deleteDocument(input: DeleteDocumentInput) {
     throw new DocumentDeleteError('Document already deleted', 409)
   }
 
-  // Best-effort object deletion. A missing object shouldn't block the
-  // metadata update — record the audit trail regardless.
-  await deleteObject(doc.s3Key).catch((err) => {
-    logAuditEvent('DOCUMENT_DELETE_OBJECT_FAILED', undefined, undefined, input.userId, {
+  // Delete S3 object
+  try {
+    await deleteObject(doc.s3Key)
+    await logAuditEvent('DOCUMENT_OBJECT_DELETED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+      key: doc.s3Key,
+    })
+  } catch (err) {
+    console.error('[DocumentService] Failed to delete S3 object:', err instanceof Error ? err.message : String(err))
+    await logAuditEvent('DOCUMENT_DELETE_OBJECT_FAILED', undefined, undefined, input.userId, {
       documentId: doc.id,
       key: doc.s3Key,
       error: err instanceof Error ? err.message : String(err),
-    }).catch(() => {})
-  })
+    })
+  }
 
+  // Soft delete in database
   await prisma.document.update({
     where: { id: doc.id },
     data: { status: 'DELETED' },
   })
 
-  // Clear any cached extraction so a re-upload with the same id (or a new
-  // document of the same name) starts from a clean slate. The
-  // onDelete: Cascade on the relation only fires on hard delete, which
-  // we don't do here — we soft-delete the document, so the extraction row
-  // must be removed explicitly.
-  await prisma.documentExtraction
-    .deleteMany({ where: { documentId: doc.id } })
-    .catch(() => {})
+  // Clear any related extraction data
+  try {
+    await prisma.documentExtraction.deleteMany({
+      where: { documentId: doc.id }
+    })
+    await logAuditEvent('DOCUMENT_EXTRACTION_CLEARED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+    })
+  } catch (err) {
+    console.error('[DocumentService] Failed to clear extraction data:', err instanceof Error ? err.message : String(err))
+    await logAuditEvent('DOCUMENT_EXTRACTION_CLEAR_FAILED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  // Clear any related archive data
+  try {
+    await prisma.documentArchive.deleteMany({
+      where: { documentId: doc.id }
+    })
+    await logAuditEvent('DOCUMENT_ARCHIVE_CLEARED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+    })
+  } catch (err) {
+    console.error('[DocumentService] Failed to clear archive data:', err instanceof Error ? err.message : String(err))
+    await logAuditEvent('DOCUMENT_ARCHIVE_CLEAR_FAILED', undefined, undefined, input.userId, {
+      documentId: doc.id,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 
   await logAuditEvent('DOCUMENT_DELETED', undefined, undefined, input.userId, {
     documentId: doc.id,
