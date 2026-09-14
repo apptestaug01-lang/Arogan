@@ -164,7 +164,7 @@ export interface CompleteMultipartInput {
 }
 
 export async function completeMultipart(input: CompleteMultipartInput) {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName, input.uploadId)
   const s3 = getStorageClient()
   const config = getStorageConfig()
 

@@ -17,7 +17,6 @@ import {
 import {
   formatFileSizeDisplay,
   getContentTypeForFile,
-  isAllowedFileType,
   MULTIPART_THRESHOLD_BYTES,
   MULTIPART_CONCURRENCY,
 } from '@/constants/documents';

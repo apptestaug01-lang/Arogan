@@ -99,7 +99,7 @@ export class BackfillRunner {
     let enqueued = 0;
     let completed = 0;
     let failed = 0;
-    let skipped = 0;
+    const skipped = 0;
 
     for (const doc of toEnqueue) {
       if (dryRun) {
