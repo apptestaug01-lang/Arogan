@@ -166,7 +166,6 @@ describe('documents service', () => {
           contentType: 'application/pdf',
           uploadId: 'session-123',
           uploadIdS3: 'upload-123',
-          sessionUploadId: 'upload-123',
           parts: [
             { partNumber: 1, etag: 'etag-1' },
             { partNumber: 2, etag: 'etag-2' },
