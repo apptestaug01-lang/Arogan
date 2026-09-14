@@ -150,16 +150,17 @@ export interface ListUserDocumentsInput {
 }
 
 export interface DocumentSummary {
-  id: string
-  applicationId: string | null
-  uploadId: string | null
-  category: string | null
-  originalName: string
-  contentType: string
-  size: number | null
-  status: string
-  createdAt: string
-  updatedAt: string
+  id: string;
+  applicationId: string | null;
+  uploadId: string | null;
+  category: string | null;
+  originalName: string;
+  contentType: string;
+  s3Key: string;
+  size: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export async function listUserDocuments(input: ListUserDocumentsInput): Promise<DocumentSummary[]> {
@@ -179,11 +180,41 @@ export async function listUserDocuments(input: ListUserDocumentsInput): Promise<
     category: d.category,
     originalName: d.originalName,
     contentType: d.contentType,
-     size: typeof d.size === 'bigint' ? Number(d.size) : d.size,
+    s3Key: d.s3Key,
+    size: typeof d.size === 'bigint' ? Number(d.size) : d.size,
     status: d.status,
     createdAt: d.createdAt.toISOString(),
     updatedAt: d.updatedAt.toISOString(),
   }))
+}
+
+export async function verifyDocumentsExist(
+  documents: DocumentSummary[],
+  userId: string,
+): Promise<DocumentSummary[]> {
+  const results = await Promise.all(
+    documents.map(async (doc) => {
+      try {
+        await headObject(doc.s3Key);
+        return doc;
+      } catch {
+        try {
+          await prisma.document.update({
+            where: { id: doc.id },
+            data: { status: 'DELETED', updatedAt: new Date().toISOString() },
+          })
+          await logAuditEvent('DOCUMENT_MISSING', undefined, undefined, userId, {
+            documentId: doc.id,
+            key: doc.s3Key,
+          })
+        } catch {
+          // Ignore cleanup errors; the document should not be listed.
+        }
+        return null;
+      }
+    }),
+  );
+  return results.filter((d): d is DocumentSummary => d !== null);
 }
 
 export interface BulkDeleteInput {
