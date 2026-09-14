@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Folder, File as FileIcon, ChevronRight, Search, Trash2, CheckCircle2, UploadCloud, Clock, FileJson } from 'lucide-react';
+import { Folder, File as FileIcon, ChevronRight, ChevronDown, Search, Trash2, CheckCircle2, UploadCloud, Clock, FileJson } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ interface DocumentExplorerProps {
 }
 
 type SortKey = 'name' | 'size' | 'modified';
+type TreeData = Record<string, { folders: ExplorerEntry[]; files: ExplorerEntry[] }>;
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -44,6 +45,9 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<SortKey>('name');
   const [showDerived, setShowDerived] = React.useState(false);
+  const [view, setView] = React.useState<'flat' | 'tree'>('flat');
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const [treeData, setTreeData] = React.useState<TreeData>({});
   const toast = useToast();
   const [deleteTarget, setDeleteTarget] = React.useState<ExplorerEntry | null>(null);
   const [deleting, setDeleting] = React.useState(false);
@@ -56,6 +60,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
       setFolders(res.folders);
       setFiles(res.files);
       setNextToken(res.nextToken);
+      setTreeData(prev => ({ ...prev, [p]: { folders: res.folders, files: res.files } }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load documents');
       setFolders([]);
@@ -80,6 +85,20 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
     };
   }, [load, prefix]);
 
+  const toggleExpand = React.useCallback((p: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+    if (!treeData[p]) {
+      getExplorer(p, undefined, showDerived)
+        .then(res => setTreeData(prev => ({ ...prev, [p]: { folders: res.folders, files: res.files } })))
+        .catch(() => {});
+    }
+  }, [treeData, showDerived]);
+
   const handleDelete = React.useCallback(async () => {
     if (!deleteTarget?.documentId) return;
 
@@ -98,27 +117,26 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
     }
   }, [deleteTarget, toast, onDocumentDeleted, load, prefix]);
 
-const segments = React.useMemo(() => {
-  const parts = prefix.split('/').filter(Boolean);
-  const acc: { name: string; prefix: string; displayName: string }[] = [];
-  let cur = '';
-  
-  // Define meaningful display names for each segment
-  const segmentDisplayNames: Record<string, string> = {
-    'borrowers': 'Borrowers Vault',
-    'cmttkkj850000pnapmj5lvmwo': 'Borrower Documents',
-    'applications': 'Applications',
-    'uploads': 'Uploads',
-    'documents': 'All Documents',
-  };
+ const segments = React.useMemo(() => {
+    const parts = prefix.split('/').filter(Boolean);
+    const acc: { name: string; prefix: string; displayName: string }[] = [];
+    let cur = '';
 
-  for (const part of parts) {
-    cur = cur ? `${cur}${part}/` : `${part}/`;
-    const displayName = segmentDisplayNames[part] || part;
-    acc.push({ name: part, prefix: cur, displayName });
-  }
-  return acc;
-}, [prefix]);
+    const segmentDisplayNames: Record<string, string> = {
+      'borrowers': 'Borrowers Vault',
+      'cmttkkj850000pnapmj5lvmwo': 'Borrower Documents',
+      'applications': 'Applications',
+      'uploads': 'Uploads',
+      'documents': 'All Documents',
+    };
+
+    for (const part of parts) {
+      cur = cur ? `${cur}${part}/` : `${part}/`;
+      const displayName = segmentDisplayNames[part] || part;
+      acc.push({ name: part, prefix: cur, displayName });
+    }
+    return acc;
+  }, [prefix]);
 
   const visibleFolders = React.useMemo(
     () =>
@@ -196,6 +214,18 @@ const segments = React.useMemo(() => {
           </div>
           <button
             type="button"
+            onClick={() => setView(v => v === 'flat' ? 'tree' : 'flat')}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm transition-colors',
+              view === 'tree' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-background hover:bg-muted',
+            )}
+            aria-pressed={view === 'tree'}
+          >
+            <Folder className="h-4 w-4" />
+            {view === 'flat' ? 'Tree view' : 'List view'}
+          </button>
+          <button
+            type="button"
             onClick={() => setShowDerived((v) => !v)}
             className={cn(
               'inline-flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm transition-colors',
@@ -216,88 +246,98 @@ const segments = React.useMemo(() => {
         {isEmpty && (
           <p className="px-6 py-10 text-center text-sm text-muted-foreground">This folder is empty.</p>
         )}
-        <div className="divide-y divide-border">
-          {visibleFolders.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setPrefix(f.key)}
-              className="flex w-full items-center gap-3 px-6 py-3 text-left hover:bg-muted"
-            >
-              <Folder className="h-5 w-5 text-primary-600" />
-              <span className="truncate font-medium text-foreground">{f.name}</span>
-              <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
-            </button>
-          ))}
-          {visibleFiles.map((f) => {
-            const isProcessed = !!f.documentId;
-            const isJson = f.name.endsWith('.json');
-            return (
-              <div
+        {view === 'tree' ? (
+          <TreeView
+            prefix={prefix}
+            treeData={treeData}
+            expanded={expanded}
+            onToggle={toggleExpand}
+            onFileOpen={onFileOpen}
+          />
+        ) : (
+          <div className="divide-y divide-border">
+            {visibleFolders.map((f) => (
+              <button
                 key={f.key}
-                className={cn(
-                  'flex items-center justify-between px-6 py-3',
-                  isProcessed ? 'hover:bg-muted' : 'opacity-60',
-                )}
-                title={isProcessed ? undefined : 'Upload has not finished processing yet'}
+                type="button"
+                onClick={() => setPrefix(f.key)}
+                className="flex w-full items-center gap-3 px-6 py-3 text-left hover:bg-muted"
               >
-                <button
-                  type="button"
-                  onClick={() => onFileOpen?.(f)}
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                <Folder className="h-5 w-5 text-primary-600" />
+                <span className="truncate font-medium text-foreground">{f.name}</span>
+                <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
+            {visibleFiles.map((f) => {
+              const isProcessed = !!f.documentId;
+              const isJson = f.name.endsWith('.json');
+              return (
+                <div
+                  key={f.key}
+                  className={cn(
+                    'flex items-center justify-between px-6 py-3',
+                    isProcessed ? 'hover:bg-muted' : 'opacity-60',
+                  )}
+                  title={isProcessed ? undefined : 'Upload has not finished processing yet'}
                 >
-                  <FileIcon
-                    className={cn(
-                      'h-5 w-5',
-                      isProcessed ? 'text-primary-600' : 'text-muted-foreground',
-                      isJson && 'text-amber-500',
+                  <button
+                    type="button"
+                    onClick={() => onFileOpen?.(f)}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                  >
+                    <FileIcon
+                      className={cn(
+                        'h-5 w-5',
+                        isProcessed ? 'text-primary-600' : 'text-muted-foreground',
+                        isJson && 'text-amber-500',
+                      )}
+                    />
+                    <span className="truncate text-foreground">{f.name}</span>
+                    {isJson && (
+                      <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        JSON
+                      </span>
                     )}
-                  />
-                  <span className="truncate text-foreground">{f.name}</span>
-                  {isJson && (
-                    <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                      JSON
+                  </button>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {f.status && isProcessed && <FileStatusBadge status={f.status} />}
+                    {f.hasArchive && onArchiveOpen && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onArchiveOpen(f);
+                        }}
+                        className="rounded p-1 text-amber-400 hover:bg-muted"
+                        aria-label={`Open archive viewer for ${f.name}`}
+                      >
+                        <FileJson className="h-4 w-4" />
+                      </button>
+                    )}
+                    <span className="whitespace-nowrap text-xs text-muted-foreground">
+                      {f.size != null ? formatBytes(f.size) : '—'}
+                      {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
                     </span>
-                  )}
-                </button>
-                <div className="flex min-w-0 items-center gap-2">
-                  {f.status && isProcessed && <FileStatusBadge status={f.status} />}
-                  {f.hasArchive && onArchiveOpen && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onArchiveOpen(f);
-                      }}
-                      className="rounded p-1 text-amber-400 hover:bg-muted"
-                      aria-label={`Open archive viewer for ${f.name}`}
-                    >
-                      <FileJson className="h-4 w-4" />
-                    </button>
-                  )}
-                  <span className="whitespace-nowrap text-xs text-muted-foreground">
-                    {f.size != null ? formatBytes(f.size) : '—'}
-                    {formatModified(f.lastModified) ? ` · ${formatModified(f.lastModified)}` : ''}
-                  </span>
-                  {isProcessed && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget(f);
-                      }}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={`Delete ${f.name}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
+                    {isProcessed && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(f);
+                        }}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`Delete ${f.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-        {nextToken && (
+              );
+            })}
+          </div>
+        )}
+        {view === 'flat' && nextToken && (
           <div className="flex justify-center p-4">
             <Button variant="outline" onClick={loadMore} disabled={loading}>
               Load more
@@ -317,6 +357,113 @@ const segments = React.useMemo(() => {
       />
     )}
     </>
+  );
+}
+
+function TreeView({
+  prefix,
+  treeData,
+  expanded,
+  onToggle,
+  onFileOpen,
+}: {
+  prefix: string;
+  treeData: TreeData;
+  expanded: Set<string>;
+  onToggle: (p: string) => void;
+  onFileOpen?: (entry: ExplorerEntry) => void;
+}) {
+  const data = treeData[prefix] ?? { folders: [], files: [] };
+
+  return (
+    <div className="space-y-0.5 px-2 py-2">
+      <TreeNode
+        nodePrefix={prefix}
+        depth={0}
+        treeData={treeData}
+        expanded={expanded}
+        onToggle={onToggle}
+        onFileOpen={onFileOpen}
+      />
+      {data.files.map(file => (
+        <div key={file.key} className="flex items-center gap-2 px-8 py-1 text-sm text-muted-foreground">
+          <FileIcon className="h-3.5 w-3.5" />
+          <button
+            type="button"
+            onClick={() => onFileOpen?.(file)}
+            className="truncate text-left cursor-pointer"
+          >
+            {file.name}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TreeNode({
+  nodePrefix,
+  depth = 0,
+  treeData,
+  expanded,
+  onToggle,
+  onFileOpen,
+}: {
+  nodePrefix: string;
+  depth?: number;
+  treeData: TreeData;
+  expanded: Set<string>;
+  onToggle: (p: string) => void;
+  onFileOpen?: (entry: ExplorerEntry) => void;
+}) {
+  const data = treeData[nodePrefix] ?? { folders: [], files: [] };
+  const isExpanded = expanded.has(nodePrefix);
+
+  const name = React.useMemo(() => {
+    const parts = nodePrefix.split('/').filter(Boolean);
+    return parts[parts.length - 1] || nodePrefix || 'Vault';
+  }, [nodePrefix]);
+
+  return (
+    <div style={{ marginLeft: depth * 16 }}>
+      <button
+        type="button"
+        onClick={() => onToggle(nodePrefix)}
+        className="flex w-full items-center gap-1 px-2 py-1 text-left hover:bg-muted rounded"
+      >
+        {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        <Folder className="h-4 w-4 text-primary-600" />
+        <span className="truncate text-sm">{name}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{data.folders.length + data.files.length}</span>
+      </button>
+      {isExpanded && (
+        <div className="space-y-0.5">
+          {data.files.map(file => (
+            <div key={file.key} className="flex items-center gap-2 px-6 py-1 text-sm text-muted-foreground">
+              <FileIcon className="h-3.5 w-3.5" />
+              <button
+                type="button"
+                onClick={() => onFileOpen?.(file)}
+                className="truncate text-left cursor-pointer"
+              >
+                {file.name}
+              </button>
+            </div>
+          ))}
+          {data.folders.map(folder => (
+            <TreeNode
+              key={folder.key}
+              nodePrefix={folder.key}
+              depth={depth + 1}
+              treeData={treeData}
+              expanded={expanded}
+              onToggle={onToggle}
+              onFileOpen={onFileOpen}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
