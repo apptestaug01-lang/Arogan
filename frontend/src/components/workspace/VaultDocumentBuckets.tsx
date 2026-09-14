@@ -12,20 +12,23 @@ const VAULT_STEPS = [
   { key: 'loan', label: 'Loan Request' },
 ];
 
-export function VaultDocumentBuckets() {
+export function VaultDocumentBuckets({ documents: externalDocuments }: { documents?: DocumentSummary[] }) {
   const toast = useToast();
-  const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
+  const [internalDocuments, setInternalDocuments] = React.useState<DocumentSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [expanded, setExpanded] = React.useState<Set<string>>(
     () => new Set(VAULT_STEPS.map((s) => s.key)),
   );
 
+  const documents = externalDocuments ?? internalDocuments;
+
   React.useEffect(() => {
+    if (externalDocuments) return;
     let cancelled = false;
     setLoading(true);
     listDocuments()
       .then((docs) => {
-        if (!cancelled) setDocuments(docs);
+        if (!cancelled) setInternalDocuments(docs);
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Failed to load documents', 'error'))
       .finally(() => {
@@ -34,7 +37,7 @@ export function VaultDocumentBuckets() {
     return () => {
       cancelled = true;
     };
-  }, [toast]);
+  }, [externalDocuments, toast]);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {

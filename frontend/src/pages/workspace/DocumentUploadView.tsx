@@ -3,10 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileDropzone, FileDropzoneHandle } from '@/components/workspace/FileDropzone';
-import { StatusTag } from '@/components/workspace/StatusTag';
+import { VaultDocumentBuckets } from '@/components/workspace/VaultDocumentBuckets';
 import {
   listDocuments,
-  deleteDocument,
   bulkDeleteDocuments,
   DocumentSummary,
 } from '@/services/documents';
@@ -15,33 +14,8 @@ import { useToast } from '@/components/workspace/ToastProvider';
 import {
   UploadCloud,
   Trash2,
-  FileText,
-  FileImage,
-  FileSpreadsheet,
-  Inbox,
   Loader2,
 } from 'lucide-react';
-
-const KNOWN_STATUSES = ['Reviewing', 'Draft', 'Verified', 'Uploaded'] as const;
-
-function FileIcon({ contentType }: { contentType: string }) {
-  const cls = 'h-5 w-5 shrink-0 text-primary-600';
-  if (contentType.startsWith('image/')) return <FileImage className={cls} />;
-  if (contentType.includes('sheet') || contentType.includes('excel'))
-    return <FileSpreadsheet className={cls} />;
-  return <FileText className={cls} />;
-}
-
-function DocStatus({ status }: { status: string }) {
-  if ((KNOWN_STATUSES as readonly string[]).includes(status)) {
-    return <StatusTag status={status as (typeof KNOWN_STATUSES)[number]} />;
-  }
-  return (
-    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-      {status}
-    </span>
-  );
-}
 
 export default function DocumentUploadView() {
   const toast = useToast();
@@ -88,32 +62,6 @@ export default function DocumentUploadView() {
   );
 
   const totalSize = documents.reduce((acc, d) => acc + (d.size || 0), 0);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleDeleteOne = async (id: string) => {
-    if (!window.confirm('Delete this document?')) return;
-    try {
-      await deleteDocument(id);
-      setDocuments((prev) => prev.filter((d) => d.id !== id));
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      toast('Document deleted', 'success');
-      window.dispatchEvent(new CustomEvent('document:deleted'));
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Delete failed', 'error');
-    }
-  };
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
@@ -177,56 +125,7 @@ export default function DocumentUploadView() {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              {documents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-12 text-center">
-                  <Inbox className="h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">No files in the vault yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Drop your first document above.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <div className="divide-y divide-border">
-                      {documents.map((d) => (
-                        <div key={d.id} className="flex items-center gap-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(d.id)}
-                            onChange={() => toggleSelect(d.id)}
-                            className="h-4 w-4"
-                            aria-label={`Select ${d.originalName}`}
-                          />
-                          <FileIcon contentType={d.contentType} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {d.originalName}
-                            </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <DocStatus status={d.status} />
-                              <span className="text-xs text-muted-foreground">
-                                {formatBytes(d.size || 0)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteOne(d.id)}
-                              className="rounded p-1.5 text-muted-foreground hover:bg-danger-500/10 hover:text-danger-500"
-                              aria-label="Delete document"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              <VaultDocumentBuckets documents={documents} />
               {documents.length > 0 && (
                 <div className="flex items-center justify-between border-t border-border pt-4">
                   <span className="text-xs text-muted-foreground">
