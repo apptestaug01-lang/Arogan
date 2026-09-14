@@ -293,7 +293,7 @@ export default function NewApplicationView() {
         <DocumentBuckets
           documents={documents}
           stepKey={currentStepKey}
-          applicationId={wizard.applicationId}
+          _applicationId={wizard.applicationId}
         />
       )}
 

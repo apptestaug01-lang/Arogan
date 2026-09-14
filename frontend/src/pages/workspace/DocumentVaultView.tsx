@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { X, Download, FileJson, FileText } from 'lucide-react';
 import { DocumentExplorer } from '@/components/workspace/DocumentExplorer';
+import { VaultDocumentBuckets } from '@/components/workspace/VaultDocumentBuckets';
 import { ArchiveViewer } from '@/components/workspace/archive/ArchiveViewer';
 import { ExplorerEntry, DocumentViewResult, getDocumentView, getKeyView } from '@/services/documents';
 
@@ -179,7 +180,10 @@ export default function DocumentVaultView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <DocumentExplorer onFileOpen={handleFileOpen} onArchiveOpen={handleArchiveOpen} />
+        <div className="space-y-6">
+          <DocumentExplorer onFileOpen={handleFileOpen} onArchiveOpen={handleArchiveOpen} />
+          <VaultDocumentBuckets />
+        </div>
 
         <aside className="h-fit rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
           <b className="text-foreground">🛡 Protected storage</b>
