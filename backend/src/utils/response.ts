@@ -1,5 +1,20 @@
 import { Response } from 'express';
 
+function toJsonSafe(value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return Number(value)
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => toJsonSafe(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, toJsonSafe(item)]),
+    )
+  }
+  return value
+}
+
 export function sendSuccess<T>(
   res: Response,
   message: string,
@@ -9,8 +24,8 @@ export function sendSuccess<T>(
   res.status(statusCode).json({
     success: true,
     message,
-    data: data ?? null,
-  });
+    data: data == null ? null : toJsonSafe(data),
+  })
 }
 
 export function sendError(

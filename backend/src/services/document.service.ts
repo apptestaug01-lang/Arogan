@@ -71,7 +71,7 @@ export async function presignDocument(input: PresignDocumentInput) {
 }
 
 export async function completeDocument(input: CompleteDocumentInput) {
-  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName)
+  const key = buildDocumentKey(input.userId, input.applicationId, input.documentId, input.fileName, input.uploadId)
 
   let meta
   try {
