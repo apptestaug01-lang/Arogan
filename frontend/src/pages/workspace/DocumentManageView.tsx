@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SectionRow } from '@/components/workspace/SectionRow';
 import { useToast } from '@/components/workspace/ToastProvider';
 import { listDocuments, bulkDeleteDocuments, DocumentSummary } from '@/services/documents';
-import { Trash2, AlertTriangle, FolderOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 
 function formatBytes(bytes: number | null): string {
   if (!bytes || bytes < 1024) return `${bytes ?? 0} B`;
@@ -24,12 +23,15 @@ export default function DocumentManageView() {
   const [loading, setLoading] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [deleting, setDeleting] = React.useState(false);
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
 
   const fetchDocuments = React.useCallback(async () => {
     setLoading(true);
     try {
       const docs = await listDocuments();
       setDocuments(docs);
+      const allAppIds = Array.from(new Set(docs.map(d => d.applicationId)));
+      setExpanded(new Set(allAppIds));
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Failed to load documents', 'error');
     } finally {
@@ -60,12 +62,34 @@ export default function DocumentManageView() {
     });
   };
 
+  const toggleGroupSelect = (appId: string, docs: DocumentSummary[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = docs.every((d) => next.has(d.id));
+      if (allSelected) {
+        docs.forEach((d) => next.delete(d.id));
+      } else {
+        docs.forEach((d) => next.add(d.id));
+      }
+      return next;
+    });
+  };
+
   const toggleAll = (checked: boolean) => {
     setSelected(() => {
       const next = new Set<string>();
       if (checked) {
         documents.forEach((d) => next.add(d.id));
       }
+      return next;
+    });
+  };
+
+  const toggleGroup = (appId: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(appId)) next.delete(appId);
+      else next.add(appId);
       return next;
     });
   };
@@ -89,6 +113,15 @@ export default function DocumentManageView() {
       setDeleting(false);
     }
   };
+
+  const groups = React.useMemo(() => {
+    const g: Record<string, DocumentSummary[]> = {};
+    documents.forEach((d) => {
+      if (!g[d.applicationId]) g[d.applicationId] = [];
+      g[d.applicationId].push(d);
+    });
+    return g;
+  }, [documents]);
 
   const isEmpty = !loading && documents.length === 0;
 
@@ -122,57 +155,96 @@ export default function DocumentManageView() {
       {isEmpty && (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-            <FolderOpen className="h-8 w-8 text-muted-foreground" />
+            <AlertTriangle className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">No documents yet. Upload some from the upload screen.</p>
           </CardContent>
         </Card>
       )}
 
       {!isEmpty && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>All documents</CardTitle>
-                <CardDescription>{documents.length} document{documents.length !== 1 ? 's' : ''}</CardDescription>
+        <>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>All documents</CardTitle>
+                  <CardDescription>{documents.length} document{documents.length !== 1 ? 's' : ''}</CardDescription>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-input"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = !allSelected && selectedCount > 0;
+                    }}
+                    onChange={(e) => toggleAll(e.target.checked)}
+                    aria-label="Select all"
+                  />
+                  Select all
+                </label>
               </div>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-input"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = !allSelected && selectedCount > 0;
-                  }}
-                  onChange={(e) => toggleAll(e.target.checked)}
-                  aria-label="Select all"
-                />
-                Select all
-              </label>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {documents.map((doc) => (
-                <SectionRow
-                  key={doc.id}
-                  title={doc.originalName}
-                  description={`${doc.applicationId} · ${formatBytes(doc.size)}${doc.status ? ` · ${doc.status}` : ''}`}
+            </CardHeader>
+          </Card>
+
+          {Object.entries(groups).map(([appId, docs]) => {
+            const allGroupSelected = docs.every((d) => selected.has(d.id));
+            return (
+              <Card key={appId} className="mb-4">
+                <CardHeader
+                  className="cursor-pointer"
+                  onClick={() => toggleGroup(appId)}
                 >
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-input"
-                      checked={selected.has(doc.id)}
-                      onChange={() => toggle(doc.id)}
-                      aria-label={`Select ${doc.originalName}`}
-                    />
-                  </label>
-                </SectionRow>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-input"
+                        checked={allGroupSelected}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleGroupSelect(appId, docs)}
+                        aria-label={`Select all in ${appId}`}
+                      />
+                      <CardTitle className="text-base">{appId}</CardTitle>
+                      <span className="text-xs text-muted-foreground">{docs.length} documents</span>
+                    </div>
+                    {expanded.has(appId) ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </CardHeader>
+                {expanded.has(appId) && (
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-border">
+                      {docs.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between px-6 py-3"
+                        >
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-input"
+                              checked={selected.has(doc.id)}
+                              onChange={() => toggle(doc.id)}
+                              aria-label={`Select ${doc.originalName}`}
+                            />
+                            <span className="truncate">{doc.originalName}</span>
+                          </label>
+                          <span className="text-sm text-muted-foreground">
+                            {doc.status ? `${doc.status} · ${formatBytes(doc.size)}` : formatBytes(doc.size)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </>
       )}
 
       {!isEmpty && documents.length > 0 && (

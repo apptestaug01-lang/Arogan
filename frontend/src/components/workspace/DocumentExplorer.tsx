@@ -45,7 +45,7 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
   const [query, setQuery] = React.useState('');
   const [sort, setSort] = React.useState<SortKey>('name');
   const [showDerived, setShowDerived] = React.useState(false);
-  const [view, setView] = React.useState<'flat' | 'tree'>('flat');
+  const [view, setView] = React.useState<'flat' | 'tree'>('tree');
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [treeData, setTreeData] = React.useState<TreeData>({});
   const toast = useToast();
@@ -61,6 +61,10 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
       setFiles(res.files);
       setNextToken(res.nextToken);
       setTreeData(prev => ({ ...prev, [p]: { folders: res.folders, files: res.files } }));
+      setExpanded(prev => {
+        if (prev.has(p)) return prev;
+        return new Set(prev).add(p);
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load documents');
       setFolders([]);
@@ -98,6 +102,14 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
         .catch(() => {});
     }
   }, [treeData, showDerived]);
+
+  const expandAll = React.useCallback(() => {
+    setExpanded(new Set(Object.keys(treeData)));
+  }, [treeData]);
+
+  const collapseAll = React.useCallback(() => {
+    setExpanded(new Set());
+  }, []);
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteTarget?.documentId) return;
@@ -224,6 +236,16 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
             <Folder className="h-4 w-4" />
             {view === 'flat' ? 'Tree view' : 'List view'}
           </button>
+          {view === 'tree' && (
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={expandAll} disabled={Object.keys(treeData).length === 0}>
+                Expand all
+              </Button>
+              <Button variant="outline" size="sm" onClick={collapseAll} disabled={expanded.size === 0}>
+                Collapse all
+              </Button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setShowDerived((v) => !v)}
@@ -253,6 +275,8 @@ export function DocumentExplorer({ className, onFileOpen, onArchiveOpen, onDocum
             expanded={expanded}
             onToggle={toggleExpand}
             onFileOpen={onFileOpen}
+            onArchiveOpen={onArchiveOpen}
+            onDelete={(file) => setDeleteTarget(file)}
           />
         ) : (
           <div className="divide-y divide-border">
@@ -366,15 +390,17 @@ function TreeView({
   expanded,
   onToggle,
   onFileOpen,
+  onArchiveOpen,
+  onDelete,
 }: {
   prefix: string;
   treeData: TreeData;
   expanded: Set<string>;
   onToggle: (p: string) => void;
   onFileOpen?: (entry: ExplorerEntry) => void;
+  onArchiveOpen?: (entry: ExplorerEntry) => void;
+  onDelete?: (entry: ExplorerEntry) => void;
 }) {
-  const data = treeData[prefix] ?? { folders: [], files: [] };
-
   return (
     <div className="space-y-0.5 px-2 py-2">
       <TreeNode
@@ -384,19 +410,82 @@ function TreeView({
         expanded={expanded}
         onToggle={onToggle}
         onFileOpen={onFileOpen}
+        onArchiveOpen={onArchiveOpen}
+        onDelete={onDelete}
       />
-      {data.files.map(file => (
-        <div key={file.key} className="flex items-center gap-2 px-8 py-1 text-sm text-muted-foreground">
-          <FileIcon className="h-3.5 w-3.5" />
+    </div>
+  );
+}
+
+function FileRow({
+  file,
+  onFileOpen,
+  onArchiveOpen,
+  onDelete,
+}: {
+  file: ExplorerEntry;
+  onFileOpen?: (entry: ExplorerEntry) => void;
+  onArchiveOpen?: (entry: ExplorerEntry) => void;
+  onDelete?: (entry: ExplorerEntry) => void;
+}) {
+  const isProcessed = !!file.documentId;
+  const isJson = file.name.endsWith('.json');
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between gap-2 px-8 py-1 text-sm',
+        isProcessed ? '' : 'opacity-60',
+      )}
+      title={isProcessed ? undefined : 'Upload has not finished processing yet'}
+    >
+      <button
+        type="button"
+        onClick={() => onFileOpen?.(file)}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+      >
+        <FileIcon
+          className={cn(
+            'h-3.5 w-3.5',
+            isProcessed ? 'text-primary-600' : 'text-muted-foreground',
+            isJson && 'text-amber-500',
+          )}
+        />
+        <span className="truncate">{file.name}</span>
+        {isJson && (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+            JSON
+          </span>
+        )}
+      </button>
+      <div className="flex min-w-0 items-center gap-2">
+        {file.status && isProcessed && <FileStatusBadge status={file.status} />}
+        {file.hasArchive && onArchiveOpen && (
           <button
             type="button"
-            onClick={() => onFileOpen?.(file)}
-            className="truncate text-left cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onArchiveOpen(file);
+            }}
+            className="rounded p-1 text-amber-400 hover:bg-muted"
+            aria-label={`Open archive viewer for ${file.name}`}
           >
-            {file.name}
+            <FileJson className="h-3.5 w-3.5" />
           </button>
-        </div>
-      ))}
+        )}
+        {isProcessed && onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(file);
+            }}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={`Delete ${file.name}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -408,6 +497,8 @@ function TreeNode({
   expanded,
   onToggle,
   onFileOpen,
+  onArchiveOpen,
+  onDelete,
 }: {
   nodePrefix: string;
   depth?: number;
@@ -415,6 +506,8 @@ function TreeNode({
   expanded: Set<string>;
   onToggle: (p: string) => void;
   onFileOpen?: (entry: ExplorerEntry) => void;
+  onArchiveOpen?: (entry: ExplorerEntry) => void;
+  onDelete?: (entry: ExplorerEntry) => void;
 }) {
   const data = treeData[nodePrefix] ?? { folders: [], files: [] };
   const isExpanded = expanded.has(nodePrefix);
@@ -439,16 +532,13 @@ function TreeNode({
       {isExpanded && (
         <div className="space-y-0.5">
           {data.files.map(file => (
-            <div key={file.key} className="flex items-center gap-2 px-6 py-1 text-sm text-muted-foreground">
-              <FileIcon className="h-3.5 w-3.5" />
-              <button
-                type="button"
-                onClick={() => onFileOpen?.(file)}
-                className="truncate text-left cursor-pointer"
-              >
-                {file.name}
-              </button>
-            </div>
+            <FileRow
+              key={file.key}
+              file={file}
+              onFileOpen={onFileOpen}
+              onArchiveOpen={onArchiveOpen}
+              onDelete={onDelete}
+            />
           ))}
           {data.folders.map(folder => (
             <TreeNode
@@ -459,6 +549,8 @@ function TreeNode({
               expanded={expanded}
               onToggle={onToggle}
               onFileOpen={onFileOpen}
+              onArchiveOpen={onArchiveOpen}
+              onDelete={onDelete}
             />
           ))}
         </div>

@@ -248,6 +248,7 @@ export async function listUploadedParts(
 export interface DocumentSummary {
   id: string;
   applicationId: string;
+  category?: string;
   originalName: string;
   contentType: string;
   size: number | null;

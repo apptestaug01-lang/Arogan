@@ -10,6 +10,9 @@ import { useToast } from '@/components/workspace/ToastProvider';
 import { StepView, type WizardStep } from '@/components/workspace/wizard/StepView';
 import { StepTabs } from '@/components/workspace/wizard/StepTabs';
 import { validateStep } from '@/components/workspace/wizard/fieldRegistry';
+import { DocumentBuckets } from '@/components/workspace/DocumentBuckets';
+import { listDocuments } from '@/services/documents';
+import type { DocumentSummary } from '@/services/documents';
 import type { ExtractedField } from '@/services/autoFill';
 
 interface LocationState {
@@ -35,6 +38,8 @@ export default function NewApplicationView() {
   const toast = useToast();
   const wizard = useWizardState(incomingAppId);
   const [currentStep, setCurrentStep] = React.useState(1);
+  const [documents, setDocuments] = React.useState<DocumentSummary[]>([]);
+  const [loadingDocs, setLoadingDocs] = React.useState(false);
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [initializing, setInitializing] = React.useState(false);
@@ -67,6 +72,23 @@ export default function NewApplicationView() {
       setVaultRefreshKey((k) => k + 1);
     }
   }, [extracting, lastResult]);
+
+  React.useEffect(() => {
+    if (!wizard.applicationId) return;
+    let cancelled = false;
+    setLoadingDocs(true);
+    listDocuments()
+      .then((docs) => {
+        if (!cancelled) setDocuments(docs);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingDocs(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wizard.applicationId, vaultRefreshKey]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -265,6 +287,15 @@ export default function NewApplicationView() {
       </div>
 
       <ProgressStepper currentStep={currentStep} totalSteps={4} labels={STEPS} />
+
+      {loadingDocs && <p className="text-sm text-muted-foreground">Loading documents…</p>}
+      {!loadingDocs && (
+        <DocumentBuckets
+          documents={documents}
+          stepKey={currentStepKey}
+          applicationId={wizard.applicationId}
+        />
+      )}
 
       <div className="space-y-6">
         {canEdit && stepperActive && wizard.applicationId && (
