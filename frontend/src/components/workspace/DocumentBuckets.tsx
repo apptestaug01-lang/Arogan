@@ -31,10 +31,10 @@ export function getStepCategory(stepKey: string): string {
 interface DocumentBucketsProps {
   documents: DocumentSummary[];
   stepKey: string;
-  applicationId?: string;
+  _applicationId?: string;
 }
 
-export function DocumentBuckets({ documents, stepKey, applicationId }: DocumentBucketsProps) {
+export function DocumentBuckets({ documents, stepKey, _applicationId }: DocumentBucketsProps) {
   const toast = useToast();
   const category = getStepCategory(stepKey);
   const [viewer, setViewer] = React.useState<{ open: boolean; url?: string; title?: string }>({ open: false });
@@ -45,7 +45,6 @@ export function DocumentBuckets({ documents, stepKey, applicationId }: DocumentB
   );
 
   const handleView = async (doc: DocumentSummary) => {
-    if (!applicationId) return;
     try {
       const res = await getDocumentView(doc.id);
       setViewer({ open: true, url: res.viewUrl, title: doc.originalName });
