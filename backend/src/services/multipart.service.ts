@@ -138,6 +138,22 @@ export async function presignMultipart(input: PresignMultipartInput): Promise<Pr
     totalParts,
   })
 
+  // Add cleanup for orphaned uploads after a configurable period
+  setTimeout(async () => {
+    try {
+      await abortMultipart({
+        userId: input.userId,
+        applicationId: input.applicationId,
+        uploadId: sessionUploadId,
+        documentId: documentId,
+        fileName: input.fileName,
+        uploadIdS3: uploadId,
+      })
+    } catch (err) {
+      console.error('[MultipartService] Cleanup abort failed:', err instanceof Error ? err.message : String(err))
+    }
+  }, MULTIPART_ABORT_DAYS * 24 * 60 * 60 * 1000)
+
   return {
     documentId,
     key,
@@ -181,9 +197,9 @@ export async function completeMultipart(input: CompleteMultipartInput) {
       }),
     )
   } catch (err) {
-    console.error('[MultipartService] ListParts error:', err instanceof Error ? err.message : String(err))
+    console.error('[MultipartService] CompleteMultipartUpload error:', err instanceof Error ? err.message : String(err))
     throw new StorageError(
-      err instanceof Error ? `Storage error: ${err.message}` : 'Storage service is temporarily unavailable. Please try again.',
+      err instanceof Error ? `Storage error: ${err.message}` : 'Failed to complete multipart upload. Please try again.',
     )
   }
 
@@ -256,8 +272,17 @@ export async function abortMultipart(input: MultipartKeyInput & { uploadIdS3: st
     await s3.send(
       new AbortMultipartUploadCommand({ Bucket: config.bucket, Key: key, UploadId: input.uploadIdS3 }),
     )
-  } catch {
-    // Best-effort abort; log but don't fail the request
+    await logAuditEvent('DOCUMENT_MULTIPART_ABORT_SUCCESS', undefined, undefined, input.userId, {
+      key,
+      uploadId: input.uploadIdS3,
+    })
+  } catch (err) {
+    console.error('[MultipartService] AbortMultipartUpload error:', err instanceof Error ? err.message : String(err))
+    await logAuditEvent('DOCUMENT_MULTIPART_ABORT_FAILED', undefined, undefined, input.userId, {
+      key,
+      uploadId: input.uploadIdS3,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    })
   }
 
   await logAuditEvent('DOCUMENT_MULTIPART_ABORT', undefined, undefined, input.userId, {

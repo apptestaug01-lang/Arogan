@@ -190,3 +190,16 @@ export async function processUploadInput(
 
   return processed;
 }
+
+const uploadTracker = {
+  progress: {} as Record<string, number>,
+  status: {} as Record<string, string>,
+  updateProgress(uploadId: string, currentProgress: number) {
+    this.progress[uploadId] = currentProgress;
+  },
+  updateStatus(uploadId: string, newStatus: string) {
+    this.status[uploadId] = newStatus;
+  },
+};
+
+export { uploadTracker };
