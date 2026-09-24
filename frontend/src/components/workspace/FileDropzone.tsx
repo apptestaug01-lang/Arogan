@@ -63,9 +63,16 @@ interface UploadItem {
   uploadedParts: number;
   abortController: AbortController | null;
   relativePath?: string;
+  category?: string;
 }
 
 const ACCEPTED_EXT = '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.zip';
+
+const CATEGORY_OPTIONS = [
+  { value: 'KYC', label: 'KYC' },
+  { value: 'Business Documents', label: 'Business Documents' },
+  { value: 'Financials', label: 'Financials' },
+];
 
 function getUploadErrorMessage(error: unknown, _fileName: string): string {
   if (axios.isAxiosError(error)) {
@@ -109,6 +116,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
   ) {
   const [dragging, setDragging] = React.useState(false);
   const [uploads, setUploads] = React.useState<UploadItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const folderInputRef = React.useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -202,6 +210,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           fileName: file.name,
           contentType,
           uploadId: presign.uploadId,
+          category: selectedCategory || undefined,
         });
 
         updateItem(id, {
@@ -221,7 +230,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         toast(`${file.name}: ${msg}`, 'error');
       }
     },
-    [applicationId, updateItem, toast],
+    [applicationId, selectedCategory, updateItem, toast],
   );
 
   const uploadMultipart = React.useCallback(
@@ -327,6 +336,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
           uploadId: presignResult.uploadId,
           sessionUploadId: presignResult.sessionUploadId,
           parts: sortedParts,
+          category: selectedCategory || undefined,
         });
 
         updateItem(id, {
@@ -359,7 +369,7 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
         toast(`${item.file.name}: ${msg}`, 'error');
       }
     },
-    [applicationId, updateItem, toast],
+    [applicationId, selectedCategory, updateItem, toast],
   );
 
   const startUpload = React.useCallback(
@@ -551,6 +561,18 @@ export const FileDropzone = React.forwardRef<FileDropzoneHandle, FileDropzonePro
               Choose folder
             </span>
           </button>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="rounded-md border border-input px-3 py-2 text-sm text-foreground bg-background"
+          >
+            <option value="">Category (optional)</option>
+            {CATEGORY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
         <input
           ref={fileInputRef}

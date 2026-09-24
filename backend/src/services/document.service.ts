@@ -28,6 +28,7 @@ export interface CompleteDocumentInput {
   uploadId?: string
   fileName: string
   contentType: string
+  category?: string
 }
 
 export async function presignDocument(input: PresignDocumentInput) {
@@ -101,7 +102,7 @@ export async function completeDocument(input: CompleteDocumentInput) {
         userId: input.userId,
         applicationId: input.applicationId ?? undefined,
         uploadId: input.uploadId ?? undefined,
-        category: 'Documents',
+        category: input.category ?? 'Documents',
         s3Key: key,
         originalName: input.fileName,
         contentType: input.contentType,

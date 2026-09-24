@@ -60,6 +60,7 @@ export const documentCompleteSchema = z.object({
   uploadId: z.string().min(1).optional(),
   fileName: z.string().min(1).max(200),
   contentType: z.string().min(1),
+  category: z.string().min(1).optional(),
 });
 
 export const completeMultipartSchema = z.object({
@@ -71,6 +72,7 @@ export const completeMultipartSchema = z.object({
   parts: z
     .array(z.object({ partNumber: z.number().int().positive(), etag: z.string().min(1) }))
     .min(1),
+  category: z.string().min(1).optional(),
 });
 
 export const abortMultipartSchema = z.object({

@@ -177,6 +177,7 @@ export interface CompleteMultipartInput {
   contentType: string
   uploadIdS3: string
   parts: { partNumber: number; etag: string }[]
+  category?: string
 }
 
 export async function completeMultipart(input: CompleteMultipartInput) {
@@ -230,7 +231,7 @@ export async function completeMultipart(input: CompleteMultipartInput) {
         userId: input.userId,
         applicationId: input.applicationId ?? undefined,
         uploadId: input.uploadId ?? undefined,
-        category: 'Documents',
+        category: input.category ?? 'Documents',
         s3Key: key,
         originalName: input.fileName,
         contentType: input.contentType,

@@ -147,6 +147,7 @@ router.post(
         uploadId: body.uploadId,
         fileName: body.fileName,
         contentType: body.contentType,
+        category: body.category,
       })
       sendSuccess(res, 'Document recorded', { document }, 201)
     } catch (err) {
@@ -194,6 +195,7 @@ router.post(
         uploadId: body.sessionUploadId,
         uploadIdS3: body.uploadId,
         parts: body.parts,
+        category: body.category,
       })
       sendSuccess(res, 'Document recorded', { document }, 201)
     } catch (err) {

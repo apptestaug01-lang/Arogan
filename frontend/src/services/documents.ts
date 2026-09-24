@@ -105,6 +105,7 @@ export interface CompleteDocumentInput {
   fileName: string;
   contentType: string;
   uploadId?: string;
+  category?: string;
 }
 
 export interface CompleteDocumentResult {
@@ -129,6 +130,7 @@ export async function completeDocument(
       fileName: input.fileName,
       contentType: input.contentType,
       uploadId: input.uploadId,
+      category: input.category,
     },
   );
   return res.data.data.document;
@@ -194,6 +196,7 @@ export interface CompleteMultipartInput {
   uploadId: string;
   sessionUploadId: string;
   parts: MultipartPart[];
+  category?: string;
 }
 
 export async function completeMultipart(
@@ -208,6 +211,7 @@ export async function completeMultipart(
       uploadId: input.sessionUploadId,
       uploadIdS3: input.uploadId,
       parts: input.parts,
+      category: input.category,
     },
   );
   return res.data.data.document;
